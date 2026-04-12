@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+UserSettings/
+
+# Visual Studio / Rider / VSCode
+.vs/
+.idea/
+.vscode/
+*.csproj.user
+*.suo
+
+# Dotnet
+bin/
+obj/
+
+# Generated
+*.pidb
+*.booproj
+*.svd
+*.pdb
