@@ -92,6 +92,17 @@ namespace DefenseGame.Combat
             }
         }
 
+        public void DespawnSilently()
+        {
+            if (_isDespawning)
+            {
+                return;
+            }
+
+            _isDespawning = true;
+            Destroy(gameObject);
+        }
+
         private void Die()
         {
             if (_isDespawning)

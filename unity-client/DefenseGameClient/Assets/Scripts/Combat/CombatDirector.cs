@@ -11,12 +11,14 @@ namespace DefenseGame.Combat
         private CombatSessionState _state;
         private int _currentWaveIndex;
 
+        public bool IsBattleFinished => Result != BattleResult.None;
         public BattleResult Result => _state == null ? BattleResult.None : _state.Result;
         public int SpawnedCount => _state == null ? 0 : _state.SpawnedCount;
         public int AliveCount => _state == null ? 0 : _state.AliveCount;
         public int DefeatedCount => _state == null ? 0 : _state.DefeatedCount;
         public int EscapedCount => _state == null ? 0 : _state.EscapedCount;
         public int MaxEscapesBeforeDefeat => _state == null ? maxEscapesBeforeDefeat : _state.MaxEscapesBeforeDefeat;
+        public int RemainingEscapesUntilDefeat => Mathf.Max(0, MaxEscapesBeforeDefeat - EscapedCount);
         public int CurrentWaveIndex => _currentWaveIndex;
         public int TotalWaveCount => waveSpawner == null ? 0 : waveSpawner.TotalWaveCount;
 
@@ -31,12 +33,12 @@ namespace DefenseGame.Combat
 
                 if (Result == BattleResult.Victory)
                 {
-                    return "승리";
+                    return "전투 종료 - 승리";
                 }
 
                 if (Result == BattleResult.Defeat)
                 {
-                    return "패배";
+                    return "전투 종료 - 패배";
                 }
 
                 if (_currentWaveIndex > 0 && TotalWaveCount > 0)
@@ -76,7 +78,7 @@ namespace DefenseGame.Combat
             if (enemyPath == null || enemyPath.WaypointCount < 2)
             {
                 Debug.LogError("CombatDirector는 waypoint가 2개 이상인 EnemyPath가 필요합니다.", this);
-                _state.SetResult(BattleResult.Defeat);
+                FinalizeBattle(BattleResult.Defeat);
                 return;
             }
 
@@ -154,14 +156,44 @@ namespace DefenseGame.Combat
 
             if (_state.EscapedCount >= _state.MaxEscapesBeforeDefeat)
             {
-                _state.SetResult(BattleResult.Defeat);
-                waveSpawner?.StopSpawning();
+                FinalizeBattle(BattleResult.Defeat);
                 return;
             }
 
             if (_state.AllWavesSpawned && _state.AliveCount == 0)
             {
-                _state.SetResult(BattleResult.Victory);
+                FinalizeBattle(BattleResult.Victory);
+            }
+        }
+
+        private void FinalizeBattle(BattleResult result)
+        {
+            if (_state == null || _state.Result != BattleResult.None)
+            {
+                return;
+            }
+
+            _state.SetResult(result);
+            waveSpawner?.StopSpawning();
+
+            if (result == BattleResult.Defeat)
+            {
+                CleanupRemainingEnemies();
+            }
+        }
+
+        private void CleanupRemainingEnemies()
+        {
+            var activeEnemies = EnemyUnit.ActiveEnemies;
+            for (int i = 0; i < activeEnemies.Count; i++)
+            {
+                EnemyUnit enemy = activeEnemies[i];
+                if (enemy == null || !enemy.IsAlive)
+                {
+                    continue;
+                }
+
+                enemy.DespawnSilently();
             }
         }
     }
