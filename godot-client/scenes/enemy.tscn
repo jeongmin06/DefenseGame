@@ -1,0 +1,36 @@
+[gd_scene load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/enemy.gd" id="1_enemy"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_beetle.png" id="2_texture"]
+
+[sub_resource type="StyleBoxFlat" id="HealthBackground"]
+bg_color = Color(0.12, 0.08, 0.09, 0.95)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.03, 0.02, 0.02, 1)
+
+[sub_resource type="StyleBoxFlat" id="HealthFill"]
+bg_color = Color(0.94, 0.25, 0.18, 1)
+
+[node name="Enemy" type="PathFollow2D" groups=["enemies"]]
+loop = false
+rotates = false
+script = ExtResource("1_enemy")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2_texture")
+scale = Vector2(0.06, 0.06)
+position = Vector2(0, -8)
+
+[node name="HealthBar" type="ProgressBar" parent="."]
+visible = false
+offset_left = -23.0
+offset_top = -39.0
+offset_right = 23.0
+offset_bottom = -32.0
+theme_override_styles/background = SubResource("HealthBackground")
+theme_override_styles/fill = SubResource("HealthFill")
+show_percentage = false

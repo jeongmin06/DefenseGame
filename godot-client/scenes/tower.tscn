@@ -1,0 +1,14 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/tower.gd" id="1_tower"]
+[ext_resource type="Texture2D" path="res://assets/sprites/tower_crossbow.png" id="2_texture"]
+
+[node name="Tower" type="Node2D" groups=["towers"]]
+z_index = 5
+script = ExtResource("1_tower")
+
+[node name="Sprite" type="Sprite2D" parent="."]
+texture_filter = 1
+texture = ExtResource("2_texture")
+scale = Vector2(0.065, 0.065)
+position = Vector2(0, -20)

@@ -10,6 +10,21 @@
 [Ll]ogs/
 UserSettings/
 
+# Godot
+.godot/
+godot-client/build/
+godot-client/export/
+
+# Private project documents and local agent config
+docs/
+.opencode/
+AGENTS.md
+
+# Unity local/generated files outside the tracked project assets
+unity-client/Assets/
+unity-client/DefenseGameClient/*.csproj
+unity-client/DefenseGameClient/*.sln*
+
 # Visual Studio / Rider / VSCode
 .vs/
 .idea/
