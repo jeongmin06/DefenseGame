@@ -20,6 +20,6 @@
 
 ## Godot 실행
 
-1. Godot 4 안정 버전에서 `godot-client/project.godot`을 연다.
+1. Godot 4 .NET 안정 버전에서 `godot-client/project.godot`을 연다.
 2. 프로젝트를 실행하면 `stage_one.tscn`이 시작된다.
 3. 전투 종료 후 `RETRY STAGE`로 다시 실행할 수 있다.

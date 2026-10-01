@@ -12,7 +12,11 @@ config_version=5
 
 config/name="DefenseGame"
 run/main_scene="res://scenes/stage_one.tscn"
-config/features=PackedStringArray("4.7")
+config/features=PackedStringArray("4.7", "C#")
+
+[dotnet]
+
+project/assembly_name="DefenseGame"
 
 [display]
 
@@ -21,6 +25,10 @@ window/size/viewport_height=720
 window/size/window_width_override=1280
 window/size/window_height_override=720
 window/stretch/mode="canvas_items"
+
+[physics]
+
+common/physics_ticks_per_second=60
 
 [rendering]
 

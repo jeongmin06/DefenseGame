@@ -1,14 +1,94 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=14 format=3]
 
-[ext_resource type="Script" path="res://scripts/combat/tower.gd" id="1_tower"]
-[ext_resource type="Texture2D" path="res://assets/sprites/tower_crossbow.png" id="2_texture"]
+[ext_resource type="Script" path="res://scripts/combat/Tower.cs" id="1_tower"]
+[ext_resource type="Texture2D" path="res://assets/sprites/cat_archer_attack_sheet.png" id="2_texture"]
+
+[sub_resource type="Shader" id="Shader_chroma_key"]
+code = "shader_type canvas_item;\n\nvoid fragment() {\n\tvec4 source = texture(TEXTURE, UV);\n\tfloat cyan_strength = min(source.g, source.b) - source.r;\n\tfloat cyan_balance = 1.0 - smoothstep(0.08, 0.22, abs(source.g - source.b));\n\tfloat keyed = smoothstep(0.20, 0.48, cyan_strength) * cyan_balance;\n\tsource.a *= 1.0 - keyed;\n\tCOLOR = source;\n}\n"
+
+[sub_resource type="ShaderMaterial" id="ShaderMaterial_chroma_key"]
+shader = SubResource("Shader_chroma_key")
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_frame_0"]
+atlas = ExtResource("2_texture")
+region = Rect2(0, 0, 443, 443)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_frame_1"]
+atlas = ExtResource("2_texture")
+region = Rect2(443, 0, 443, 443)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_frame_2"]
+atlas = ExtResource("2_texture")
+region = Rect2(886, 0, 443, 443)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_frame_3"]
+atlas = ExtResource("2_texture")
+region = Rect2(1329, 0, 443, 443)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_frame_4"]
+atlas = ExtResource("2_texture")
+region = Rect2(0, 443, 443, 443)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_frame_5"]
+atlas = ExtResource("2_texture")
+region = Rect2(443, 443, 443, 443)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_frame_6"]
+atlas = ExtResource("2_texture")
+region = Rect2(886, 443, 443, 443)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_frame_7"]
+atlas = ExtResource("2_texture")
+region = Rect2(1329, 443, 443, 443)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_cat_archer"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_frame_0")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_frame_1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_frame_2")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_frame_3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_frame_4")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_frame_5")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_frame_6")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_frame_7")
+}],
+"loop": false,
+"name": &"attack",
+"speed": 12.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_frame_0")
+}],
+"loop": true,
+"name": &"idle",
+"speed": 1.0
+}]
 
 [node name="Tower" type="Node2D" groups=["towers"]]
 z_index = 5
 script = ExtResource("1_tower")
 
-[node name="Sprite" type="Sprite2D" parent="."]
+[node name="AnimatedSprite" type="AnimatedSprite2D" parent="."]
+material = SubResource("ShaderMaterial_chroma_key")
 texture_filter = 1
-texture = ExtResource("2_texture")
-scale = Vector2(0.065, 0.065)
-position = Vector2(0, -20)
+position = Vector2(0, -47)
+scale = Vector2(0.23, 0.23)
+sprite_frames = SubResource("SpriteFrames_cat_archer")
+animation = &"idle"

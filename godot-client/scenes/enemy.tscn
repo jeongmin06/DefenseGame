@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3]
 
-[ext_resource type="Script" path="res://scripts/combat/enemy.gd" id="1_enemy"]
+[ext_resource type="Script" path="res://scripts/combat/Enemy.cs" id="1_enemy"]
 [ext_resource type="Texture2D" path="res://assets/sprites/enemy_beetle.png" id="2_texture"]
 
 [sub_resource type="StyleBoxFlat" id="HealthBackground"]
@@ -15,6 +15,7 @@ border_color = Color(0.03, 0.02, 0.02, 1)
 bg_color = Color(0.94, 0.25, 0.18, 1)
 
 [node name="Enemy" type="PathFollow2D" groups=["enemies"]]
+cubic_interp = false
 loop = false
 rotates = false
 script = ExtResource("1_enemy")
