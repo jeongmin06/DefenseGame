@@ -14,7 +14,7 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 
 - 단일 경로
 - 적 한 종류
-- 8프레임 활 공격 애니메이션을 사용하는 고양이 궁수 타워 두 개
+- 8프레임 활 공격 애니메이션을 사용하는 SD 고양이 궁수 타워 두 개
 - 세 개 웨이브
 - 자동 공격과 투사체
 - 기지 체력과 전투 HUD
@@ -28,7 +28,7 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 - `scripts/combat/Tower.cs`: 타워 자동 공격
 - `scripts/combat/PixelProjectile.cs`: 투사체 이동과 피해
 - `scripts/ui/CombatHud.cs`: 전투 HUD와 결과 화면
-- `assets/sprites/cat_archer_attack_sheet.png`: 고양이 궁수 공격 스프라이트 시트
+- `assets/sprites/cat_archer_attack_sheet.png`: SD 고양이 궁수 공격 스프라이트 시트
 
 ## 수동 검증
 
