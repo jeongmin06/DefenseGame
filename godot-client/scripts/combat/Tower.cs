@@ -17,10 +17,13 @@ public partial class Tower : Node2D
     private bool _battleActive = true;
     private bool _attackInProgress;
     private bool _projectileReleased;
+    private bool _facingLeft;
     private Enemy? _pendingTarget;
     private AnimatedSprite2D _sprite = null!;
 
     private const int ReleaseFrame = 5;
+    private const float ProjectileSpawnOffsetX = 28.0f;
+    private const float ProjectileSpawnOffsetY = -28.0f;
 
     public override void _Ready()
     {
@@ -68,7 +71,7 @@ public partial class Tower : Node2D
         }
     }
 
-    private Enemy? FindFrontmostTarget()
+    private Enemy? FindFrontmostTarget(bool? facingLeft = null)
     {
         Enemy? bestTarget = null;
         float bestProgress = -1.0f;
@@ -83,6 +86,12 @@ public partial class Tower : Node2D
             }
 
             if (GlobalPosition.DistanceSquaredTo(candidate.GlobalPosition) > rangeSquared)
+            {
+                continue;
+            }
+
+            bool candidateIsLeft = candidate.GlobalPosition.X < GlobalPosition.X;
+            if (facingLeft.HasValue && candidateIsLeft != facingLeft.Value)
             {
                 continue;
             }
@@ -108,6 +117,8 @@ public partial class Tower : Node2D
         _pendingTarget = target;
         _projectileReleased = false;
         _attackInProgress = true;
+        _facingLeft = target.GlobalPosition.X < GlobalPosition.X;
+        _sprite.FlipH = _facingLeft;
 
         int frameCount = _sprite.SpriteFrames.GetFrameCount("attack");
         double framesPerSecond = _sprite.SpriteFrames.GetAnimationSpeed("attack");
@@ -127,7 +138,7 @@ public partial class Tower : Node2D
         Enemy? target = _pendingTarget;
         if (target is null || !GodotObject.IsInstanceValid(target) || !target.IsActive())
         {
-            target = FindFrontmostTarget();
+            target = FindFrontmostTarget(_facingLeft);
         }
 
         if (target is not null)
@@ -160,7 +171,8 @@ public partial class Tower : Node2D
         Node projectileLayer = currentScene.GetNodeOrNull<Node>("Projectiles") ?? currentScene;
 
         projectileLayer.AddChild(projectile);
-        projectile.GlobalPosition = GlobalPosition + new Vector2(0.0f, -28.0f);
+        float horizontalOffset = _facingLeft ? -ProjectileSpawnOffsetX : ProjectileSpawnOffsetX;
+        projectile.GlobalPosition = GlobalPosition + new Vector2(horizontalOffset, ProjectileSpawnOffsetY);
         projectile.Setup(target, AttackDamage);
     }
 
