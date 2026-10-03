@@ -16,7 +16,7 @@ godot-client/build/
 godot-client/export/
 
 # Private project documents and local agent config
-docs/
+docs
 .private-docs/
 .opencode/
 AGENTS.md
