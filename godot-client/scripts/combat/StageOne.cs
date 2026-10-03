@@ -245,42 +245,43 @@ public partial class StageOne : Node2D
 
     private void DrawGround()
     {
-        DrawRect(new Rect2(0.0f, 0.0f, 1280.0f, 720.0f), Rgb(20, 38, 29));
+        DrawRect(new Rect2(0, 0, 1280, 720), Rgb(91, 132, 62));
         for (int y = 0; y < 720; y += 32)
         {
             for (int x = 0; x < 1280; x += 32)
             {
-                int tileIndex = x / 32 + y / 32;
-                Color tint = tileIndex % 2 == 0 ? Rgb(25, 48, 36) : Rgb(23, 43, 33);
+                int column = x / 32;
+                int row = y / 32;
+                int pattern = (column * 17 + row * 31) % 13;
+                Color tint = (column + row) % 2 == 0 ? Rgb(96, 139, 66) : Rgb(93, 135, 63);
                 DrawRect(new Rect2(x, y, 32, 32), tint);
+
+                // Deterministic, quiet ground detail keeps combat silhouettes readable.
+                DrawRect(new Rect2(x + 5 + pattern, y + 10, 6, 2), Rgb(105, 145, 72));
+                if (pattern < 3)
+                {
+                    DrawRect(new Rect2(x + 18, y + 23, 2, 5), Rgb(79, 122, 54));
+                    DrawRect(new Rect2(x + 15, y + 21, 2, 5), Rgb(83, 126, 56));
+                    DrawRect(new Rect2(x + 21, y + 20, 2, 6), Rgb(108, 148, 73));
+                }
+                else if (pattern == 6)
+                {
+                    DrawRect(new Rect2(x + 10, y + 20, 10, 4), Rgb(116, 132, 69));
+                    DrawRect(new Rect2(x + 13, y + 18, 5, 2), Rgb(116, 132, 69));
+                }
             }
-        }
-
-        Vector2[] markers =
-        [
-            new(80, 90),
-            new(320, 610),
-            new(720, 90),
-            new(1080, 610),
-            new(1110, 130),
-        ];
-
-        foreach (Vector2 marker in markers)
-        {
-            DrawRect(new Rect2(marker - new Vector2(8, 8), new Vector2(16, 16)), Rgb(36, 70, 50));
-            DrawRect(new Rect2(marker - new Vector2(3, 14), new Vector2(6, 28)), Rgb(49, 92, 63));
         }
     }
 
     private void DrawRoad()
     {
-        DrawPolyline(PathPoints, Rgb(61, 45, 38), 82.0f);
-        DrawPolyline(PathPoints, Rgb(116, 82, 59), 68.0f);
-        DrawPolyline(PathPoints, Rgb(154, 112, 75), 4.0f);
+        DrawPolyline(PathPoints, Rgb(133, 106, 63), 82.0f);
+        DrawPolyline(PathPoints, Rgb(186, 143, 91), 68.0f);
+        DrawPolyline(PathPoints, Rgb(199, 157, 103), 4.0f);
 
         foreach (Vector2 point in PathPoints)
         {
-            DrawCircle(point, 34.0f, Rgb(116, 82, 59));
+            DrawCircle(point, 34.0f, Rgb(186, 143, 91));
         }
     }
 

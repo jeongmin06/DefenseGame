@@ -14,10 +14,12 @@ public partial class Enemy : PathFollow2D
     private float _health = 1.0f;
     private float _moveSpeed = 60.0f;
     private bool _resolved;
+    private Sprite2D _sprite = null!;
     private ProgressBar _healthBar = null!;
 
     public override void _Ready()
     {
+        _sprite = GetNode<Sprite2D>("Sprite");
         _healthBar = GetNode<ProgressBar>("HealthBar");
     }
 
@@ -28,7 +30,14 @@ public partial class Enemy : PathFollow2D
             return;
         }
 
+        Vector2 previousPosition = GlobalPosition;
         Progress += _moveSpeed * (float)delta;
+        Vector2 movement = GlobalPosition - previousPosition;
+        if (!movement.IsZeroApprox())
+        {
+            // Rotate only the mouse; the health bar remains upright.
+            _sprite.GlobalRotation = movement.Angle();
+        }
         if (ProgressRatio < 0.999f)
         {
             return;
