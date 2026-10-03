@@ -20,6 +20,10 @@ public sealed class JsonFileProgressStore : IProgressStore
     {
         _filePath = filePath;
         _clock = clock;
+        // Directory setup happens when the store is constructed, outside actor messages.
+        var directoryPath = Path.GetDirectoryName(filePath);
+        if (!string.IsNullOrWhiteSpace(directoryPath))
+            Directory.CreateDirectory(directoryPath);
     }
 
     public async Task<UserProgress> GetOrCreateAsync(string userId, CancellationToken cancellationToken)
@@ -62,26 +66,20 @@ public sealed class JsonFileProgressStore : IProgressStore
 
     private async Task<ProgressDatabase> ReadDatabaseAsync(CancellationToken cancellationToken)
     {
-        if (!File.Exists(_filePath))
+        try
+        {
+            var json = await File.ReadAllTextAsync(_filePath, cancellationToken);
+            return JsonSerializer.Deserialize<ProgressDatabase>(json, JsonOptions) ?? new ProgressDatabase();
+        }
+        catch (FileNotFoundException)
         {
             return new ProgressDatabase();
         }
-
-        await using var stream = File.OpenRead(_filePath);
-        var db = await JsonSerializer.DeserializeAsync<ProgressDatabase>(stream, JsonOptions, cancellationToken);
-        return db ?? new ProgressDatabase();
     }
 
-    private async Task WriteDatabaseAsync(ProgressDatabase db, CancellationToken cancellationToken)
+    private Task WriteDatabaseAsync(ProgressDatabase db, CancellationToken cancellationToken)
     {
-        var directoryPath = Path.GetDirectoryName(_filePath);
-        if (!string.IsNullOrWhiteSpace(directoryPath))
-        {
-            Directory.CreateDirectory(directoryPath);
-        }
-
-        await using var stream = File.Create(_filePath);
-        await JsonSerializer.SerializeAsync(stream, db, JsonOptions, cancellationToken);
+        return File.WriteAllTextAsync(_filePath, JsonSerializer.Serialize(db, JsonOptions), cancellationToken);
     }
 
     private static ProgressEntry ToEntry(UserProgress progress)

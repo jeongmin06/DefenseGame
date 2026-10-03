@@ -1,3 +1,5 @@
+using DefenseGame.Server.Actors.Players;
+using DefenseGame.Server.Actors.Runtime;
 using DefenseGame.Server.Contracts;
 using DefenseGame.Server.Services;
 using DefenseGame.Server.Stores;
@@ -17,13 +19,17 @@ builder.Services.AddSingleton<IProgressStore>(sp =>
 });
 builder.Services.AddSingleton<IStageProgressService, StageProgressService>();
 
+builder.Services.AddSingleton<ActorThreadScheduler>();
+builder.Services.AddHostedService<ActorThreadPool>();
+builder.Services.AddSingleton<PlayerActorRegistry>();
+
 var app = builder.Build();
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
 
 app.MapGet("/v1/progress/{userId}", async (
     string userId,
-    IStageProgressService stageProgressService,
+    PlayerActorRegistry players,
     CancellationToken cancellationToken) =>
 {
     if (string.IsNullOrWhiteSpace(userId))
@@ -31,16 +37,20 @@ app.MapGet("/v1/progress/{userId}", async (
         return Results.BadRequest(new { errorCode = "invalid_user_id", message = "userId is required." });
     }
 
-    var progress = await stageProgressService.GetProgressAsync(userId, cancellationToken);
+    var progress = await players.Get(userId).GetProgressAsync(cancellationToken);
     return Results.Ok(progress);
 });
 
 app.MapPost("/v1/stage-clear", async (
     StageClearRequest request,
-    IStageProgressService stageProgressService,
+    PlayerActorRegistry players,
     CancellationToken cancellationToken) =>
 {
-    var result = await stageProgressService.HandleStageClearAsync(request, cancellationToken);
+    if (string.IsNullOrWhiteSpace(request.UserId))
+    {
+        return Results.BadRequest(new { errorCode = "invalid_user_id", message = "userId is required." });
+    }
+    var result = await players.Get(request.UserId).HandleStageClearAsync(request, cancellationToken);
     return result.IsAccepted
         ? Results.Ok(result.Payload)
         : Results.BadRequest(new { errorCode = result.ErrorCode, message = result.ErrorMessage });

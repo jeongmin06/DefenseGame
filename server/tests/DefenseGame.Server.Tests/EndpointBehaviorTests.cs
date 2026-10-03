@@ -73,6 +73,41 @@ public class EndpointBehaviorTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
+    [Fact]
+    public async Task ConcurrentFirstClear_GrantsRewardExactlyOnce_ForNormalizedUser()
+    {
+        await using var app = new TestWebApplicationFactory();
+        var client = app.CreateClient();
+        var responses = await Task.WhenAll(Enumerable.Range(0, 40).Select(index =>
+            client.PostAsJsonAsync("/v1/stage-clear",
+                new StageClearRequest(index % 2 == 0 ? " concurrent-user " : "concurrent-user", 1, true))))
+            .WaitAsync(TimeSpan.FromSeconds(10));
+        var payloads = new List<StageClearResponse>();
+        foreach (var response in responses)
+        {
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            payloads.Add((await response.Content.ReadFromJsonAsync<StageClearResponse>())!);
+        }
+        Assert.Single(payloads, payload => payload.ProgressUpdated);
+        Assert.Single(payloads.SelectMany(payload => payload.GrantedRewards));
+        var progress = await client.GetFromJsonAsync<ProgressResponse>("/v1/progress/concurrent-user");
+        Assert.Equal(new[] { 1 }, progress!.ClearedStageIds);
+    }
+
+    [Fact]
+    public async Task RepeatedHosts_StartAndStop_WithoutSharedRuntimeState()
+    {
+        for (var index = 0; index < 3; index++)
+        {
+            await using var app = new TestWebApplicationFactory();
+            var client = app.CreateClient();
+            var response = await client.PostAsJsonAsync("/v1/stage-clear", new StageClearRequest("user", 1, true))
+                .WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            Assert.True((await response.Content.ReadFromJsonAsync<StageClearResponse>())!.ProgressUpdated);
+        }
+    }
+
     private sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
     {
         private readonly string _tempStorePath = Path.Combine(
