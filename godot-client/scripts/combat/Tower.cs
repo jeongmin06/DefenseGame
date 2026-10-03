@@ -22,11 +22,11 @@ public partial class Tower : Node2D
     private AnimatedSprite2D _sprite = null!;
 
     private const int ReleaseFrame = 5;
-    private const float ProjectileSpawnOffsetX = 28.0f;
-    private const float ProjectileSpawnOffsetY = -28.0f;
+    private RangedAttack _rangedAttack = null!;
 
     public override void _Ready()
     {
+        _rangedAttack = GetNode<RangedAttack>("RangedAttack");
         _sprite = GetNode<AnimatedSprite2D>("AnimatedSprite");
         _sprite.FrameChanged += OnSpriteFrameChanged;
         _sprite.AnimationFinished += OnSpriteAnimationFinished;
@@ -143,7 +143,7 @@ public partial class Tower : Node2D
 
         if (target is not null)
         {
-            Fire(target);
+            _rangedAttack.Fire(target, AttackDamage, _facingLeft);
         }
     }
 
@@ -162,18 +162,6 @@ public partial class Tower : Node2D
         _pendingTarget = null;
         _sprite.SpeedScale = 1.0f;
         _sprite.Play("idle");
-    }
-
-    private void Fire(Enemy target)
-    {
-        var projectile = new PixelProjectile();
-        Node currentScene = GetTree().CurrentScene;
-        Node projectileLayer = currentScene.GetNodeOrNull<Node>("Projectiles") ?? currentScene;
-
-        projectileLayer.AddChild(projectile);
-        float horizontalOffset = _facingLeft ? -ProjectileSpawnOffsetX : ProjectileSpawnOffsetX;
-        projectile.GlobalPosition = GlobalPosition + new Vector2(horizontalOffset, ProjectileSpawnOffsetY);
-        projectile.Setup(target, AttackDamage);
     }
 
     public override void _Draw()

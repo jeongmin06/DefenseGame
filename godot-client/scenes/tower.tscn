@@ -1,7 +1,10 @@
-[gd_scene load_steps=14 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/Tower.cs" id="1_tower"]
 [ext_resource type="Texture2D" path="res://assets/sprites/cat_archer_attack_sheet.png" id="2_texture"]
+
+[ext_resource type="Script" path="res://scripts/combat/RangedAttack.cs" id="3_attack"]
+[ext_resource type="PackedScene" path="res://scenes/arrow_projectile.tscn" id="4_arrow"]
 
 [sub_resource type="Shader" id="Shader_chroma_key"]
 code = "shader_type canvas_item;\n\nvoid fragment() {\n\tvec4 source = texture(TEXTURE, UV);\n\tfloat cyan_strength = min(source.g, source.b) - source.r;\n\tfloat cyan_balance = 1.0 - smoothstep(0.08, 0.22, abs(source.g - source.b));\n\tfloat keyed = smoothstep(0.20, 0.48, cyan_strength) * cyan_balance;\n\tsource.a *= 1.0 - keyed;\n\tCOLOR = source;\n}\n"
@@ -92,3 +95,7 @@ position = Vector2(0, -47)
 scale = Vector2(0.23, 0.23)
 sprite_frames = SubResource("SpriteFrames_cat_archer")
 animation = &"idle"
+
+[node name="RangedAttack" type="Node2D" parent="."]
+script = ExtResource("3_attack")
+ProjectileScene = ExtResource("4_arrow")

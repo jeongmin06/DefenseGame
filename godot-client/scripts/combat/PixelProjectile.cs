@@ -6,12 +6,14 @@ public partial class PixelProjectile : Node2D
 {
     private Enemy? _target;
     private float _damage = 1.0f;
-    private const float Speed = 620.0f;
+    private float _speed = 620.0f;
 
-    public void Setup(Enemy target, float damage)
+    public void Setup(Enemy target, float damage, float speed = 620.0f)
     {
         _target = target;
         _damage = damage;
+        _speed = speed;
+        FaceTarget();
         QueueRedraw();
     }
 
@@ -23,7 +25,8 @@ public partial class PixelProjectile : Node2D
             return;
         }
 
-        GlobalPosition = GlobalPosition.MoveToward(_target.GlobalPosition, Speed * (float)delta);
+        FaceTarget();
+        GlobalPosition = GlobalPosition.MoveToward(_target.GlobalPosition, _speed * (float)delta);
         if (GlobalPosition.DistanceSquaredTo(_target.GlobalPosition) > 100.0f)
         {
             return;
@@ -33,10 +36,28 @@ public partial class PixelProjectile : Node2D
         QueueFree();
     }
 
+    private void FaceTarget()
+    {
+        if (_target is null || !GodotObject.IsInstanceValid(_target))
+        {
+            return;
+        }
+
+        Vector2 direction = _target.GlobalPosition - GlobalPosition;
+        if (!direction.IsZeroApprox())
+        {
+            GlobalRotation = direction.Angle();
+        }
+    }
+
     public override void _Draw()
     {
-        DrawRect(new Rect2(-5.0f, -2.0f, 10.0f, 4.0f), Rgb(255, 209, 102));
-        DrawRect(new Rect2(-2.0f, -4.0f, 4.0f, 8.0f), Rgb(255, 241, 168));
+        // The arrow points along local +X; rotation follows its actual travel direction.
+        DrawRect(new Rect2(-10, -1, 17, 2), Rgb(218, 163, 76));
+        DrawRect(new Rect2(-7, -1, 13, 1), Rgb(255, 224, 148));
+        DrawColoredPolygon(new Vector2[] { new(4, -4), new(11, 0), new(4, 4), new(6, 0) }, Rgb(255, 235, 170));
+        DrawColoredPolygon(new Vector2[] { new(-11, -4), new(-6, -3), new(-3, 0), new(-8, 0) }, Rgb(255, 207, 102));
+        DrawColoredPolygon(new Vector2[] { new(-11, 4), new(-6, 3), new(-3, 0), new(-8, 0) }, Rgb(231, 184, 86));
     }
 
     private static Color Rgb(byte red, byte green, byte blue, byte alpha = 255)
