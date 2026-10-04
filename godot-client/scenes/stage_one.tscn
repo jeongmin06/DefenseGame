@@ -70,6 +70,16 @@ theme_override_colors/font_color = Color(1, 0.82, 0.42, 1)
 theme_override_font_sizes/font_size = 20
 text = "IRON PATH  //  STAGE 01"
 
+[node name="PlacementLabel" type="Label" parent="HUD/TopPanel"]
+offset_left = 350.0
+offset_top = 10.0
+offset_right = 1020.0
+offset_bottom = 38.0
+mouse_filter = 2
+theme_override_colors/font_color = Color(1, 0.88, 0.56, 1)
+theme_override_font_sizes/font_size = 18
+text = "ARCHERS LEFT  2  //  CLICK A SLOT"
+
 [node name="WaveLabel" type="Label" parent="HUD/TopPanel"]
 offset_left = 18.0
 offset_top = 45.0

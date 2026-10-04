@@ -17,10 +17,12 @@ public partial class StageOne : Node2D
         new(1340.0f, 300.0f),
     ];
 
-    private static readonly Vector2[] TowerPositions =
+    private static readonly Vector2[] SlotPositions =
     [
         new(355.0f, 300.0f),
         new(745.0f, 390.0f),
+        new(355.0f, 460.0f),
+        new(1050.0f, 430.0f),
     ];
 
     private static readonly WaveSpec[] Waves =
@@ -30,11 +32,17 @@ public partial class StageOne : Node2D
         new(9, 23.0f, 92.0f, 0.72),
     ];
 
+    private const int ArcherCount = 2;
+    private int _remainingArchers = ArcherCount;
+    private readonly TowerSlot[] _slots = new TowerSlot[SlotPositions.Length];
+
     private const int MaxBaseHealth = 5;
     private const double WaveGap = 2.0;
 
     private readonly PackedScene _enemyScene = GD.Load<PackedScene>("res://scenes/enemy.tscn");
     private readonly PackedScene _towerScene = GD.Load<PackedScene>("res://scenes/tower.tscn");
+
+    private readonly PackedScene _slotScene = GD.Load<PackedScene>("res://scenes/tower_slot.tscn");
 
     private int _waveIndex = -1;
     private int _spawnedInWave;
@@ -56,10 +64,10 @@ public partial class StageOne : Node2D
         _hud = GetNode<UI.CombatHud>("HUD");
 
         BuildEnemyPath();
-        SpawnTowers();
+        SpawnSlots();
         _spawnTimer.Timeout += SpawnEnemy;
         UpdateHud();
-        ScheduleNextWave(0.8);
+        _hud.UpdatePlacement(_remainingArchers);
     }
 
     public override void _Draw()
@@ -80,19 +88,46 @@ public partial class StageOne : Node2D
         _enemyPath.Curve = curve;
     }
 
-    private void SpawnTowers()
+    private void SpawnSlots()
     {
-        foreach (Vector2 towerPosition in TowerPositions)
+        for (int i = 0; i < SlotPositions.Length; i++)
         {
-            Tower tower = _towerScene.Instantiate<Tower>();
-            AddChild(tower);
-            tower.Position = towerPosition;
+            TowerSlot slot = _slotScene.Instantiate<TowerSlot>();
+            slot.Position = SlotPositions[i];
+            slot.Selected += OnSlotSelected;
+            AddChild(slot);
+            _slots[i] = slot;
+        }
+    }
+
+    private void OnSlotSelected(TowerSlot slot)
+    {
+        if (_battleEnded || _remainingArchers <= 0 || slot.IsOccupied)
+        {
+            return;
+        }
+
+        slot.MarkOccupied();
+        _remainingArchers--;
+        Tower tower = _towerScene.Instantiate<Tower>();
+        AddChild(tower);
+        tower.GlobalPosition = slot.GlobalPosition;
+        _hud.UpdatePlacement(_remainingArchers);
+
+        if (_remainingArchers == 0)
+        {
+            foreach (TowerSlot candidate in _slots)
+            {
+                candidate.SetPlacementEnabled(false);
+            }
+
+            ScheduleNextWave(0.8);
         }
     }
 
     private void StartNextWave()
     {
-        if (_battleEnded)
+        if (_battleEnded || _remainingArchers > 0)
         {
             return;
         }
@@ -205,6 +240,10 @@ public partial class StageOne : Node2D
 
         _battleEnded = true;
         _spawnTimer.Stop();
+        foreach (TowerSlot slot in _slots)
+        {
+            slot.SetPlacementEnabled(false);
+        }
 
         foreach (Node node in GetTree().GetNodesInGroup("towers"))
         {

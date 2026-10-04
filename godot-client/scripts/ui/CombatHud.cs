@@ -4,6 +4,7 @@ namespace DefenseGame.Client.UI;
 
 public partial class CombatHud : CanvasLayer
 {
+    private Label _placementLabel = null!;
     private Label _waveLabel = null!;
     private Label _enemyLabel = null!;
     private Label _scoreLabel = null!;
@@ -15,6 +16,7 @@ public partial class CombatHud : CanvasLayer
 
     public override void _Ready()
     {
+        _placementLabel = GetNode<Label>("TopPanel/PlacementLabel");
         _waveLabel = GetNode<Label>("TopPanel/WaveLabel");
         _enemyLabel = GetNode<Label>("TopPanel/EnemyLabel");
         _scoreLabel = GetNode<Label>("TopPanel/ScoreLabel");
@@ -24,6 +26,13 @@ public partial class CombatHud : CanvasLayer
         _resultDetail = GetNode<Label>("ResultPanel/ResultDetail");
         _restartButton = GetNode<Button>("ResultPanel/RestartButton");
         _restartButton.Pressed += RestartStage;
+    }
+
+    public void UpdatePlacement(int remainingArchers)
+    {
+        _placementLabel.Text = remainingArchers > 0
+            ? $"ARCHERS LEFT  {remainingArchers}  //  CLICK A SLOT"
+            : "ARCHERS LEFT  0  //  BATTLE START";
     }
 
     public void UpdateStatus(
@@ -42,6 +51,7 @@ public partial class CombatHud : CanvasLayer
 
     public void ShowResult(bool victory, int defeated, int escaped)
     {
+        _placementLabel.Text = "BATTLE ENDED";
         _resultPanel.Visible = true;
         _resultTitle.Text = victory ? "STAGE CLEAR" : "GATE LOST";
         _resultTitle.Modulate = victory ? Rgb(255, 209, 102) : Rgb(255, 107, 94);

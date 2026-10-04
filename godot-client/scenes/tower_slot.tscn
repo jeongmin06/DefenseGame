@@ -1,0 +1,18 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/combat/TowerSlot.cs" id="1_slot"]
+
+[sub_resource type="CircleShape2D" id="ClickShape"]
+radius = 28.0
+
+[node name="TowerSlot" type="Node2D" groups=["tower_slots"]]
+z_index = 1
+script = ExtResource("1_slot")
+
+[node name="ClickArea" type="Area2D" parent="."]
+collision_layer = 1
+collision_mask = 0
+input_pickable = true
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ClickArea"]
+shape = SubResource("ClickShape")

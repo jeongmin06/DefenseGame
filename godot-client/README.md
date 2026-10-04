@@ -7,6 +7,8 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 1. Godot 4 .NET 안정 버전과 .NET SDK를 설치한다.
 2. `project.godot`을 Import 한다.
 3. 프로젝트 실행 버튼을 누른다.
+4. 경로 밖 원형 슬롯 4개 중 서로 다른 두 곳을 클릭해 궁수 2명을 무료로 배치한다. 두 번째 배치 후 0.8초 뒤 첫 웨이브가 시작된다.
+5. 전투 종료 후 `RETRY STAGE`를 누르면 빈 슬롯 4개와 궁수 2명으로 초기화된다.
 
 현재 개발 환경에서는 `/Users/jeongmin06/Downloads/Godot_mono.app`을 사용한다.
 
@@ -15,7 +17,8 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 - 밝은 잔디밭과 따뜻한 흙길의 단일 경로
 - 이동 방향을 바라보는 4족 유전자 조작 생쥐 적 한 종류
 - 8프레임 활 공격 애니메이션을 사용하는 SD 고양이 궁수 타워 두 개
-- 세 개 웨이브
+- 슬롯 4곳 중 2곳에 직접 배치, 중복 배치와 세 번째 배치 차단
+- 배치 완료 후 자동 시작하는 세 개 웨이브
 - 자동 공격과 투사체
 - 기지 체력과 전투 HUD
 - 승리, 패배, 재시작
@@ -25,6 +28,7 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 - `scenes/stage_one.tscn`: 실행되는 기본 스테이지
 - `scripts/combat/StageOne.cs`: 웨이브와 승패 흐름
 - `scripts/combat/Enemy.cs`: 적 이동과 체력
+- `scenes/tower_slot.tscn`, `scripts/combat/TowerSlot.cs`: 원형 슬롯 표시와 Area2D 클릭 입력
 - `scripts/combat/Tower.cs`: 타워 자동 공격
 - `scripts/combat/PixelProjectile.cs`: 투사체 이동과 피해
 - `scripts/ui/CombatHud.cs`: 전투 HUD와 결과 화면
@@ -46,7 +50,9 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 ### 검증
 
 `dotnet build godot-client/DefenseGame.csproj`를 저장소 루트에서 실행한다.
-고정 60Hz 전체 전투는 Godot 실행 파일에 `--headless --path godot-client --fixed-fps 60 --quit-after 7200`을 전달하여 확인한다. 예상 로그는 `Battle finished: defeat, defeated=15, escaped=5`이다.
+고정 60Hz 검증은 `--fixed-fps 60`을 사용한다. 입력 없는 headless 실행은 배치 대기 상태를 유지한다. 자동 전투 검증에서는 `tower_slots` 그룹의 서로 다른 슬롯 두 개에 `Select()`를 호출한다. 기존 위치 `(355, 300)`, `(745, 390)` 선택 시 예상 결과는 `Battle finished: defeat, defeated=15, escaped=5`이며, 다른 조합은 결과가 달라질 수 있다.
+
+슬롯 한 개만 배치한 상태에서는 적이 나오지 않는지, 중복 클릭과 세 번째 배치가 차단되는지, HUD의 남은 수와 안내가 바뀌는지 확인한다.
 
 에디터에서는 좌우 발사 시 화살촉 방향과 몸통·깃의 가독성, 활 앞 출발 위치, 재시작 후 잔여 화살이 없는지 확인한다.
 
