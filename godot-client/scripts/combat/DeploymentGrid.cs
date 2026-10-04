@@ -17,6 +17,14 @@ public partial class DeploymentGrid : Node2D
 
     private readonly TileType[,] _tiles = new TileType[Columns, Rows];
     private readonly HashSet<Vector2I> _occupied = new();
+    public PlacementType SelectedProfile { get; private set; } = PlacementType.Ranged;
+
+    public void SetPlacementType(PlacementType profile)
+    {
+        SelectedProfile = profile;
+        QueueRedraw();
+    }
+
     private bool _placementEnabled = true;
     private Vector2I _hovered = new(-1, -1);
 
@@ -63,7 +71,7 @@ public partial class DeploymentGrid : Node2D
     // Selection is a request; the stage owns the unit count and commits occupancy.
     public bool SelectCell(Vector2I cell)
     {
-        if (!_placementEnabled || !CanPlace(cell, PlacementType.Ranged)) return false;
+        if (!_placementEnabled || !CanPlace(cell, SelectedProfile)) return false;
         EmitSignal(SignalName.CellSelected, cell);
         return true;
     }
@@ -135,14 +143,14 @@ public partial class DeploymentGrid : Node2D
                 DrawLine(detail, detail + new Vector2(-3, -7), new Color("70974c"), 2);
                 DrawLine(detail, detail + new Vector2(3, -9), new Color("70974c"), 2);
             }
-            if (_placementEnabled && CanPlace(cell, PlacementType.Ranged))
+            if (_placementEnabled && CanPlace(cell, SelectedProfile))
                 DrawRect(rect.Grow(-4), new Color(0.85f, 0.94f, 0.6f, 0.16f), false, 1);
             if (_occupied.Contains(cell))
                 DrawRect(rect.Grow(-5), new Color(1, 0.85f, 0.5f, 0.35f), false, 2);
             DrawRect(rect, new Color(0.15f, 0.22f, 0.1f, 0.25f), false, 1);
             if (_placementEnabled && cell == _hovered)
             {
-                Color highlight = CanPlace(cell, PlacementType.Ranged)
+                Color highlight = CanPlace(cell, SelectedProfile)
                     ? new Color(1, 0.92f, 0.5f, 0.7f) : new Color(1, 0.3f, 0.2f, 0.6f);
                 DrawRect(rect.Grow(-2), highlight, false, 3);
             }

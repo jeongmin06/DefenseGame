@@ -22,5 +22,5 @@
 
 1. Godot 4 .NET 안정 버전에서 `godot-client/project.godot`을 연다.
 2. 프로젝트를 실행하면 `stage_one.tscn`이 시작된다.
-3. 서로 다른 빈 잔디 타일 두 곳을 클릭해 무료 궁수 두 명을 배치하면 전투가 시작된다.
+3. HUD에서 타입을 선택해 궁수 2명(Ground)과 전사 1명(Ground 또는 경로)을 모두 배치하면 전투가 시작된다.
 4. 전투 종료 후 `RETRY STAGE`로 다시 실행할 수 있다.

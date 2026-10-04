@@ -15,6 +15,7 @@ public partial class Enemy : PathFollow2D
     private float _health = 1.0f;
     private float _moveSpeed = 60.0f;
     private bool _resolved;
+    private Warrior? _blocker;
     private DirectionalAnimatedSprite _sprite = null!;
     private ProgressBar _healthBar = null!;
 
@@ -32,6 +33,12 @@ public partial class Enemy : PathFollow2D
             return;
         }
 
+        if (_blocker is not null)
+        {
+            if (GodotObject.IsInstanceValid(_blocker) && !_blocker.IsQueuedForDeletion()) return;
+            _blocker = null;
+        }
+
         Vector2 previousPosition = GlobalPosition;
         Progress += _moveSpeed * (float)delta;
         Vector2 movement = GlobalPosition - previousPosition;
@@ -41,6 +48,7 @@ public partial class Enemy : PathFollow2D
             return;
         }
 
+        ClearBlock();
         _resolved = true;
         EmitSignal(SignalName.ReachedGoal, this);
         QueueFree();
@@ -69,6 +77,7 @@ public partial class Enemy : PathFollow2D
             return;
         }
 
+        ClearBlock();
         _resolved = true;
         EmitSignal(SignalName.Defeated, this);
         QueueFree();
@@ -86,9 +95,34 @@ public partial class Enemy : PathFollow2D
             return;
         }
 
+        ClearBlock();
         _resolved = true;
         QueueFree();
     }
+
+    public bool TryBlock(Warrior warrior)
+    {
+        if (!IsActive() || IsQueuedForDeletion() || _blocker is not null
+            || !GodotObject.IsInstanceValid(warrior) || warrior.IsQueuedForDeletion()) return false;
+        _blocker = warrior;
+        return true;
+    }
+
+    public bool IsBlocked() => _blocker is not null && GodotObject.IsInstanceValid(_blocker);
+
+    public void ReleaseBlock(Warrior warrior)
+    {
+        if (_blocker == warrior) ClearBlock();
+    }
+
+    private void ClearBlock()
+    {
+        Warrior? owner = _blocker;
+        _blocker = null;
+        if (owner is not null && GodotObject.IsInstanceValid(owner)) owner.ForgetBlocked(this);
+    }
+
+    public override void _ExitTree() => ClearBlock();
 
     private void UpdateHealthBar()
     {

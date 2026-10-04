@@ -23,6 +23,11 @@ public partial class StageOne : Node2D
     private const int ArcherCount = 2;
     private int _remainingArchers = ArcherCount;
 
+    private int _remainingWarriors = 1;
+    private bool _battleStarted;
+    private DeploymentGrid.PlacementType _selectedType;
+    private readonly PackedScene _warriorScene = GD.Load<PackedScene>("res://scenes/warrior.tscn");
+
     private const int MaxBaseHealth = 5;
     private const double WaveGap = 2.0;
 
@@ -52,10 +57,12 @@ public partial class StageOne : Node2D
         AddChild(_grid);
         _grid.Configure(PathCorners, BlockedCells);
         _grid.CellSelected += OnCellSelected;
+        _hud.ArcherSelected += () => SelectPlacementType(DeploymentGrid.PlacementType.Ranged);
+        _hud.WarriorSelected += () => SelectPlacementType(DeploymentGrid.PlacementType.Melee);
         BuildEnemyPath();
         _spawnTimer.Timeout += SpawnEnemy;
         UpdateHud();
-        _hud.UpdatePlacement(_remainingArchers);
+        UpdatePlacementHud();
     }
 
     public override void _Draw()
@@ -73,30 +80,57 @@ public partial class StageOne : Node2D
         _enemyPath.Curve = curve;
     }
 
+    public bool SelectPlacementType(DeploymentGrid.PlacementType type)
+    {
+        if (_battleStarted || _battleEnded) return false;
+        if (type == DeploymentGrid.PlacementType.Ranged ? _remainingArchers <= 0
+            : type != DeploymentGrid.PlacementType.Melee || _remainingWarriors <= 0) return false;
+        _selectedType = type;
+        _grid.SetPlacementType(type);
+        UpdatePlacementHud();
+        return true;
+    }
+
+    private void UpdatePlacementHud() => _hud.UpdatePlacement(_remainingArchers, _remainingWarriors,
+        _selectedType == DeploymentGrid.PlacementType.Melee);
+
     private void OnCellSelected(Vector2I cell)
     {
-        if (_battleEnded || _remainingArchers <= 0
-            || !_grid.TryOccupy(cell, DeploymentGrid.PlacementType.Ranged))
+        int remaining = _selectedType == DeploymentGrid.PlacementType.Ranged ? _remainingArchers : _remainingWarriors;
+        if (_battleStarted || _battleEnded || remaining <= 0 || !_grid.TryOccupy(cell, _selectedType)) return;
+        if (_selectedType == DeploymentGrid.PlacementType.Ranged)
         {
-            return;
+            _remainingArchers--;
+            Tower tower = _towerScene.Instantiate<Tower>();
+            AddChild(tower);
+            tower.GlobalPosition = _grid.CellToGlobal(cell);
         }
-
-        _remainingArchers--;
-        Tower tower = _towerScene.Instantiate<Tower>();
-        AddChild(tower);
-        tower.GlobalPosition = _grid.CellToGlobal(cell);
-        _hud.UpdatePlacement(_remainingArchers);
-
-        if (_remainingArchers == 0)
+        else
         {
+            _remainingWarriors--;
+            Warrior warrior = _warriorScene.Instantiate<Warrior>();
+            AddChild(warrior);
+            warrior.GlobalPosition = _grid.CellToGlobal(cell);
+            warrior.Setup(_grid, cell);
+        }
+        if (_remainingArchers + _remainingWarriors == 0)
+        {
+            _battleStarted = true;
             _grid.SetPlacementEnabled(false);
+            foreach (Node node in GetTree().GetNodesInGroup("warriors"))
+                if (node is Warrior warrior) warrior.SetBattleActive(true);
             ScheduleNextWave(0.8);
         }
+        else if (remaining == 1)
+        {
+            SelectPlacementType(_remainingArchers > 0 ? DeploymentGrid.PlacementType.Ranged : DeploymentGrid.PlacementType.Melee);
+        }
+        UpdatePlacementHud();
     }
 
     private void StartNextWave()
     {
-        if (_battleEnded || _remainingArchers > 0)
+        if (_battleEnded || !_battleStarted)
         {
             return;
         }
@@ -218,6 +252,9 @@ public partial class StageOne : Node2D
                 tower.SetBattleActive(false);
             }
         }
+
+        foreach (Node node in GetTree().GetNodesInGroup("warriors"))
+            if (node is Warrior warrior) warrior.SetBattleActive(false);
 
         if (!victory)
         {
