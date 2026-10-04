@@ -26,6 +26,13 @@ public partial class UnitHealth : Node
         if (!IsAlive) EmitSignal(SignalName.Depleted);
     }
 
+    public void Heal(float amount)
+    {
+        if (!IsAlive || !float.IsFinite(amount) || amount <= 0) return;
+        CurrentHealth = Mathf.Min(MaxHealth, CurrentHealth + amount);
+        UpdateBar();
+    }
+
     private void UpdateBar()
     {
         _bar.MaxValue = MaxHealth;

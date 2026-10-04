@@ -84,10 +84,17 @@ offset_right = 595.0
 offset_bottom = 39.0
 text = "WARRIOR 1"
 
+[node name="HealerButton" type="Button" parent="HUD/TopPanel"]
+offset_left = 605.0
+offset_top = 8.0
+offset_right = 735.0
+offset_bottom = 39.0
+text = "HEALER 1"
+
 [node name="PlacementLabel" type="Label" parent="HUD/TopPanel"]
-offset_left = 610.0
+offset_left = 750.0
 offset_top = 10.0
-offset_right = 1020.0
+offset_right = 1060.0
 offset_bottom = 38.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.88, 0.56, 1)

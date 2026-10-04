@@ -1,4 +1,5 @@
 using Godot;
+using DefenseGame.Client.Combat;
 
 namespace DefenseGame.Client.UI;
 
@@ -6,6 +7,8 @@ public partial class CombatHud : CanvasLayer
 {
     [Signal] public delegate void ArcherSelectedEventHandler();
     [Signal] public delegate void WarriorSelectedEventHandler();
+    [Signal] public delegate void HealerSelectedEventHandler();
+    private Button _healerButton = null!;
     private Button _archerButton = null!;
     private Button _warriorButton = null!;
     private Label _placementLabel = null!;
@@ -20,6 +23,8 @@ public partial class CombatHud : CanvasLayer
 
     public override void _Ready()
     {
+        _healerButton = GetNode<Button>("TopPanel/HealerButton");
+        _healerButton.Pressed += () => EmitSignal(SignalName.HealerSelected);
         _archerButton = GetNode<Button>("TopPanel/ArcherButton");
         _warriorButton = GetNode<Button>("TopPanel/WarriorButton");
         _archerButton.Pressed += () => EmitSignal(SignalName.ArcherSelected);
@@ -36,14 +41,23 @@ public partial class CombatHud : CanvasLayer
         _restartButton.Pressed += RestartStage;
     }
 
-    public void UpdatePlacement(int archers, int warriors, bool melee)
+    public void UpdatePlacement(int archers, int warriors, int healers, DeploymentGrid.PlacementType selected)
     {
+        _healerButton.Text = $"HEALER {healers}";
+        _healerButton.Disabled = healers == 0;
         _archerButton.Text = $"ARCHER {archers}";
         _warriorButton.Text = $"WARRIOR {warriors}";
         _archerButton.Disabled = archers == 0;
         _warriorButton.Disabled = warriors == 0;
-        _placementLabel.Text = archers + warriors == 0 ? "BATTLE START"
-            : melee ? "WARRIOR // SELECT GROUND OR PATH" : "ARCHER // SELECT A GROUND TILE";
+        string name = selected switch
+        {
+            DeploymentGrid.PlacementType.Melee => "WARRIOR",
+            DeploymentGrid.PlacementType.Support => "HEALER",
+            _ => "ARCHER"
+        };
+        _placementLabel.Text = archers + warriors + healers == 0 ? "BATTLE START"
+            : selected == DeploymentGrid.PlacementType.Melee ? $"{name} // GROUND OR PATH"
+            : $"{name} // SELECT GROUND";
     }
 
     public void UpdateStatus(
@@ -65,6 +79,7 @@ public partial class CombatHud : CanvasLayer
         _placementLabel.Text = "BATTLE ENDED";
         _archerButton.Disabled = true;
         _warriorButton.Disabled = true;
+        _healerButton.Disabled = true;
         _resultPanel.Visible = true;
         _resultTitle.Text = victory ? "STAGE CLEAR" : "GATE LOST";
         _resultTitle.Modulate = victory ? Rgb(255, 209, 102) : Rgb(255, 107, 94);

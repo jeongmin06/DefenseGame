@@ -1,7 +1,7 @@
 [gd_scene load_steps=18 format=3]
 
-[ext_resource type="Script" path="res://scripts/combat/Warrior.cs" id="1_tower"]
-[ext_resource type="Texture2D" path="res://assets/sprites/cat_warrior_attack_sheet.png" id="2_texture"]
+[ext_resource type="Script" path="res://scripts/combat/Healer.cs" id="1_tower"]
+[ext_resource type="Texture2D" path="res://assets/sprites/cat_healer_cast_sheet.png" id="2_texture"]
 
 
 [ext_resource type="Script" path="res://scripts/visuals/DirectionalAnimatedSprite.cs" id="5_direction"]
@@ -85,7 +85,7 @@ animations = [{
 "texture": SubResource("AtlasTexture_frame_7")
 }],
 "loop": false,
-"name": &"attack",
+"name": &"cast",
 "speed": 12.0
 }, {
 "frames": [{
@@ -97,7 +97,7 @@ animations = [{
 "speed": 1.0
 }]
 
-[node name="Warrior" type="Node2D" groups=["warriors", "allies"]]
+[node name="Healer" type="Node2D" groups=["healers", "allies"]]
 z_index = 5
 script = ExtResource("1_tower")
 
@@ -112,7 +112,7 @@ animation = &"idle"
 
 [node name="UnitHealth" type="Node" parent="."]
 script = ExtResource("health_script")
-MaxHealth = 30.0
+MaxHealth = 18.0
 
 [node name="HealthBar" type="ProgressBar" parent="."]
 visible = false

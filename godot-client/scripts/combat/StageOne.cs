@@ -24,6 +24,8 @@ public partial class StageOne : Node2D
     private int _remainingArchers = ArcherCount;
 
     private int _remainingWarriors = 1;
+    private int _remainingHealers = 1;
+    private readonly PackedScene _healerScene = GD.Load<PackedScene>("res://scenes/healer.tscn");
     private bool _battleStarted;
     private DeploymentGrid.PlacementType _selectedType;
     private readonly PackedScene _warriorScene = GD.Load<PackedScene>("res://scenes/warrior.tscn");
@@ -59,6 +61,7 @@ public partial class StageOne : Node2D
         _grid.CellSelected += OnCellSelected;
         _hud.ArcherSelected += () => SelectPlacementType(DeploymentGrid.PlacementType.Ranged);
         _hud.WarriorSelected += () => SelectPlacementType(DeploymentGrid.PlacementType.Melee);
+        _hud.HealerSelected += () => SelectPlacementType(DeploymentGrid.PlacementType.Support);
         BuildEnemyPath();
         _spawnTimer.Timeout += SpawnEnemy;
         UpdateHud();
@@ -83,20 +86,27 @@ public partial class StageOne : Node2D
     public bool SelectPlacementType(DeploymentGrid.PlacementType type)
     {
         if (_battleStarted || _battleEnded) return false;
-        if (type == DeploymentGrid.PlacementType.Ranged ? _remainingArchers <= 0
-            : type != DeploymentGrid.PlacementType.Melee || _remainingWarriors <= 0) return false;
+        if (RemainingFor(type) <= 0) return false;
         _selectedType = type;
         _grid.SetPlacementType(type);
         UpdatePlacementHud();
         return true;
     }
 
+    private int RemainingFor(DeploymentGrid.PlacementType type) => type switch
+    {
+        DeploymentGrid.PlacementType.Ranged => _remainingArchers,
+        DeploymentGrid.PlacementType.Melee => _remainingWarriors,
+        DeploymentGrid.PlacementType.Support => _remainingHealers,
+        _ => 0
+    };
+
     private void UpdatePlacementHud() => _hud.UpdatePlacement(_remainingArchers, _remainingWarriors,
-        _selectedType == DeploymentGrid.PlacementType.Melee);
+        _remainingHealers, _selectedType);
 
     private void OnCellSelected(Vector2I cell)
     {
-        int remaining = _selectedType == DeploymentGrid.PlacementType.Ranged ? _remainingArchers : _remainingWarriors;
+        int remaining = RemainingFor(_selectedType);
         if (_battleStarted || _battleEnded || remaining <= 0 || !_grid.TryOccupy(cell, _selectedType)) return;
         if (_selectedType == DeploymentGrid.PlacementType.Ranged)
         {
@@ -106,7 +116,7 @@ public partial class StageOne : Node2D
             tower.GlobalPosition = _grid.CellToGlobal(cell);
             tower.Defeated += _ => _grid.ReleaseCell(cell);
         }
-        else
+        else if (_selectedType == DeploymentGrid.PlacementType.Melee)
         {
             _remainingWarriors--;
             Warrior warrior = _warriorScene.Instantiate<Warrior>();
@@ -115,17 +125,28 @@ public partial class StageOne : Node2D
             warrior.Setup(_grid, cell);
             warrior.Defeated += _ => _grid.ReleaseCell(cell);
         }
-        if (_remainingArchers + _remainingWarriors == 0)
+        else
+        {
+            _remainingHealers--;
+            Healer healer = _healerScene.Instantiate<Healer>();
+            AddChild(healer);
+            healer.GlobalPosition = _grid.CellToGlobal(cell);
+            healer.Defeated += _ => _grid.ReleaseCell(cell);
+        }
+        if (_remainingArchers + _remainingWarriors + _remainingHealers == 0)
         {
             _battleStarted = true;
             _grid.SetPlacementEnabled(false);
             foreach (Node node in GetTree().GetNodesInGroup("warriors"))
                 if (node is Warrior warrior) warrior.SetBattleActive(true);
+            foreach (Node node in GetTree().GetNodesInGroup("healers"))
+                if (node is Healer healer) healer.SetBattleActive(true);
             ScheduleNextWave(0.8);
         }
         else if (remaining == 1)
         {
-            SelectPlacementType(_remainingArchers > 0 ? DeploymentGrid.PlacementType.Ranged : DeploymentGrid.PlacementType.Melee);
+            SelectPlacementType(_remainingArchers > 0 ? DeploymentGrid.PlacementType.Ranged
+                : _remainingWarriors > 0 ? DeploymentGrid.PlacementType.Melee : DeploymentGrid.PlacementType.Support);
         }
         UpdatePlacementHud();
     }
@@ -257,6 +278,9 @@ public partial class StageOne : Node2D
 
         foreach (Node node in GetTree().GetNodesInGroup("warriors"))
             if (node is Warrior warrior) warrior.SetBattleActive(false);
+
+        foreach (Node node in GetTree().GetNodesInGroup("healers"))
+            if (node is Healer healer) healer.SetBattleActive(false);
 
         foreach (Node node in GetTree().GetNodesInGroup("enemies"))
             if (node is Enemy enemy) enemy.SetBattleActive(false);

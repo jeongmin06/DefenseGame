@@ -6,7 +6,7 @@ namespace DefenseGame.Client.Combat;
 public partial class DeploymentGrid : Node2D
 {
     public enum TileType { Ground, EnemyPath, Blocked }
-    public enum PlacementType { Ranged, Melee }
+    public enum PlacementType { Ranged, Melee, Support }
 
     public const int Columns = 16;
     public const int Rows = 8;
@@ -48,7 +48,7 @@ public partial class DeploymentGrid : Node2D
         TileType tile = GetTileType(cell);
         return profile switch
         {
-            PlacementType.Ranged => tile == TileType.Ground,
+            PlacementType.Ranged or PlacementType.Support => tile == TileType.Ground,
             PlacementType.Melee => tile == TileType.Ground || tile == TileType.EnemyPath,
             _ => false
         };
