@@ -6,6 +6,24 @@ namespace DefenseGame.Client.Combat;
 
 public partial class Warrior : Node2D
 {
+    [Signal] public delegate void DefeatedEventHandler(Warrior unit);
+    private UnitHealth _health = null!;
+    public float CurrentHealth => _health.CurrentHealth;
+    public float MaxHealth => _health.MaxHealth;
+    public bool IsAlive => _health.IsAlive;
+
+    public void TakeDamage(float amount)
+    {
+        if (_battleActive) _health.TakeDamage(amount);
+    }
+
+    private void OnDepleted()
+    {
+        SetBattleActive(false);
+        EmitSignal(SignalName.Defeated, this);
+        QueueFree();
+    }
+
     [Export] public float Damage { get; set; } = 6;
     [Export] public float AttackInterval { get; set; } = 0.8f;
     [Export] public int AttackRangeCells { get; set; } = 1;
@@ -26,6 +44,8 @@ public partial class Warrior : Node2D
 
     public override void _Ready()
     {
+        _health = GetNode<UnitHealth>("UnitHealth");
+        _health.Depleted += OnDepleted;
         _sprite = GetNode<DirectionalAnimatedSprite>("AnimatedSprite");
         _sprite.FrameChanged += OnFrameChanged;
         _sprite.AnimationFinished += ResetAnimation;
@@ -40,8 +60,8 @@ public partial class Warrior : Node2D
 
     public void SetBattleActive(bool active)
     {
-        _battleActive = active;
-        if (!active)
+        _battleActive = active && IsAlive;
+        if (!_battleActive)
         {
             ReleaseAllBlocks();
             ResetAnimation();

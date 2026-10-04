@@ -104,6 +104,7 @@ public partial class StageOne : Node2D
             Tower tower = _towerScene.Instantiate<Tower>();
             AddChild(tower);
             tower.GlobalPosition = _grid.CellToGlobal(cell);
+            tower.Defeated += _ => _grid.ReleaseCell(cell);
         }
         else
         {
@@ -112,6 +113,7 @@ public partial class StageOne : Node2D
             AddChild(warrior);
             warrior.GlobalPosition = _grid.CellToGlobal(cell);
             warrior.Setup(_grid, cell);
+            warrior.Defeated += _ => _grid.ReleaseCell(cell);
         }
         if (_remainingArchers + _remainingWarriors == 0)
         {
@@ -255,6 +257,14 @@ public partial class StageOne : Node2D
 
         foreach (Node node in GetTree().GetNodesInGroup("warriors"))
             if (node is Warrior warrior) warrior.SetBattleActive(false);
+
+        foreach (Node node in GetTree().GetNodesInGroup("enemies"))
+            if (node is Enemy enemy) enemy.SetBattleActive(false);
+        foreach (Node projectile in GetNode("Projectiles").GetChildren())
+        {
+            projectile.SetPhysicsProcess(false);
+            projectile.QueueFree();
+        }
 
         if (!victory)
         {

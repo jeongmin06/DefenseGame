@@ -11,6 +11,11 @@ public partial class Enemy : PathFollow2D
     [Signal]
     public delegate void ReachedGoalEventHandler(Enemy enemy);
 
+    [Export] public float AttackDamage { get; set; } = 3.0f;
+    [Export] public float AttackInterval { get; set; } = 1.0f;
+    private double _attackCooldown;
+    private bool _battleActive = true;
+
     private float _maxHealth = 1.0f;
     private float _health = 1.0f;
     private float _moveSpeed = 60.0f;
@@ -28,15 +33,25 @@ public partial class Enemy : PathFollow2D
 
     public override void _PhysicsProcess(double delta)
     {
-        if (_resolved)
+        if (_resolved || !_battleActive)
         {
             return;
         }
 
         if (_blocker is not null)
         {
-            if (GodotObject.IsInstanceValid(_blocker) && !_blocker.IsQueuedForDeletion()) return;
-            _blocker = null;
+            if (GodotObject.IsInstanceValid(_blocker) && !_blocker.IsQueuedForDeletion() && _blocker.IsAlive)
+            {
+                _attackCooldown -= delta;
+                if (_attackCooldown <= 0.000001)
+                {
+                    _attackCooldown = Mathf.Max(0.01f, AttackInterval);
+                    _blocker.TakeDamage(AttackDamage);
+                }
+                // If the hit kills the blocker, movement resumes next physics frame.
+                return;
+            }
+            ClearBlock();
         }
 
         Vector2 previousPosition = GlobalPosition;
@@ -102,9 +117,10 @@ public partial class Enemy : PathFollow2D
 
     public bool TryBlock(Warrior warrior)
     {
-        if (!IsActive() || IsQueuedForDeletion() || _blocker is not null
-            || !GodotObject.IsInstanceValid(warrior) || warrior.IsQueuedForDeletion()) return false;
+        if (!_battleActive || !IsActive() || IsQueuedForDeletion() || _blocker is not null
+            || !GodotObject.IsInstanceValid(warrior) || warrior.IsQueuedForDeletion() || !warrior.IsAlive) return false;
         _blocker = warrior;
+        _attackCooldown = Mathf.Max(0.01f, AttackInterval);
         return true;
     }
 
@@ -119,7 +135,14 @@ public partial class Enemy : PathFollow2D
     {
         Warrior? owner = _blocker;
         _blocker = null;
+        _attackCooldown = 0;
         if (owner is not null && GodotObject.IsInstanceValid(owner)) owner.ForgetBlocked(this);
+    }
+
+    public void SetBattleActive(bool active)
+    {
+        _battleActive = active;
+        if (!active) ClearBlock();
     }
 
     public override void _ExitTree() => ClearBlock();

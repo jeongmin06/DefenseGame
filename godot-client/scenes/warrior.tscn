@@ -1,10 +1,23 @@
-[gd_scene load_steps=15 format=3]
+[gd_scene load_steps=18 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/Warrior.cs" id="1_tower"]
 [ext_resource type="Texture2D" path="res://assets/sprites/cat_warrior_attack_sheet.png" id="2_texture"]
 
 
 [ext_resource type="Script" path="res://scripts/visuals/DirectionalAnimatedSprite.cs" id="5_direction"]
+
+[ext_resource type="Script" path="res://scripts/combat/UnitHealth.cs" id="health_script"]
+
+[sub_resource type="StyleBoxFlat" id="HealthBackground"]
+bg_color = Color(0.08, 0.10, 0.08, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.9, 0.85, 0.65, 1)
+
+[sub_resource type="StyleBoxFlat" id="HealthFill"]
+bg_color = Color(0.25, 0.88, 0.4, 1)
 
 [sub_resource type="Shader" id="Shader_chroma_key"]
 code = "shader_type canvas_item;\n\nvoid fragment() {\n\tvec4 source = texture(TEXTURE, UV);\n\tfloat cyan_strength = min(source.g, source.b) - source.r;\n\tfloat cyan_balance = 1.0 - smoothstep(0.08, 0.22, abs(source.g - source.b));\n\tfloat keyed = smoothstep(0.20, 0.48, cyan_strength) * cyan_balance;\n\tsource.a *= 1.0 - keyed;\n\tCOLOR = source;\n}\n"
@@ -96,3 +109,19 @@ position = Vector2(0, -47)
 scale = Vector2(0.23, 0.23)
 sprite_frames = SubResource("SpriteFrames_cat_archer")
 animation = &"idle"
+
+[node name="UnitHealth" type="Node" parent="."]
+script = ExtResource("health_script")
+MaxHealth = 30.0
+
+[node name="HealthBar" type="ProgressBar" parent="."]
+visible = false
+z_index = 10
+mouse_filter = 2
+offset_left = -25.0
+offset_top = -108.0
+offset_right = 25.0
+offset_bottom = -101.0
+theme_override_styles/background = SubResource("HealthBackground")
+theme_override_styles/fill = SubResource("HealthFill")
+show_percentage = false

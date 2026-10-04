@@ -5,6 +5,24 @@ namespace DefenseGame.Client.Combat;
 
 public partial class Tower : Node2D
 {
+    [Signal] public delegate void DefeatedEventHandler(Tower unit);
+    private UnitHealth _health = null!;
+    public float CurrentHealth => _health.CurrentHealth;
+    public float MaxHealth => _health.MaxHealth;
+    public bool IsAlive => _health.IsAlive;
+
+    public void TakeDamage(float amount)
+    {
+        if (_battleActive) _health.TakeDamage(amount);
+    }
+
+    private void OnDepleted()
+    {
+        SetBattleActive(false);
+        EmitSignal(SignalName.Defeated, this);
+        QueueFree();
+    }
+
     [Export]
     public float AttackRange { get; set; } = 230.0f;
 
@@ -27,6 +45,8 @@ public partial class Tower : Node2D
 
     public override void _Ready()
     {
+        _health = GetNode<UnitHealth>("UnitHealth");
+        _health.Depleted += OnDepleted;
         _rangedAttack = GetNode<RangedAttack>("RangedAttack");
         _sprite = GetNode<DirectionalAnimatedSprite>("AnimatedSprite");
         _sprite.FrameChanged += OnSpriteFrameChanged;
@@ -65,8 +85,8 @@ public partial class Tower : Node2D
 
     public void SetBattleActive(bool active)
     {
-        _battleActive = active;
-        if (!active)
+        _battleActive = active && IsAlive;
+        if (!_battleActive)
         {
             ResetToIdle();
         }
@@ -130,7 +150,7 @@ public partial class Tower : Node2D
 
     private void OnSpriteFrameChanged()
     {
-        if (_sprite.Animation != "attack" || _sprite.Frame < ReleaseFrame || _projectileReleased)
+        if (!_battleActive || !IsAlive || _sprite.Animation != "attack" || _sprite.Frame < ReleaseFrame || _projectileReleased)
         {
             return;
         }

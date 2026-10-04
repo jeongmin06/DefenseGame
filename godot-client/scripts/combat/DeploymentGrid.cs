@@ -62,6 +62,11 @@ public partial class DeploymentGrid : Node2D
         return true;
     }
 
+    public void ReleaseCell(Vector2I cell)
+    {
+        if (_occupied.Remove(cell)) QueueRedraw();
+    }
+
     public void SetPlacementEnabled(bool enabled)
     {
         _placementEnabled = enabled;
