@@ -19,7 +19,7 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 - 8프레임 활 공격 애니메이션을 사용하는 SD 고양이 궁수 타워 두 개
 - 궁수 2명·근접 전사 1명 직접 배치, 점유·Blocked 및 재고 초과 배치 차단
 - 배치 완료 후 자동 시작하는 세 개 웨이브
-- 자동 공격과 투사체
+- 궁수의 투사체 공격과 전사의 직접 근접 공격·적 1명 저지
 - 기지 체력과 전투 HUD
 - 승리, 패배, 재시작
 
@@ -30,9 +30,11 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 - `scripts/combat/Enemy.cs`: 적 이동과 체력
 - `scripts/combat/DeploymentGrid.cs`: 타일 종류, 배치 프로필, 좌표 변환, 점유·클릭·격자 표시
 - `scripts/combat/Tower.cs`: 타워 자동 공격
+- `scenes/warrior.tscn`, `scripts/combat/Warrior.cs`: 전사 직접 공격과 적 저지
 - `scripts/combat/PixelProjectile.cs`: 투사체 이동과 피해
 - `scripts/ui/CombatHud.cs`: 전투 HUD와 결과 화면
 - `assets/sprites/cat_archer_attack_sheet.png`: SD 고양이 궁수 공격 스프라이트 시트
+- `assets/sprites/cat_warrior_attack_sheet.png`: SD 고양이 전사 공격 스프라이트 시트
 
 ## 수동 검증
 
@@ -54,7 +56,7 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 
 격자는 원점 `(40, 120)`, 16열×8행, 셀 크기 75px이다. `CellToGlobal`과 `GlobalToCell`이 좌표 변환을 담당한다. `CanPlace(cell, profile)`은 입력 활성 여부와 분리된 지형·점유 판정이며 Ranged는 Ground, Melee는 Ground와 EnemyPath를 허용한다. Blocked와 점유 셀은 모두 거부한다. 현재 스테이지의 Blocked 셀은 `(15, 0)`, `(15, 1)`이다. 전사는 경로 위에서 자기 셀의 적 1명을 저지한다. Ground에서는 공격만 한다.
 
-세 명을 모두 배치하기 전에는 적이 나오지 않는지, 궁수의 경로 배치 및 모든 타입의 Blocked·점유 타일 배치가 거부되는지 확인한다. 세 명 배치 후 `BATTLE START`로 전환하며 0.8초 후 첫 웨이브가 시작된다. 재시작 시 점유와 궁수 수가 초기화된다.
+세 명을 모두 배치하기 전에는 적이 나오지 않는지, 궁수의 경로 배치 및 모든 타입의 Blocked·점유 타일 배치가 거부되는지 확인한다. 세 명 배치 후 `BATTLE START`로 전환하며 0.8초 후 첫 웨이브가 시작된다. 재시작 시 점유와 궁수·전사 수가 초기화된다.
 
 에디터에서는 좌우 발사 시 화살촉 방향과 몸통·깃의 가독성, 활 앞 출발 위치, 재시작 후 잔여 화살이 없는지 확인한다.
 
