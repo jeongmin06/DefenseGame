@@ -4,26 +4,14 @@ namespace DefenseGame.Client.Combat;
 
 public partial class StageOne : Node2D
 {
-    private static readonly Vector2[] PathPoints =
+    private static readonly Vector2I[] PathCorners =
     [
-        new(-60.0f, 360.0f),
-        new(180.0f, 360.0f),
-        new(180.0f, 150.0f),
-        new(520.0f, 150.0f),
-        new(520.0f, 530.0f),
-        new(900.0f, 530.0f),
-        new(900.0f, 300.0f),
-        new(1180.0f, 300.0f),
-        new(1340.0f, 300.0f),
+        new(-2, 3), new(1, 3), new(1, 0), new(6, 0),
+        new(6, 5), new(11, 5), new(11, 2), new(17, 2),
     ];
 
-    private static readonly Vector2[] SlotPositions =
-    [
-        new(355.0f, 300.0f),
-        new(745.0f, 390.0f),
-        new(355.0f, 460.0f),
-        new(1050.0f, 430.0f),
-    ];
+    private static readonly Vector2I[] BlockedCells = [new(15, 0), new(15, 1)];
+    private DeploymentGrid _grid = null!;
 
     private static readonly WaveSpec[] Waves =
     [
@@ -34,15 +22,12 @@ public partial class StageOne : Node2D
 
     private const int ArcherCount = 2;
     private int _remainingArchers = ArcherCount;
-    private readonly TowerSlot[] _slots = new TowerSlot[SlotPositions.Length];
 
     private const int MaxBaseHealth = 5;
     private const double WaveGap = 2.0;
 
     private readonly PackedScene _enemyScene = GD.Load<PackedScene>("res://scenes/enemy.tscn");
     private readonly PackedScene _towerScene = GD.Load<PackedScene>("res://scenes/tower.tscn");
-
-    private readonly PackedScene _slotScene = GD.Load<PackedScene>("res://scenes/tower_slot.tscn");
 
     private int _waveIndex = -1;
     private int _spawnedInWave;
@@ -63,8 +48,11 @@ public partial class StageOne : Node2D
         _spawnTimer = GetNode<Timer>("SpawnTimer");
         _hud = GetNode<UI.CombatHud>("HUD");
 
+        _grid = new DeploymentGrid { Name = "DeploymentGrid", Position = new Vector2(40, 120) };
+        AddChild(_grid);
+        _grid.Configure(PathCorners, BlockedCells);
+        _grid.CellSelected += OnCellSelected;
         BuildEnemyPath();
-        SpawnSlots();
         _spawnTimer.Timeout += SpawnEnemy;
         UpdateHud();
         _hud.UpdatePlacement(_remainingArchers);
@@ -72,55 +60,36 @@ public partial class StageOne : Node2D
 
     public override void _Draw()
     {
-        DrawGround();
-        DrawRoad();
-        DrawLandmarks();
+        DrawRect(new Rect2(0, 0, 1280, 720), new Color("5b843e"));
     }
 
     private void BuildEnemyPath()
     {
         var curve = new Curve2D();
-        foreach (Vector2 point in PathPoints)
+        foreach (Vector2I cell in PathCorners)
         {
-            curve.AddPoint(point);
+            curve.AddPoint(_enemyPath.ToLocal(_grid.CellToGlobal(cell)));
         }
-
         _enemyPath.Curve = curve;
     }
 
-    private void SpawnSlots()
+    private void OnCellSelected(Vector2I cell)
     {
-        for (int i = 0; i < SlotPositions.Length; i++)
-        {
-            TowerSlot slot = _slotScene.Instantiate<TowerSlot>();
-            slot.Position = SlotPositions[i];
-            slot.Selected += OnSlotSelected;
-            AddChild(slot);
-            _slots[i] = slot;
-        }
-    }
-
-    private void OnSlotSelected(TowerSlot slot)
-    {
-        if (_battleEnded || _remainingArchers <= 0 || slot.IsOccupied)
+        if (_battleEnded || _remainingArchers <= 0
+            || !_grid.TryOccupy(cell, DeploymentGrid.PlacementType.Ranged))
         {
             return;
         }
 
-        slot.MarkOccupied();
         _remainingArchers--;
         Tower tower = _towerScene.Instantiate<Tower>();
         AddChild(tower);
-        tower.GlobalPosition = slot.GlobalPosition;
+        tower.GlobalPosition = _grid.CellToGlobal(cell);
         _hud.UpdatePlacement(_remainingArchers);
 
         if (_remainingArchers == 0)
         {
-            foreach (TowerSlot candidate in _slots)
-            {
-                candidate.SetPlacementEnabled(false);
-            }
-
+            _grid.SetPlacementEnabled(false);
             ScheduleNextWave(0.8);
         }
     }
@@ -240,10 +209,7 @@ public partial class StageOne : Node2D
 
         _battleEnded = true;
         _spawnTimer.Stop();
-        foreach (TowerSlot slot in _slots)
-        {
-            slot.SetPlacementEnabled(false);
-        }
+        _grid.SetPlacementEnabled(false);
 
         foreach (Node node in GetTree().GetNodesInGroup("towers"))
         {
@@ -280,62 +246,6 @@ public partial class StageOne : Node2D
             _defeatedEnemies,
             _escapedEnemies,
             _baseHealth);
-    }
-
-    private void DrawGround()
-    {
-        DrawRect(new Rect2(0, 0, 1280, 720), Rgb(91, 132, 62));
-        for (int y = 0; y < 720; y += 32)
-        {
-            for (int x = 0; x < 1280; x += 32)
-            {
-                int column = x / 32;
-                int row = y / 32;
-                int pattern = (column * 17 + row * 31) % 13;
-                Color tint = (column + row) % 2 == 0 ? Rgb(96, 139, 66) : Rgb(93, 135, 63);
-                DrawRect(new Rect2(x, y, 32, 32), tint);
-
-                // Deterministic, quiet ground detail keeps combat silhouettes readable.
-                DrawRect(new Rect2(x + 5 + pattern, y + 10, 6, 2), Rgb(105, 145, 72));
-                if (pattern < 3)
-                {
-                    DrawRect(new Rect2(x + 18, y + 23, 2, 5), Rgb(79, 122, 54));
-                    DrawRect(new Rect2(x + 15, y + 21, 2, 5), Rgb(83, 126, 56));
-                    DrawRect(new Rect2(x + 21, y + 20, 2, 6), Rgb(108, 148, 73));
-                }
-                else if (pattern == 6)
-                {
-                    DrawRect(new Rect2(x + 10, y + 20, 10, 4), Rgb(116, 132, 69));
-                    DrawRect(new Rect2(x + 13, y + 18, 5, 2), Rgb(116, 132, 69));
-                }
-            }
-        }
-    }
-
-    private void DrawRoad()
-    {
-        DrawPolyline(PathPoints, Rgb(133, 106, 63), 82.0f);
-        DrawPolyline(PathPoints, Rgb(186, 143, 91), 68.0f);
-        DrawPolyline(PathPoints, Rgb(199, 157, 103), 4.0f);
-
-        foreach (Vector2 point in PathPoints)
-        {
-            DrawCircle(point, 34.0f, Rgb(186, 143, 91));
-        }
-    }
-
-    private void DrawLandmarks()
-    {
-        DrawRect(new Rect2(0, 326, 52, 68), Rgb(72, 40, 33));
-        DrawRect(new Rect2(10, 336, 42, 48), Rgb(183, 71, 50));
-        DrawRect(new Rect2(1190, 252, 90, 96), Rgb(36, 42, 49));
-        DrawRect(new Rect2(1204, 266, 62, 68), Rgb(81, 88, 102));
-        DrawRect(new Rect2(1218, 286, 34, 48), Rgb(24, 27, 33));
-    }
-
-    private static Color Rgb(byte red, byte green, byte blue, byte alpha = 255)
-    {
-        return new Color(red / 255.0f, green / 255.0f, blue / 255.0f, alpha / 255.0f);
     }
 
     private readonly record struct WaveSpec(int Count, float Health, float Speed, double Interval);

@@ -78,7 +78,7 @@ offset_bottom = 38.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.88, 0.56, 1)
 theme_override_font_sizes/font_size = 18
-text = "ARCHERS LEFT  2  //  CLICK A SLOT"
+text = "ARCHERS LEFT  2  //  SELECT A GROUND TILE"
 
 [node name="WaveLabel" type="Label" parent="HUD/TopPanel"]
 offset_left = 18.0

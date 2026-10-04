@@ -31,7 +31,7 @@ public partial class CombatHud : CanvasLayer
     public void UpdatePlacement(int remainingArchers)
     {
         _placementLabel.Text = remainingArchers > 0
-            ? $"ARCHERS LEFT  {remainingArchers}  //  CLICK A SLOT"
+            ? $"ARCHERS LEFT  {remainingArchers}  //  SELECT A GROUND TILE"
             : "ARCHERS LEFT  0  //  BATTLE START";
     }
 
