@@ -1,4 +1,5 @@
 using Godot;
+using DefenseGame.Client.Visuals;
 
 namespace DefenseGame.Client.Combat;
 
@@ -19,7 +20,7 @@ public partial class Tower : Node2D
     private bool _projectileReleased;
     private bool _facingLeft;
     private Enemy? _pendingTarget;
-    private AnimatedSprite2D _sprite = null!;
+    private DirectionalAnimatedSprite _sprite = null!;
 
     private const int ReleaseFrame = 5;
     private RangedAttack _rangedAttack = null!;
@@ -27,7 +28,7 @@ public partial class Tower : Node2D
     public override void _Ready()
     {
         _rangedAttack = GetNode<RangedAttack>("RangedAttack");
-        _sprite = GetNode<AnimatedSprite2D>("AnimatedSprite");
+        _sprite = GetNode<DirectionalAnimatedSprite>("AnimatedSprite");
         _sprite.FrameChanged += OnSpriteFrameChanged;
         _sprite.AnimationFinished += OnSpriteAnimationFinished;
         _sprite.Play("idle");
@@ -118,7 +119,7 @@ public partial class Tower : Node2D
         _projectileReleased = false;
         _attackInProgress = true;
         _facingLeft = target.GlobalPosition.X < GlobalPosition.X;
-        _sprite.FlipH = _facingLeft;
+        _sprite.SetFacingLeft(_facingLeft);
 
         int frameCount = _sprite.SpriteFrames.GetFrameCount("attack");
         double framesPerSecond = _sprite.SpriteFrames.GetAnimationSpeed("attack");

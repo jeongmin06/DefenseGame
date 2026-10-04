@@ -1,7 +1,9 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/Enemy.cs" id="1_enemy"]
-[ext_resource type="Texture2D" path="res://assets/sprites/enemy_mutant_mouse.png" id="2_texture"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_mutant_mouse_walk_sheet.png" id="2_texture"]
+
+[ext_resource type="Script" path="res://scripts/visuals/DirectionalAnimatedSprite.cs" id="3_direction"]
 
 [sub_resource type="Shader" id="Shader_chroma_key"]
 code = "shader_type canvas_item;\n\nvoid fragment() {\n\tvec4 source = texture(TEXTURE, UV);\n\tfloat cyan_strength = min(source.g, source.b) - source.r;\n\tfloat cyan_balance = 1.0 - smoothstep(0.08, 0.22, abs(source.g - source.b));\n\tfloat keyed = smoothstep(0.20, 0.48, cyan_strength) * cyan_balance;\n\tsource.a *= 1.0 - keyed;\n\tCOLOR = source;\n}\n"
@@ -20,17 +22,59 @@ border_color = Color(0.03, 0.02, 0.02, 1)
 [sub_resource type="StyleBoxFlat" id="HealthFill"]
 bg_color = Color(0.94, 0.25, 0.18, 1)
 
+[sub_resource type="AtlasTexture" id="MouseFrame_0"]
+atlas = ExtResource("2_texture")
+region = Rect2(0, 0, 443, 443)
+
+[sub_resource type="AtlasTexture" id="MouseFrame_1"]
+atlas = ExtResource("2_texture")
+region = Rect2(443, 0, 443, 443)
+
+[sub_resource type="AtlasTexture" id="MouseFrame_2"]
+atlas = ExtResource("2_texture")
+region = Rect2(886, 0, 443, 443)
+
+[sub_resource type="AtlasTexture" id="MouseFrame_3"]
+atlas = ExtResource("2_texture")
+region = Rect2(1329, 0, 443, 443)
+
+[sub_resource type="AtlasTexture" id="MouseFrame_4"]
+atlas = ExtResource("2_texture")
+region = Rect2(0, 443, 443, 443)
+
+[sub_resource type="AtlasTexture" id="MouseFrame_5"]
+atlas = ExtResource("2_texture")
+region = Rect2(443, 443, 443, 443)
+
+[sub_resource type="AtlasTexture" id="MouseFrame_6"]
+atlas = ExtResource("2_texture")
+region = Rect2(886, 443, 443, 443)
+
+[sub_resource type="AtlasTexture" id="MouseFrame_7"]
+atlas = ExtResource("2_texture")
+region = Rect2(1329, 443, 443, 443)
+
+[sub_resource type="SpriteFrames" id="MouseFrames"]
+animations = [{
+"frames": [{"duration": 1.0, "texture": SubResource("MouseFrame_0")}, {"duration": 1.0, "texture": SubResource("MouseFrame_1")}, {"duration": 1.0, "texture": SubResource("MouseFrame_2")}, {"duration": 1.0, "texture": SubResource("MouseFrame_3")}, {"duration": 1.0, "texture": SubResource("MouseFrame_4")}, {"duration": 1.0, "texture": SubResource("MouseFrame_5")}, {"duration": 1.0, "texture": SubResource("MouseFrame_6")}, {"duration": 1.0, "texture": SubResource("MouseFrame_7")}],
+"loop": true,
+"name": &"move",
+"speed": 11.0
+}]
+
 [node name="Enemy" type="PathFollow2D" groups=["enemies"]]
 cubic_interp = false
 loop = false
 rotates = false
 script = ExtResource("1_enemy")
 
-[node name="Sprite" type="Sprite2D" parent="."]
+[node name="Sprite" type="AnimatedSprite2D" parent="."]
 material = SubResource("ShaderMaterial_chroma_key")
 texture_filter = 1
-texture = ExtResource("2_texture")
-scale = Vector2(0.055, 0.055)
+script = ExtResource("3_direction")
+sprite_frames = SubResource("MouseFrames")
+animation = &"move"
+scale = Vector2(0.20, 0.20)
 position = Vector2(0, -4)
 
 [node name="HealthBar" type="ProgressBar" parent="."]

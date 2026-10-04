@@ -1,4 +1,5 @@
 using Godot;
+using DefenseGame.Client.Visuals;
 
 namespace DefenseGame.Client.Combat;
 
@@ -14,13 +15,14 @@ public partial class Enemy : PathFollow2D
     private float _health = 1.0f;
     private float _moveSpeed = 60.0f;
     private bool _resolved;
-    private Sprite2D _sprite = null!;
+    private DirectionalAnimatedSprite _sprite = null!;
     private ProgressBar _healthBar = null!;
 
     public override void _Ready()
     {
-        _sprite = GetNode<Sprite2D>("Sprite");
+        _sprite = GetNode<DirectionalAnimatedSprite>("Sprite");
         _healthBar = GetNode<ProgressBar>("HealthBar");
+        _sprite.Play("move");
     }
 
     public override void _PhysicsProcess(double delta)
@@ -33,11 +35,7 @@ public partial class Enemy : PathFollow2D
         Vector2 previousPosition = GlobalPosition;
         Progress += _moveSpeed * (float)delta;
         Vector2 movement = GlobalPosition - previousPosition;
-        if (!movement.IsZeroApprox())
-        {
-            // Rotate only the mouse; the health bar remains upright.
-            _sprite.GlobalRotation = movement.Angle();
-        }
+        _sprite.SetFacingFromMovement(movement);
         if (ProgressRatio < 0.999f)
         {
             return;

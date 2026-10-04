@@ -50,4 +50,4 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 
 에디터에서는 좌우 발사 시 화살촉 방향과 몸통·깃의 가독성, 활 앞 출발 위치, 재시작 후 잔여 화살이 없는지 확인한다.
 
-생쥐는 `enemy_mutant_mouse.png`의 시안 배경을 씬 크로마키 셰이더로 제거하며, 꼬리를 포함해 약 79px 너비로 표시한다. 이동 시 스프라이트만 회전하고 체력 바는 수평을 유지한다. 에디터에서 시안 테두리 잔상, 상하 이동 시 방향, 체력 바와 화살의 가독성을 확인한다.
+생쥐는 `enemy_mutant_mouse_walk_sheet.png`의 시안 배경을 씬 크로마키 셰이더로 제거하며, 꼬리를 포함해 약 79px 너비로 표시한다. 443×443 AtlasTexture 8개를 11fps로 반복 재생한다. 생쥐와 고양이는 `scripts/visuals/DirectionalAnimatedSprite.cs`를 공유하며, `SourceFacesLeft`로 원본 방향을 지정하고 `SetFacingLeft` 또는 `SetFacingFromMovement`로 좌우 반전한다. X 이동이 거의 없는 수직 구간에서는 마지막 방향을 유지하며 체력 바는 수평을 유지한다. 에디터에서 시안 테두리 잔상, 상하 이동 시 방향, 체력 바와 화살의 가독성을 확인한다.
