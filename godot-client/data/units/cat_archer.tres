@@ -1,0 +1,23 @@
+[gd_resource type="Resource" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/UnitDefinition.cs" id="script"]
+[ext_resource type="PackedScene" path="res://scenes/tower.tscn" id="scene"]
+[ext_resource type="PackedScene" path="res://scenes/arrow_projectile.tscn" id="projectile"]
+
+[resource]
+script = ExtResource("script")
+Id = "cat_archer"
+DisplayName = "cat_archer"
+Role = 0
+Placement = 0
+Scene = ExtResource("scene")
+MaxHealth = 20
+ActionPower = 4
+ActionInterval = 0.55
+ActionFrame = 5
+TargetLimit = 1
+RangePixels = 230
+ProjectileSpeed = 620
+ProjectileHitDistance = 10
+ProjectileScene = ExtResource("projectile")
+ProjectileSpawnOffset = Vector2(28, -28)

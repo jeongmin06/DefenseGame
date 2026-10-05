@@ -1,0 +1,18 @@
+[gd_resource type="Resource" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/UnitDefinition.cs" id="script"]
+[ext_resource type="PackedScene" path="res://scenes/enemy.tscn" id="scene"]
+
+[resource]
+script = ExtResource("script")
+Id = "mutant_mouse"
+DisplayName = "mutant_mouse"
+Role = 3
+Placement = 2
+Scene = ExtResource("scene")
+MaxHealth = 12
+ActionPower = 3
+ActionInterval = 1
+ActionFrame = 0
+TargetLimit = 1
+MoveSpeed = 72

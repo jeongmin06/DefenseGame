@@ -1,0 +1,18 @@
+[gd_resource type="Resource" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/UnitDefinition.cs" id="script"]
+[ext_resource type="PackedScene" path="res://scenes/healer.tscn" id="scene"]
+
+[resource]
+script = ExtResource("script")
+Id = "cat_healer"
+DisplayName = "cat_healer"
+Role = 2
+Placement = 0
+Scene = ExtResource("scene")
+MaxHealth = 18
+ActionPower = 4
+ActionInterval = 1
+ActionFrame = 5
+TargetLimit = 1
+RangePixels = 230

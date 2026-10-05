@@ -1,4 +1,5 @@
 using Godot;
+using DefenseGame.Client.Data;
 using DefenseGame.Client.Visuals;
 
 namespace DefenseGame.Client.Combat;
@@ -11,14 +12,14 @@ public partial class Enemy : PathFollow2D
     [Signal]
     public delegate void ReachedGoalEventHandler(Enemy enemy);
 
-    [Export] public float AttackDamage { get; set; } = 3.0f;
-    [Export] public float AttackInterval { get; set; } = 1.0f;
+    public float AttackDamage { get; set; }
+    public float AttackInterval { get; set; }
     private double _attackCooldown;
     private bool _battleActive = true;
 
-    private float _maxHealth = 1.0f;
-    private float _health = 1.0f;
-    private float _moveSpeed = 60.0f;
+    private float _maxHealth;
+    private float _health;
+    private float _moveSpeed;
     private bool _resolved;
     private Warrior? _blocker;
     private DirectionalAnimatedSprite _sprite = null!;
@@ -69,11 +70,13 @@ public partial class Enemy : PathFollow2D
         QueueFree();
     }
 
-    public void Setup(float maxHealth, float moveSpeed)
+    public void Setup(UnitDefinition definition, float healthOverride = 0, float speedOverride = 0)
     {
-        _maxHealth = Mathf.Max(1.0f, maxHealth);
+        AttackDamage = definition.ActionPower;
+        AttackInterval = definition.ActionInterval;
+        _maxHealth = healthOverride > 0 ? healthOverride : definition.MaxHealth;
         _health = _maxHealth;
-        _moveSpeed = Mathf.Max(1.0f, moveSpeed);
+        _moveSpeed = speedOverride > 0 ? speedOverride : definition.MoveSpeed;
         UpdateHealthBar();
     }
 

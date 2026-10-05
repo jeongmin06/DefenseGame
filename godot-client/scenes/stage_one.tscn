@@ -1,7 +1,9 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/StageOne.cs" id="1_stage"]
 [ext_resource type="Script" path="res://scripts/ui/CombatHud.cs" id="4_hud"]
+
+[ext_resource type="Resource" path="res://data/stages/stage_01.tres" id="stage_definition"]
 
 [sub_resource type="StyleBoxFlat" id="TopPanelStyle"]
 bg_color = Color(0.035, 0.055, 0.047, 0.93)
@@ -41,6 +43,7 @@ corner_radius_bottom_left = 3
 
 [node name="StageOne" type="Node2D"]
 script = ExtResource("1_stage")
+Definition = ExtResource("stage_definition")
 
 [node name="EnemyPath" type="Path2D" parent="."]
 z_index = 3

@@ -1,4 +1,5 @@
 using Godot;
+using DefenseGame.Client.Data;
 using System.Collections.Generic;
 
 namespace DefenseGame.Client.Combat;
@@ -8,14 +9,15 @@ public partial class DeploymentGrid : Node2D
     public enum TileType { Ground, EnemyPath, Blocked }
     public enum PlacementType { Ranged, Melee, Support }
 
-    public const int Columns = 16;
-    public const int Rows = 8;
-    public const float CellSize = 75.0f;
+    public int Columns { get; private set; }
+    public int Rows { get; private set; }
+    public float CellSize { get; private set; }
 
     [Signal]
     public delegate void CellSelectedEventHandler(Vector2I cell);
 
-    private readonly TileType[,] _tiles = new TileType[Columns, Rows];
+    private TileType[,] _tiles = new TileType[0, 0];
+    private readonly Dictionary<PlacementType, PlacementRule> _rules = new();
     private readonly HashSet<Vector2I> _occupied = new();
     public PlacementType SelectedProfile { get; private set; } = PlacementType.Ranged;
 
@@ -46,10 +48,10 @@ public partial class DeploymentGrid : Node2D
     {
         if (!ContainsCell(cell) || _occupied.Contains(cell)) return false;
         TileType tile = GetTileType(cell);
-        return profile switch
+        return _rules.TryGetValue(profile, out PlacementRule rule) && rule switch
         {
-            PlacementType.Ranged or PlacementType.Support => tile == TileType.Ground,
-            PlacementType.Melee => tile == TileType.Ground || tile == TileType.EnemyPath,
+            PlacementRule.Ground => tile == TileType.Ground,
+            PlacementRule.GroundOrPath => tile == TileType.Ground || tile == TileType.EnemyPath,
             _ => false
         };
     }
@@ -81,16 +83,25 @@ public partial class DeploymentGrid : Node2D
         return true;
     }
 
-    public void Configure(Vector2I[] pathCorners, Vector2I[] blockedCells)
+    public void Configure(StageDefinition definition)
     {
-        System.Array.Clear(_tiles);
+        Columns = definition.Grid.Columns;
+        Rows = definition.Grid.Rows;
+        CellSize = definition.Grid.CellSize;
+        Position = definition.Grid.Origin;
+        _tiles = new TileType[Columns, Rows];
+        _rules.Clear();
+        foreach (RosterEntry entry in definition.Roster)
+            _rules[(PlacementType)entry.Unit.Role] = entry.Unit.Placement;
+        var pathCorners = new Godot.Collections.Array<Vector2I>(definition.PathCorners);
+        var blockedCells = new Godot.Collections.Array<Vector2I>(definition.BlockedCells);
         _occupied.Clear();
         _placementEnabled = true;
         foreach (Vector2I cell in blockedCells)
         {
             if (ContainsCell(cell)) _tiles[cell.X, cell.Y] = TileType.Blocked;
         }
-        for (int i = 1; i < pathCorners.Length; i++)
+        for (int i = 1; i < pathCorners.Count; i++)
         {
             Vector2I start = pathCorners[i - 1];
             Vector2I end = pathCorners[i];

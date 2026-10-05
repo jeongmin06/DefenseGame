@@ -24,3 +24,7 @@
 2. 프로젝트를 실행하면 `stage_one.tscn`이 시작된다.
 3. HUD에서 타입을 선택해 궁수 2명·힐러 1명(Ground)과 전사 1명(Ground 또는 경로)을 모두 배치하면 전투가 시작된다.
 4. 전투 종료 후 `RETRY STAGE`로 다시 실행할 수 있다.
+
+## 밸런스 데이터
+
+`godot-client/balance-json`의 JSON을 편집하고 독립 .NET 변환기로 `godot-client/data`의 Godot Resource를 생성한다. 런타임은 `.tres`만 읽는다. 변환·검증 명령은 [클라이언트 README](godot-client/README.md#데이터와-공통-컴포넌트)를 참고한다.

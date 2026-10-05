@@ -5,16 +5,21 @@ namespace DefenseGame.Client.Combat;
 public partial class UnitHealth : Node
 {
     [Signal] public delegate void DepletedEventHandler();
-    [Export] public float MaxHealth { get; set; } = 20;
+    public float MaxHealth { get; private set; }
     public float CurrentHealth { get; private set; }
     public bool IsAlive => CurrentHealth > 0;
     private ProgressBar _bar = null!;
 
     public override void _Ready()
     {
-        MaxHealth = Mathf.Max(1, MaxHealth);
-        CurrentHealth = MaxHealth;
         _bar = GetNode<ProgressBar>("../HealthBar");
+        UpdateBar();
+    }
+
+    public void Setup(float maxHealth)
+    {
+        MaxHealth = maxHealth;
+        CurrentHealth = maxHealth;
         UpdateBar();
     }
 

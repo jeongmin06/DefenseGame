@@ -112,7 +112,6 @@ animation = &"idle"
 
 [node name="UnitHealth" type="Node" parent="."]
 script = ExtResource("health_script")
-MaxHealth = 18.0
 
 [node name="HealthBar" type="ProgressBar" parent="."]
 visible = false

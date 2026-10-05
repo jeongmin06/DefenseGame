@@ -5,14 +5,16 @@ namespace DefenseGame.Client.Combat;
 public partial class PixelProjectile : Node2D
 {
     private Enemy? _target;
-    private float _damage = 1.0f;
-    private float _speed = 620.0f;
+    private float _damage;
+    private float _speed;
+    private float _hitDistanceSquared;
 
-    public void Setup(Enemy target, float damage, float speed = 620.0f)
+    public void Setup(Enemy target, float damage, float speed, float hitDistance)
     {
         _target = target;
         _damage = damage;
         _speed = speed;
+        _hitDistanceSquared = hitDistance * hitDistance;
         FaceTarget();
         QueueRedraw();
     }
@@ -27,7 +29,7 @@ public partial class PixelProjectile : Node2D
 
         FaceTarget();
         GlobalPosition = GlobalPosition.MoveToward(_target.GlobalPosition, _speed * (float)delta);
-        if (GlobalPosition.DistanceSquaredTo(_target.GlobalPosition) > 100.0f)
+        if (GlobalPosition.DistanceSquaredTo(_target.GlobalPosition) > _hitDistanceSquared)
         {
             return;
         }

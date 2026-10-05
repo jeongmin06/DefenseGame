@@ -1,10 +1,9 @@
-[gd_scene load_steps=20 format=3]
+[gd_scene load_steps=19 format=3]
 
 [ext_resource type="Script" path="res://scripts/combat/Tower.cs" id="1_tower"]
 [ext_resource type="Texture2D" path="res://assets/sprites/cat_archer_attack_sheet.png" id="2_texture"]
 
 [ext_resource type="Script" path="res://scripts/combat/RangedAttack.cs" id="3_attack"]
-[ext_resource type="PackedScene" path="res://scenes/arrow_projectile.tscn" id="4_arrow"]
 
 [ext_resource type="Script" path="res://scripts/visuals/DirectionalAnimatedSprite.cs" id="5_direction"]
 
@@ -114,11 +113,9 @@ animation = &"idle"
 
 [node name="RangedAttack" type="Node2D" parent="."]
 script = ExtResource("3_attack")
-ProjectileScene = ExtResource("4_arrow")
 
 [node name="UnitHealth" type="Node" parent="."]
 script = ExtResource("health_script")
-MaxHealth = 20.0
 
 [node name="HealthBar" type="ProgressBar" parent="."]
 visible = false

@@ -1,17 +1,25 @@
 using Godot;
+using DefenseGame.Client.Data;
 
 namespace DefenseGame.Client.Combat;
 
 public partial class RangedAttack : Node2D
 {
-    [Export]
     public PackedScene? ProjectileScene { get; set; }
 
-    [Export]
-    public float ProjectileSpeed { get; set; } = 620.0f;
+    public float ProjectileSpeed { get; private set; }
 
-    [Export]
-    public Vector2 SpawnOffset { get; set; } = new(28.0f, -28.0f);
+    public Vector2 SpawnOffset { get; private set; }
+
+    private float _hitDistance;
+
+    public void Configure(UnitDefinition definition)
+    {
+        ProjectileScene = definition.ProjectileScene;
+        ProjectileSpeed = definition.ProjectileSpeed;
+        SpawnOffset = definition.ProjectileSpawnOffset;
+        _hitDistance = definition.ProjectileHitDistance;
+    }
 
     public void Fire(Enemy target, float damage, bool facingLeft)
     {
@@ -39,6 +47,6 @@ public partial class RangedAttack : Node2D
         projectileLayer.AddChild(projectile);
         float horizontalOffset = facingLeft ? -SpawnOffset.X : SpawnOffset.X;
         projectile.GlobalPosition = GlobalPosition + new Vector2(horizontalOffset, SpawnOffset.Y);
-        projectile.Setup(target, damage, ProjectileSpeed);
+        projectile.Setup(target, damage, ProjectileSpeed, _hitDistance);
     }
 }

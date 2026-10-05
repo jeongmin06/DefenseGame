@@ -1,4 +1,5 @@
 using Godot;
+using DefenseGame.Client.Data;
 using System.Collections.Generic;
 using DefenseGame.Client.Visuals;
 
@@ -24,13 +25,13 @@ public partial class Warrior : Node2D
         QueueFree();
     }
 
-    [Export] public float Damage { get; set; } = 6;
-    [Export] public float AttackInterval { get; set; } = 0.8f;
-    [Export] public int AttackRangeCells { get; set; } = 1;
-    [Export] public int TargetLimit { get; set; } = 1;
-    [Export] public int BlockCount { get; set; } = 1;
+    public float Damage { get; set; }
+    public float AttackInterval { get; set; }
+    public int AttackRangeCells { get; set; }
+    public int TargetLimit { get; set; }
+    public int BlockCount { get; set; }
     // Empty uses the Manhattan radius; custom offsets support later attack shapes.
-    [Export] public Godot.Collections.Array<Vector2I> AttackCellOffsets { get; set; } = new();
+    public Godot.Collections.Array<Vector2I> AttackCellOffsets { get; set; } = new();
 
     private readonly List<Enemy> _blocked = new();
     private DeploymentGrid _grid = null!;
@@ -40,7 +41,7 @@ public partial class Warrior : Node2D
     private bool _attacking;
     private bool _hitApplied;
     private float _cooldown;
-    private const int HitFrame = 4;
+    private int _hitFrame;
 
     public override void _Ready()
     {
@@ -52,8 +53,16 @@ public partial class Warrior : Node2D
         _sprite.Play("idle");
     }
 
-    public void Setup(DeploymentGrid grid, Vector2I cell)
+    public void Setup(UnitDefinition definition, DeploymentGrid grid, Vector2I cell)
     {
+        _health.Setup(definition.MaxHealth);
+        Damage = definition.ActionPower;
+        AttackInterval = definition.ActionInterval;
+        AttackRangeCells = definition.RangeCells;
+        AttackCellOffsets = new Godot.Collections.Array<Vector2I>(definition.AttackCellOffsets);
+        TargetLimit = definition.TargetLimit;
+        BlockCount = definition.BlockCount;
+        _hitFrame = definition.ActionFrame;
         _grid = grid;
         _cell = cell;
     }
@@ -115,7 +124,7 @@ public partial class Warrior : Node2D
 
     private void OnFrameChanged()
     {
-        if (!_battleActive || !_attacking || _hitApplied || _sprite.Frame < HitFrame) return;
+        if (!_battleActive || !_attacking || _hitApplied || _sprite.Frame < _hitFrame) return;
         _hitApplied = true;
         List<Enemy> targets = FindTargets();
         int count = TargetLimit == 0 ? targets.Count : Mathf.Min(Mathf.Max(0, TargetLimit), targets.Count);

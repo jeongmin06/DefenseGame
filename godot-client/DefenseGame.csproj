@@ -5,4 +5,7 @@
     <RootNamespace>DefenseGame.Client</RootNamespace>
     <Nullable>enable</Nullable>
   </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="tools/**/*.cs" />
+  </ItemGroup>
 </Project>

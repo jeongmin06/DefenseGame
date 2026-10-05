@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "units": [
+    {
+      "id": "cat_archer",
+      "displayName": "cat_archer",
+      "role": "ranged",
+      "scenePath": "res://scenes/tower.tscn",
+      "placement": "ground",
+      "maxHealth": 20,
+      "actionPower": 4,
+      "actionInterval": 0.55,
+      "actionFrame": 5,
+      "targetLimit": 1,
+      "rangePixels": 230,
+      "projectileScenePath": "res://scenes/arrow_projectile.tscn",
+      "projectileSpeed": 620,
+      "projectileHitDistance": 10,
+      "projectileSpawnOffset": [
+        28,
+        -28
+      ]
+    },
+    {
+      "id": "cat_warrior",
+      "displayName": "cat_warrior",
+      "role": "melee",
+      "scenePath": "res://scenes/warrior.tscn",
+      "placement": "ground_or_path",
+      "maxHealth": 30,
+      "actionPower": 6,
+      "actionInterval": 0.8,
+      "actionFrame": 4,
+      "targetLimit": 1,
+      "rangeCells": 1,
+      "attackCellOffsets": [],
+      "blockCount": 1
+    },
+    {
+      "id": "cat_healer",
+      "displayName": "cat_healer",
+      "role": "support",
+      "scenePath": "res://scenes/healer.tscn",
+      "placement": "ground",
+      "maxHealth": 18,
+      "actionPower": 4,
+      "actionInterval": 1,
+      "actionFrame": 5,
+      "targetLimit": 1,
+      "rangePixels": 230
+    },
+    {
+      "id": "mutant_mouse",
+      "displayName": "mutant_mouse",
+      "role": "enemy",
+      "scenePath": "res://scenes/enemy.tscn",
+      "placement": "none",
+      "maxHealth": 12,
+      "actionPower": 3,
+      "actionInterval": 1,
+      "actionFrame": 0,
+      "targetLimit": 1,
+      "moveSpeed": 72
+    }
+  ]
+}

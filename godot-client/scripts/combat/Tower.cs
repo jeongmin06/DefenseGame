@@ -1,4 +1,5 @@
 using Godot;
+using DefenseGame.Client.Data;
 using DefenseGame.Client.Visuals;
 
 namespace DefenseGame.Client.Combat;
@@ -23,14 +24,11 @@ public partial class Tower : Node2D
         QueueFree();
     }
 
-    [Export]
-    public float AttackRange { get; set; } = 230.0f;
+    public float AttackRange { get; set; }
 
-    [Export]
-    public float AttackDamage { get; set; } = 4.0f;
+    public float AttackDamage { get; set; }
 
-    [Export]
-    public float AttackInterval { get; set; } = 0.55f;
+    public float AttackInterval { get; set; }
 
     private float _cooldown = 0.15f;
     private bool _battleActive = true;
@@ -40,7 +38,7 @@ public partial class Tower : Node2D
     private Enemy? _pendingTarget;
     private DirectionalAnimatedSprite _sprite = null!;
 
-    private const int ReleaseFrame = 5;
+    private int _releaseFrame;
     private RangedAttack _rangedAttack = null!;
 
     public override void _Ready()
@@ -52,6 +50,17 @@ public partial class Tower : Node2D
         _sprite.FrameChanged += OnSpriteFrameChanged;
         _sprite.AnimationFinished += OnSpriteAnimationFinished;
         _sprite.Play("idle");
+        QueueRedraw();
+    }
+
+    public void Setup(UnitDefinition definition)
+    {
+        _health.Setup(definition.MaxHealth);
+        AttackRange = definition.RangePixels;
+        AttackDamage = definition.ActionPower;
+        AttackInterval = definition.ActionInterval;
+        _releaseFrame = definition.ActionFrame;
+        _rangedAttack.Configure(definition);
         QueueRedraw();
     }
 
@@ -150,7 +159,7 @@ public partial class Tower : Node2D
 
     private void OnSpriteFrameChanged()
     {
-        if (!_battleActive || !IsAlive || _sprite.Animation != "attack" || _sprite.Frame < ReleaseFrame || _projectileReleased)
+        if (!_battleActive || !IsAlive || _sprite.Animation != "attack" || _sprite.Frame < _releaseFrame || _projectileReleased)
         {
             return;
         }

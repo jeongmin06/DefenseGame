@@ -1,4 +1,5 @@
 using Godot;
+using DefenseGame.Client.Data;
 using DefenseGame.Client.Visuals;
 
 namespace DefenseGame.Client.Combat;
@@ -6,9 +7,9 @@ namespace DefenseGame.Client.Combat;
 public partial class Healer : Node2D
 {
     [Signal] public delegate void DefeatedEventHandler(Healer unit);
-    [Export] public float HealRange { get; set; } = 230;
-    [Export] public float HealAmount { get; set; } = 4;
-    [Export] public float HealInterval { get; set; } = 1;
+    public float HealRange { get; set; }
+    public float HealAmount { get; set; }
+    public float HealInterval { get; set; }
     public float CurrentHealth => _health.CurrentHealth;
     public float MaxHealth => _health.MaxHealth;
     public bool IsAlive => _health.IsAlive;
@@ -18,7 +19,7 @@ public partial class Healer : Node2D
     private bool _casting;
     private bool _applied;
     private float _cooldown;
-    private const int HealFrame = 5;
+    private int _healFrame;
 
     public override void _Ready()
     {
@@ -28,6 +29,15 @@ public partial class Healer : Node2D
         _sprite.FrameChanged += OnFrameChanged;
         _sprite.AnimationFinished += ResetAnimation;
         _sprite.Play("idle");
+    }
+
+    public void Setup(UnitDefinition definition)
+    {
+        _health.Setup(definition.MaxHealth);
+        HealRange = definition.RangePixels;
+        HealAmount = definition.ActionPower;
+        HealInterval = definition.ActionInterval;
+        _healFrame = definition.ActionFrame;
     }
 
     public void TakeDamage(float amount)
@@ -86,7 +96,7 @@ public partial class Healer : Node2D
 
     private void OnFrameChanged()
     {
-        if (!_battleActive || !_casting || _applied || _sprite.Frame < HealFrame) return;
+        if (!_battleActive || !_casting || _applied || _sprite.Frame < _healFrame) return;
         _applied = true;
         Node2D? target = FindHealingTarget();
         if (target is null) return;

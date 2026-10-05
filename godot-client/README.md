@@ -10,7 +10,7 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 4. HUD의 ARCHER/WARRIOR/HEALER 버튼으로 타입을 선택한다. 궁수 2명과 힐러 1명은 빈 Ground, 전사 1명은 빈 Ground 또는 EnemyPath에 무료 배치한다. 네 유닛 모두 배치하면 0.8초 뒤 첫 웨이브가 시작된다.
 5. 전투 종료 후 `RETRY STAGE`를 누르면 빈 타일 격자와 궁수 2명·전사 1명·힐러 1명으로 초기화된다.
 
-현재 개발 환경에서는 `/Users/jeongmin06/Downloads/Godot_mono.app`을 사용한다.
+현재 개발 환경에서는 `/Applications/Godot_mono.app`을 사용한다.
 
 ## 현재 범위
 
@@ -40,14 +40,21 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 
 저장소의 `docs/qa_checklist.md`에 있는 `Godot 기본 스테이지 1` 항목을 따른다.
 
-## 공통 원거리 공격 재사용
+## 데이터와 공통 컴포넌트
 
-- 공격 캐릭터의 `Node2D` 아래에 `RangedAttack.cs`를 붙인 `Node2D`를 추가한다.
-- Inspector의 `ProjectileScene`에 `scenes/arrow_projectile.tscn`을 연결한다. 다른 투사체 씬도 루트에 `PixelProjectile` 또는 파생 스크립트를 사용하면 연결할 수 있다.
-- 공격 애니메이션의 발사 프레임에서 `rangedAttack.Fire(target, damage, facingLeft)`를 호출한다. 대상 선정, 공격 주기, 애니메이션은 호출 캐릭터가 담당한다.
-- `ProjectileSpeed`는 기본 620, `SpawnOffset`은 기본 `(28, -28)`이다. 컴포넌트의 전역 위치를 기준으로 왼쪽 공격에서는 X 오프셋만 반전한다.
-- 현재 씬의 `Projectiles` 노드에 화살을 추가한다. 해당 노드가 없으면 현재 씬에 추가한다.
-- `PixelProjectile.cs`는 목재 몸통·금색 화살촉·깃을 그리고, 목표를 향한 이동 방향으로 회전한다. 명중하거나 대상이 사라지면 제거된다.
+밸런스 원본은 `balance-json/units.json`, `balance-json/stages.json`이다. JSON 수정 후 아래 변환기를 실행하고 생성된 `data/**/*.tres`도 함께 커밋한다. 런타임에서는 JSON을 읽지 않는다. `stage_one.tscn`의 `Definition`은 `data/stages/stage_01.tres` 하나만 참조한다.
+
+```bash
+dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godot-client/balance-json --output godot-client/data
+dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godot-client/balance-json --output godot-client/data --check
+dotnet build godot-client/DefenseGame.csproj
+```
+
+저장소 루트에서 실행한다. JSON 필드, 검증 범위, 오류 처리와 테스트 명령은 [변환기 README](tools/DefenseGame.DataImporter/README.md)를 참고한다. `.tres`는 생성물이므로 직접 편집하지 않는다.
+
+씬을 트리에 추가한 뒤 `Tower.Setup(UnitDefinition)`, `Healer.Setup(UnitDefinition)`, `Warrior.Setup(UnitDefinition, DeploymentGrid, cell)`, `Enemy.Setup(UnitDefinition, healthOverride, speedOverride)`를 호출한다. 체력·공격·치유·투사체 수치는 인스턴스에 복사하며 Resource는 수정하지 않는다. 편성, 웨이브, 기지 체력, 대기 시간, 경로와 격자 규격은 `StageDefinition`에서 읽는다.
+
+원거리 캐릭터는 `RangedAttack.Configure(UnitDefinition)`으로 투사체 씬·속도·명중 거리·발사 오프셋을 복사하고 `Fire(target, damage, facingLeft)`로 발사한다. 현재 씬의 `Projectiles` 노드(없으면 현재 씬)에 생성한다. 대상 선정과 애니메이션 타이밍은 호출 캐릭터가 담당한다. `PixelProjectile`은 이동 방향 회전·명중 피해·대상 소멸 시 제거를 담당한다.
 
 ### 검증
 
@@ -64,7 +71,7 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 
 ## 근접 전사
 
-`Warrior.cs`와 `warrior.tscn`은 검 공격 8프레임과 idle을 사용한다. 기본값은 `Damage=6`, `AttackInterval=0.8`, `AttackRangeCells=1`, `TargetLimit=1`, `BlockCount=1`이다. 프레임 4에서 현재 범위의 적에게 직접 피해를 주며 투사체는 생성하지 않는다. 경로 진행도가 높은 적을 우선한다.
+`Warrior.cs`와 `warrior.tscn`은 검 공격 8프레임과 idle을 사용한다. 현재 JSON 값은 `Damage=6`, `AttackInterval=0.8`, `AttackRangeCells=1`, `TargetLimit=1`, `BlockCount=1`이다. 프레임 4에서 현재 범위의 적에게 직접 피해를 주며 투사체는 생성하지 않는다. 경로 진행도가 높은 적을 우선한다.
 
 범위는 자기 셀과 상하좌우(맨해튼 거리)이며 `AttackCellOffsets`를 지정하면 다른 셀 집합으로 교체할 수 있다. `TargetLimit=0`은 범위 내 전체 타격이다. 적의 `TryBlock`/`ReleaseBlock`과 노드 종료 정리로 저지 관계를 해제한다. 실제 화면에서는 검 타격 시점, 좌우 반전, 시안 가장자리, HUD 버튼과 경로 위 저지 동작을 확인한다.
 
