@@ -28,6 +28,13 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
     write(units, stages)
     assert run().returncode == 0
     baseline = snapshot(output)
+    assert set(baseline) == {
+        'units/cat_archer.tres', 'units/cat_healer.tres', 'units/cat_warrior.tres',
+        'units/mutant_mouse.tres', 'stages/stage_01.tres', 'stages/stage_02.tres',
+        'stages/stage_03.tres', 'stages/catalog.tres'
+    }
+    catalog = (output / 'stages/catalog.tres').read_text()
+    assert all(f'stage_0{i}.tres' in catalog for i in range(1, 4))
     assert run().returncode == 0 and snapshot(output) == baseline
     assert run('--check').returncode == 0 and snapshot(output) == baseline
     cases = [
@@ -56,6 +63,7 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         ('enemy reference', 'stages', lambda d: d['stages'][0]['waves'][0].update(enemyId='cat_healer'), '.enemyId'),
         ('override', 'stages', lambda d: d['stages'][0]['waves'][0].update(speedOverride=-1), '.speedOverride'),
         ('unknown field', 'stages', lambda d: d['stages'][0].update(typo=1), '.typo'),
+        ('duplicate stage', 'stages', lambda d: d['stages'].append(copy.deepcopy(d['stages'][0])), '.id'),
     ]
     for name, kind, mutate, field in cases:
         u, s = copy.deepcopy(units), copy.deepcopy(stages)

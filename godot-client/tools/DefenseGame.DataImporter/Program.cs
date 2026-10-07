@@ -186,6 +186,7 @@ sealed class Pipeline(string project)
         var result = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach (var (id, unit) in units.OrderBy(p => p.Key, StringComparer.Ordinal)) result[$"units/{id}.tres"] = RenderUnit(unit);
         foreach (var stage in stages) { var s = stage!.AsObject(); result[$"stages/{S(s, "id")}.tres"] = RenderStage(s); }
+        result["stages/catalog.tres"] = RenderStageCatalog(stages);
         return result;
     }
     void ValidateStage(JsonObject s, string p, HashSet<string> ids)
@@ -307,6 +308,21 @@ sealed class Pipeline(string project)
         b.AppendLine("Grid = " + Sub("grid") + "\nPathCorners = " + PointsText(s["pathCorners"]) + "\nBlockedCells = " + PointsText(s["blockedCells"]));
         b.AppendLine("Roster = Array[" + Ext("RosterEntry") + "]([" + string.Join(", ", Enumerable.Range(0, roster.Count).Select(i => Sub("roster_" + i))) + "])");
         b.AppendLine("Waves = Array[" + Ext("WaveDefinition") + "]([" + string.Join(", ", Enumerable.Range(0, waves.Count).Select(i => Sub("wave_" + i))) + "])");
+        return b.ToString().Replace("\r\n", "\n");
+    }
+
+    static string RenderStageCatalog(JsonArray stages)
+    {
+        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={3 + stages.Count} format=3]\n\n");
+        b.Append(Script("StageCatalog", "StageCatalog"));
+        b.Append(Script("StageDefinition", "StageDefinition"));
+        for (int i = 0; i < stages.Count; i++)
+        {
+            string id = S(stages[i]!.AsObject(), "id");
+            b.AppendLine($"[ext_resource type=\"Resource\" path=\"res://data/stages/{id}.tres\" id=\"stage_{i}\"]");
+        }
+        b.AppendLine("\n[resource]\nscript = " + Ext("StageCatalog"));
+        b.AppendLine("Stages = Array[" + Ext("StageDefinition") + "]([" + string.Join(", ", Enumerable.Range(0, stages.Count).Select(i => Ext("stage_" + i))) + "])");
         return b.ToString().Replace("\r\n", "\n");
     }
 }

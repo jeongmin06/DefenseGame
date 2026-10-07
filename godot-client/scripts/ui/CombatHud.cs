@@ -8,6 +8,8 @@ public partial class CombatHud : CanvasLayer
     [Signal] public delegate void ArcherSelectedEventHandler();
     [Signal] public delegate void WarriorSelectedEventHandler();
     [Signal] public delegate void HealerSelectedEventHandler();
+    [Signal] public delegate void RetryRequestedEventHandler();
+    [Signal] public delegate void StageListRequestedEventHandler();
     private Button _healerButton = null!;
     private Button _archerButton = null!;
     private Button _warriorButton = null!;
@@ -20,10 +22,13 @@ public partial class CombatHud : CanvasLayer
     private Label _resultTitle = null!;
     private Label _resultDetail = null!;
     private Button _restartButton = null!;
+    private Button _stageListButton = null!;
+    private Label _title = null!;
 
     public override void _Ready()
     {
         _healerButton = GetNode<Button>("TopPanel/HealerButton");
+        _title = GetNode<Label>("TopPanel/Title");
         _healerButton.Pressed += () => EmitSignal(SignalName.HealerSelected);
         _archerButton = GetNode<Button>("TopPanel/ArcherButton");
         _warriorButton = GetNode<Button>("TopPanel/WarriorButton");
@@ -38,7 +43,14 @@ public partial class CombatHud : CanvasLayer
         _resultTitle = GetNode<Label>("ResultPanel/ResultTitle");
         _resultDetail = GetNode<Label>("ResultPanel/ResultDetail");
         _restartButton = GetNode<Button>("ResultPanel/RestartButton");
-        _restartButton.Pressed += RestartStage;
+        _restartButton.Pressed += () => EmitSignal(SignalName.RetryRequested);
+        _stageListButton = GetNode<Button>("ResultPanel/StageListButton");
+        _stageListButton.Pressed += () => EmitSignal(SignalName.StageListRequested);
+    }
+
+    public void UpdateStage(string displayName, string id)
+    {
+        _title.Text = $"{displayName.ToUpperInvariant()}  //  {id.Replace('_', ' ').ToUpperInvariant()}";
     }
 
     public void UpdatePlacement(int archers, int warriors, int healers, DeploymentGrid.PlacementType selected)
@@ -85,11 +97,6 @@ public partial class CombatHud : CanvasLayer
         _resultTitle.Modulate = victory ? Rgb(255, 209, 102) : Rgb(255, 107, 94);
         _resultDetail.Text = $"Defeated {defeated}  /  Escaped {escaped}";
         _restartButton.GrabFocus();
-    }
-
-    private void RestartStage()
-    {
-        GetTree().ReloadCurrentScene();
     }
 
     private static Color Rgb(byte red, byte green, byte blue, byte alpha = 255)

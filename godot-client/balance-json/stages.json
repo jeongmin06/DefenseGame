@@ -97,6 +97,140 @@
           "speedOverride": 92
         }
       ]
+    },
+    {
+      "id": "stage_02",
+      "displayName": "Iron Path II",
+      "baseHealth": 5,
+      "firstWaveDelay": 0.8,
+      "waveGap": 2,
+      "grid": {
+        "columns": 16,
+        "rows": 8,
+        "cellSize": 75,
+        "origin": [
+          40,
+          120
+        ]
+      },
+      "pathCorners": [
+        [-2, 3],
+        [1, 3],
+        [1, 0],
+        [6, 0],
+        [6, 5],
+        [11, 5],
+        [11, 2],
+        [17, 2]
+      ],
+      "blockedCells": [
+        [15, 0],
+        [15, 1]
+      ],
+      "roster": [
+        {
+          "unitId": "cat_archer",
+          "count": 2
+        },
+        {
+          "unitId": "cat_warrior",
+          "count": 1
+        },
+        {
+          "unitId": "cat_healer",
+          "count": 1
+        }
+      ],
+      "waves": [
+        {
+          "enemyId": "mutant_mouse",
+          "count": 8,
+          "interval": 1.15,
+          "healthOverride": 12,
+          "speedOverride": 72
+        },
+        {
+          "enemyId": "mutant_mouse",
+          "count": 10,
+          "interval": 0.9,
+          "healthOverride": 17,
+          "speedOverride": 82
+        },
+        {
+          "enemyId": "mutant_mouse",
+          "count": 12,
+          "interval": 0.72,
+          "healthOverride": 23,
+          "speedOverride": 92
+        }
+      ]
+    },
+    {
+      "id": "stage_03",
+      "displayName": "Iron Path III",
+      "baseHealth": 5,
+      "firstWaveDelay": 0.8,
+      "waveGap": 2,
+      "grid": {
+        "columns": 16,
+        "rows": 8,
+        "cellSize": 75,
+        "origin": [
+          40,
+          120
+        ]
+      },
+      "pathCorners": [
+        [-2, 3],
+        [1, 3],
+        [1, 0],
+        [6, 0],
+        [6, 5],
+        [11, 5],
+        [11, 2],
+        [17, 2]
+      ],
+      "blockedCells": [
+        [15, 0],
+        [15, 1]
+      ],
+      "roster": [
+        {
+          "unitId": "cat_archer",
+          "count": 2
+        },
+        {
+          "unitId": "cat_warrior",
+          "count": 1
+        },
+        {
+          "unitId": "cat_healer",
+          "count": 1
+        }
+      ],
+      "waves": [
+        {
+          "enemyId": "mutant_mouse",
+          "count": 12,
+          "interval": 1.15,
+          "healthOverride": 12,
+          "speedOverride": 72
+        },
+        {
+          "enemyId": "mutant_mouse",
+          "count": 14,
+          "interval": 0.9,
+          "healthOverride": 17,
+          "speedOverride": 82
+        },
+        {
+          "enemyId": "mutant_mouse",
+          "count": 16,
+          "interval": 0.72,
+          "healthOverride": 23,
+          "speedOverride": 92
+        }
+      ]
     }
   ]
 }

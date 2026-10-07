@@ -46,7 +46,7 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 
 ## 생성과 실패 처리
 
-`UnitDefinition`, `StageDefinition`, `GridDefinition`, `RosterEntry`, `WaveDefinition`은 타입이 지정된 C# Resource다. 씬과 유닛은 Resource 참조로, 셀 좌표와 하위 Resource 목록은 typed Array로 직렬화한다. 런타임의 피해·버프·점유·편성 잔여 수는 Resource를 수정하지 않는다.
+`UnitDefinition`, `StageDefinition`, `StageCatalog`, `GridDefinition`, `RosterEntry`, `WaveDefinition`은 타입이 지정된 C# Resource다. 씬과 유닛은 Resource 참조로, 셀 좌표와 하위 Resource 목록은 typed Array로 직렬화한다. 각 스테이지와 함께 입력 순서를 보존한 `stages/catalog.tres`를 생성한다. 런타임의 피해·버프·점유·편성 잔여 수는 Resource를 수정하지 않는다.
 
 모든 검증과 메모리상 렌더링이 끝난 뒤 임시 형제 디렉터리를 작성하고 교체한다. 검증 실패 시 종료 코드 1과 `stages[0].waves[1].enemyId` 같은 필드 경로를 출력하고 기존 출력은 보존한다. 생성 대상에서 사라진 `.tres`는 삭제되므로 출력 폴더는 생성물 전용으로 사용한다. 파일 교체 실패 시 기존 디렉터리 복원을 시도한다. 프로세스 강제 종료·전원 차단에 대한 파일 시스템 트랜잭션까지 제공하지는 않는다.
 
@@ -60,6 +60,7 @@ python3 godot-client/tools/tests/test_importer.py
 dotnet build godot-client/DefenseGame.csproj
 /Applications/Godot_mono.app/Contents/MacOS/Godot --headless --editor --path godot-client --import --quit
 /Applications/Godot_mono.app/Contents/MacOS/Godot --headless --path godot-client --fixed-fps 60 --quit-after 600 --script res://tests/resource_regression.gd --log-file /tmp/defense-resource-qa.log
+/Applications/Godot_mono.app/Contents/MacOS/Godot --headless --path godot-client --fixed-fps 60 --quit-after 600 --script res://tests/stage_selection_regression.gd --log-file /tmp/defense-stage-selection.log
 /Applications/Godot_mono.app/Contents/MacOS/Godot --headless --path godot-client --fixed-fps 60 --quit-after 14000 --script res://tests/healer_regression.gd --log-file /tmp/defense-healer-qa.log
 ```
 

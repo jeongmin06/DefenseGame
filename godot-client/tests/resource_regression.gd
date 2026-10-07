@@ -15,6 +15,13 @@ func _initialize(): run.call_deferred()
 func run():
     var definition = load("res://data/stages/stage_01.tres")
     check(definition.Id == "stage_01" and definition.Roster.size() == 3 and definition.Waves.size() == 3, "Typed stage resources")
+    var catalog = load("res://data/stages/catalog.tres")
+    check(catalog.Stages.size() == 3, "Stage catalog size")
+    var expected_totals = [21, 30, 42]
+    for stage_index in range(catalog.Stages.size()):
+        var total := 0
+        for wave in catalog.Stages[stage_index].Waves: total += wave.Count
+        check(total == expected_totals[stage_index], "Stage enemy total")
     change_scene_to_file("res://scenes/stage_one.tscn")
     await process_frame
     await process_frame

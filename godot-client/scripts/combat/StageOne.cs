@@ -33,6 +33,9 @@ public partial class StageOne : Node2D
 
     public override void _Ready()
     {
+        if (StageSelectionState.SelectedStage is not null)
+            Definition = StageSelectionState.SelectedStage;
+
         _enemyPath = GetNode<Path2D>("EnemyPath");
         _spawnTimer = GetNode<Timer>("SpawnTimer");
         _hud = GetNode<UI.CombatHud>("HUD");
@@ -61,10 +64,21 @@ public partial class StageOne : Node2D
         _hud.ArcherSelected += () => SelectPlacementType(DeploymentGrid.PlacementType.Ranged);
         _hud.WarriorSelected += () => SelectPlacementType(DeploymentGrid.PlacementType.Melee);
         _hud.HealerSelected += () => SelectPlacementType(DeploymentGrid.PlacementType.Support);
+        _hud.RetryRequested += RestartStage;
+        _hud.StageListRequested += ReturnToStageList;
+        _hud.UpdateStage(Definition.DisplayName, Definition.Id);
         BuildEnemyPath();
         _spawnTimer.Timeout += SpawnEnemy;
         UpdateHud();
         UpdatePlacementHud();
+    }
+
+    public void RestartStage() => GetTree().ReloadCurrentScene();
+
+    public void ReturnToStageList()
+    {
+        StageSelectionState.SelectedStage = null;
+        GetTree().ChangeSceneToFile("res://scenes/stage_select.tscn");
     }
 
     public override void _Draw()

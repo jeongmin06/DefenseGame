@@ -6,26 +6,29 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 
 1. Godot 4 .NET 안정 버전과 .NET SDK를 설치한다.
 2. `project.godot`을 Import 한다.
-3. 프로젝트 실행 버튼을 누른다.
+3. 프로젝트 실행 버튼을 누르고 총 몬스터 수가 다른 세 스테이지 중 하나를 선택한다.
 4. HUD의 ARCHER/WARRIOR/HEALER 버튼으로 타입을 선택한다. 궁수 2명과 힐러 1명은 빈 Ground, 전사 1명은 빈 Ground 또는 EnemyPath에 무료 배치한다. 네 유닛 모두 배치하면 0.8초 뒤 첫 웨이브가 시작된다.
-5. 전투 종료 후 `RETRY STAGE`를 누르면 빈 타일 격자와 궁수 2명·전사 1명·힐러 1명으로 초기화된다.
+5. 전투 종료 후 `RETRY STAGE`로 같은 스테이지를 다시 시작하거나 `STAGE LIST`로 목록에 돌아간다.
 
 현재 개발 환경에서는 `/Applications/Godot_mono.app`을 사용한다.
 
 ## 현재 범위
 
-- 밝은 잔디밭과 따뜻한 흙길의 단일 경로
+- 몬스터 수 21·30·42로 구분되는 세 스테이지 선택
+- 밝은 잔디밭과 따뜻한 흙길의 공용 단일 경로
 - 이동 방향을 바라보는 4족 유전자 조작 생쥐 적 한 종류
 - 8프레임 활 공격 애니메이션을 사용하는 SD 고양이 궁수 타워 두 개
 - 궁수 2명·근접 전사 1명·힐러 1명 직접 배치, 점유·Blocked 및 재고 초과 배치 차단
 - 배치 완료 후 자동 시작하는 세 개 웨이브
 - 궁수의 투사체 공격과 전사의 직접 근접 공격·적 1명 저지
 - 기지 체력과 전투 HUD
-- 승리, 패배, 재시작
+- 승리, 패배, 같은 스테이지 재시작과 목록 복귀
 
 ## 주요 파일
 
-- `scenes/stage_one.tscn`: 실행되는 기본 스테이지
+- `scenes/stage_select.tscn`: JSON에서 생성된 카탈로그 기반 시작 화면
+- `scenes/stage_one.tscn`: 선택한 정의를 실행하는 전투 씬
+- `scripts/ui/StageSelect.cs`: 동적 스테이지 버튼과 선택 상태 연결
 - `scripts/combat/StageOne.cs`: 웨이브와 승패 흐름
 - `scripts/combat/Enemy.cs`: 적 이동과 체력
 - `scripts/combat/DeploymentGrid.cs`: 타일 종류, 배치 프로필, 좌표 변환, 점유·클릭·격자 표시
@@ -42,7 +45,7 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 
 ## 데이터와 공통 컴포넌트
 
-밸런스 원본은 `balance-json/units.json`, `balance-json/stages.json`이다. JSON 수정 후 아래 변환기를 실행하고 생성된 `data/**/*.tres`도 함께 커밋한다. 런타임에서는 JSON을 읽지 않는다. `stage_one.tscn`의 `Definition`은 `data/stages/stage_01.tres` 하나만 참조한다.
+밸런스 원본은 `balance-json/units.json`, `balance-json/stages.json`이다. JSON 수정 후 아래 변환기를 실행하고 생성된 `data/**/*.tres`도 함께 커밋한다. 런타임에서는 JSON을 읽지 않는다. 변환기는 각 스테이지와 `data/stages/catalog.tres`를 생성하며 선택 화면은 카탈로그 순서대로 버튼을 만든다. 전투 씬을 직접 실행할 때만 `stage_01.tres`를 기본값으로 사용한다.
 
 ```bash
 dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godot-client/balance-json --output godot-client/data
