@@ -1,0 +1,26 @@
+[gd_resource type="Resource" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/SkillDefinition.cs" id="SkillDefinition"]
+[ext_resource type="Script" path="res://scripts/data/SkillEffectDefinition.cs" id="SkillEffectDefinition"]
+
+[sub_resource type="Resource" id="effect_0"]
+script = ExtResource("SkillEffectDefinition")
+Type = 2
+FloatValue = 2
+
+[sub_resource type="Resource" id="effect_1"]
+script = ExtResource("SkillEffectDefinition")
+Type = 4
+TagValue = "FIRE"
+
+[resource]
+script = ExtResource("SkillDefinition")
+Id = "fire_infusion"
+DisplayName = "Fire Infusion"
+Role = 1
+Tags = Array[String]([])
+RequiredAnyTags = Array[String](["HIT"])
+RequiredAllTags = Array[String]([])
+ForbiddenTags = Array[String]([])
+LinkCost = 1
+Effects = Array[ExtResource("SkillEffectDefinition")]([SubResource("effect_0"), SubResource("effect_1")])

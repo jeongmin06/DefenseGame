@@ -11,7 +11,7 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 
 ## 입력 계약
 
-두 문서 모두 `schemaVersion: 1`을 사용한다. `units.json`은 `units` 배열, `stages.json`은 `stages` 배열을 포함한다. 알 수 없는 필드를 거부한다. JSON의 순서와 관계없이 출력 파일명과 유닛 참조 순서는 일정하며 숫자는 invariant culture, 줄바꿈은 LF, 인코딩은 BOM 없는 UTF-8이다. 편성·경로·웨이브 배열 순서는 의미가 있으므로 보존한다.
+세 문서 모두 `schemaVersion: 1`을 사용한다. `units.json`은 `units` 배열, `stages.json`은 `stages` 배열, `skills.json`은 `skills` 배열을 포함한다. 알 수 없는 필드를 거부한다. JSON의 순서와 관계없이 출력 파일명과 Resource 참조 순서는 일정하며 숫자는 invariant culture, 줄바꿈은 LF, 인코딩은 BOM 없는 UTF-8이다. 편성·경로·웨이브·스킬 배열 순서는 의미가 있으므로 보존한다.
 
 유닛 공통 필드:
 
@@ -44,9 +44,27 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 
 현재 HUD가 지원하는 ranged/melee/support 각 한 정의를 편성에 정확히 한 번 포함해야 한다. 편성 수는 자유롭게 바꿀 수 있다. 새 역할, 여러 동일 역할 정의의 선택 UI, 애니메이션 이름 변경, 사용자 지정 씬 루트 타입 검증은 별도 코드 변경/실행 검증이 필요하다. 변환기는 씬을 실행하지 않으므로 Godot 로드 검증을 함께 실행한다.
 
+스킬 공통 필드:
+
+- `id`, `displayName`, `role`: 역할은 `active` 또는 `support`
+- `tags`, `requiredAnyTags`, `requiredAllTags`, `forbiddenTags`: 알려진 태그의 배열이며 중복과 요구·금지 조건의 충돌을 거부
+- `linkCost`: 액티브는 0, 보조는 1
+- `effects`: 액티브는 빈 배열, 보조는 하나 이상의 타입 지정 효과
+
+현재 태그는 `ATTACK`, `BOW`, `PROJECTILE`, `PHYSICAL`, `HIT`, `FIRE`, `HEAL`만 허용한다. 액티브는 양수 `baseProjectileCount`, 0 이상 `basePierceCount`, 양수 `baseDamageMultiplier`를 추가로 가진다. 보조 효과 계약은 다음과 같다.
+
+| type | 필수 값 | 제약 |
+|---|---|---|
+| add_projectiles, add_pierce | intValue | 양의 정수 |
+| add_fire_damage | floatValue | 양수 |
+| multiply_damage, multiply_healing | floatValue | 양수 |
+| add_tag | tagValue | 알려진 태그 |
+
+스킬은 `data/skills/<id>.tres`와 입력 순서를 보존한 `data/skills/catalog.tres`로 생성된다. 초기 데이터는 `basic_arrow`, `multiple_projectiles`, `piercing_shot`, `fire_infusion`, `healing_amplification` 다섯 개다. 치유 증폭은 `HEAL` 태그 비호환 검증을 위한 정상 데이터다.
+
 ## 생성과 실패 처리
 
-`UnitDefinition`, `StageDefinition`, `StageCatalog`, `GridDefinition`, `RosterEntry`, `WaveDefinition`은 타입이 지정된 C# Resource다. 씬과 유닛은 Resource 참조로, 셀 좌표와 하위 Resource 목록은 typed Array로 직렬화한다. 각 스테이지와 함께 입력 순서를 보존한 `stages/catalog.tres`를 생성한다. 런타임의 피해·버프·점유·편성 잔여 수는 Resource를 수정하지 않는다.
+`UnitDefinition`, `StageDefinition`, `StageCatalog`, `GridDefinition`, `RosterEntry`, `WaveDefinition`, `SkillDefinition`, `SkillEffectDefinition`, `SkillCatalog`은 타입이 지정된 C# Resource다. 씬·유닛·스킬은 Resource 참조로, 셀 좌표와 하위 Resource 목록은 typed Array로 직렬화한다. 런타임의 피해·버프·점유·편성 잔여 수와 장착 결과는 Resource를 수정하지 않는다.
 
 모든 검증과 메모리상 렌더링이 끝난 뒤 임시 형제 디렉터리를 작성하고 교체한다. 검증 실패 시 종료 코드 1과 `stages[0].waves[1].enemyId` 같은 필드 경로를 출력하고 기존 출력은 보존한다. 생성 대상에서 사라진 `.tres`는 삭제되므로 출력 폴더는 생성물 전용으로 사용한다. 파일 교체 실패 시 기존 디렉터리 복원을 시도한다. 프로세스 강제 종료·전원 차단에 대한 파일 시스템 트랜잭션까지 제공하지는 않는다.
 

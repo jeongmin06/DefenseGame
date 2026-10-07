@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 1,
+  "skills": [
+    {
+      "id": "basic_arrow",
+      "displayName": "Basic Arrow",
+      "role": "active",
+      "tags": ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"],
+      "requiredAnyTags": [],
+      "requiredAllTags": [],
+      "forbiddenTags": [],
+      "linkCost": 0,
+      "baseProjectileCount": 1,
+      "basePierceCount": 0,
+      "baseDamageMultiplier": 1.0,
+      "effects": []
+    },
+    {
+      "id": "multiple_projectiles",
+      "displayName": "Multiple Projectiles",
+      "role": "support",
+      "tags": [],
+      "requiredAnyTags": ["PROJECTILE"],
+      "requiredAllTags": [],
+      "forbiddenTags": [],
+      "linkCost": 1,
+      "effects": [
+        {"type": "add_projectiles", "intValue": 2},
+        {"type": "multiply_damage", "floatValue": 0.7}
+      ]
+    },
+    {
+      "id": "piercing_shot",
+      "displayName": "Piercing Shot",
+      "role": "support",
+      "tags": [],
+      "requiredAnyTags": ["PROJECTILE"],
+      "requiredAllTags": [],
+      "forbiddenTags": [],
+      "linkCost": 1,
+      "effects": [
+        {"type": "add_pierce", "intValue": 1}
+      ]
+    },
+    {
+      "id": "fire_infusion",
+      "displayName": "Fire Infusion",
+      "role": "support",
+      "tags": [],
+      "requiredAnyTags": ["HIT"],
+      "requiredAllTags": [],
+      "forbiddenTags": [],
+      "linkCost": 1,
+      "effects": [
+        {"type": "add_fire_damage", "floatValue": 2.0},
+        {"type": "add_tag", "tagValue": "FIRE"}
+      ]
+    },
+    {
+      "id": "healing_amplification",
+      "displayName": "Healing Amplification",
+      "role": "support",
+      "tags": [],
+      "requiredAnyTags": ["HEAL"],
+      "requiredAllTags": [],
+      "forbiddenTags": [],
+      "linkCost": 1,
+      "effects": [
+        {"type": "multiply_healing", "floatValue": 1.5}
+      ]
+    }
+  ]
+}

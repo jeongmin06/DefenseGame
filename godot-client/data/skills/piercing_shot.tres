@@ -1,0 +1,21 @@
+[gd_resource type="Resource" load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/SkillDefinition.cs" id="SkillDefinition"]
+[ext_resource type="Script" path="res://scripts/data/SkillEffectDefinition.cs" id="SkillEffectDefinition"]
+
+[sub_resource type="Resource" id="effect_0"]
+script = ExtResource("SkillEffectDefinition")
+Type = 1
+IntValue = 1
+
+[resource]
+script = ExtResource("SkillDefinition")
+Id = "piercing_shot"
+DisplayName = "Piercing Shot"
+Role = 1
+Tags = Array[String]([])
+RequiredAnyTags = Array[String](["PROJECTILE"])
+RequiredAllTags = Array[String]([])
+ForbiddenTags = Array[String]([])
+LinkCost = 1
+Effects = Array[ExtResource("SkillEffectDefinition")]([SubResource("effect_0")])

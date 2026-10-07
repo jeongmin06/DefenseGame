@@ -71,6 +71,9 @@ sealed class Pipeline(string project)
 {
     static readonly string[] Roles = ["ranged", "melee", "support", "enemy"];
     static readonly string[] Placements = ["ground", "ground_or_path", "none"];
+    static readonly string[] SkillRoles = ["active", "support"];
+    static readonly string[] SkillTags = ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT", "FIRE", "HEAL"];
+    static readonly string[] SkillEffectTypes = ["add_projectiles", "add_pierce", "add_fire_damage", "multiply_damage", "add_tag", "multiply_healing"];
     readonly Dictionary<string, JsonObject> units = new(StringComparer.Ordinal);
     static void Fail(string path, string message) => throw new InvalidDataException($"{path}: {message}");
     static JsonObject Obj(JsonNode? node, string path) => node as JsonObject ?? throw new InvalidDataException($"{path}: expected object");
@@ -125,6 +128,27 @@ sealed class Pipeline(string project)
         var points = new List<double[]>();
         for (int i = 0; i < a.Count; i++) points.Add(Pair(a[i], $"{path}[{i}]", true));
         return points;
+    }
+    static string[] Tags(JsonNode? node, string path)
+    {
+        var a = Arr(node, path);
+        var result = new string[a.Count];
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < a.Count; i++)
+        {
+            string tag;
+            if (a[i] is not JsonValue value || !value.TryGetValue<string>(out string? parsedTag))
+            {
+                Fail($"{path}[{i}]", "unknown tag");
+                return result;
+            }
+            tag = parsedTag!;
+            if (!SkillTags.Contains(tag))
+                Fail($"{path}[{i}]", "unknown tag");
+            if (!seen.Add(tag)) Fail($"{path}[{i}]", "duplicate tag");
+            result[i] = tag;
+        }
+        return result;
     }
     static JsonArray Document(string file, string key)
     {
@@ -183,11 +207,75 @@ sealed class Pipeline(string project)
         var stages = Document(Path.Combine(input, "stages.json"), "stages");
         var stageIds = new HashSet<string>();
         for (int i = 0; i < stages.Count; i++) ValidateStage(Obj(stages[i], $"stages[{i}]"), $"stages[{i}]", stageIds);
+        var skills = Document(Path.Combine(input, "skills.json"), "skills");
+        var skillIds = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < skills.Count; i++) ValidateSkill(Obj(skills[i], $"skills[{i}]"), $"skills[{i}]", skillIds);
         var result = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach (var (id, unit) in units.OrderBy(p => p.Key, StringComparer.Ordinal)) result[$"units/{id}.tres"] = RenderUnit(unit);
         foreach (var stage in stages) { var s = stage!.AsObject(); result[$"stages/{S(s, "id")}.tres"] = RenderStage(s); }
         result["stages/catalog.tres"] = RenderStageCatalog(stages);
+        foreach (var skill in skills) { var s = skill!.AsObject(); result[$"skills/{S(s, "id")}.tres"] = RenderSkill(s); }
+        result["skills/catalog.tres"] = RenderSkillCatalog(skills);
         return result;
+    }
+    static void ValidateSkill(JsonObject skill, string path, HashSet<string> ids)
+    {
+        string role = Str(skill, "role", path);
+        if (!SkillRoles.Contains(role)) Fail(path + ".role", "unknown skill role");
+        string[] common = ["id", "displayName", "role", "tags", "requiredAnyTags", "requiredAllTags", "forbiddenTags", "linkCost", "effects"];
+        string[] activeFields = ["baseProjectileCount", "basePierceCount", "baseDamageMultiplier"];
+        Fields(skill, path, role == "active" ? [.. common, .. activeFields] : common);
+        if (!ids.Add(Id(skill, path))) Fail(path + ".id", "duplicate ID");
+        Str(skill, "displayName", path);
+        string[] tags = Tags(skill["tags"], path + ".tags");
+        string[] requiredAny = Tags(skill["requiredAnyTags"], path + ".requiredAnyTags");
+        string[] requiredAll = Tags(skill["requiredAllTags"], path + ".requiredAllTags");
+        string[] forbidden = Tags(skill["forbiddenTags"], path + ".forbiddenTags");
+        foreach (string tag in requiredAny.Concat(requiredAll))
+            if (forbidden.Contains(tag)) Fail(path + ".forbiddenTags", "required and forbidden tags overlap");
+        int linkCost = (int)Num(skill, "linkCost", path, integer: true);
+        var effects = Arr(skill["effects"], path + ".effects");
+        if (role == "active")
+        {
+            if (tags.Length == 0) Fail(path + ".tags", "active skill requires at least one tag");
+            if (requiredAny.Length != 0 || requiredAll.Length != 0 || forbidden.Length != 0)
+                Fail(path, "active skill cannot declare compatibility requirements");
+            if (linkCost != 0) Fail(path + ".linkCost", "active skill must cost zero link cores");
+            Num(skill, "baseProjectileCount", path, integer: true, positive: true);
+            Num(skill, "basePierceCount", path, integer: true);
+            Num(skill, "baseDamageMultiplier", path, positive: true);
+            if (effects.Count != 0) Fail(path + ".effects", "active skill uses base fields instead of support effects");
+        }
+        else
+        {
+            if (linkCost != 1) Fail(path + ".linkCost", "support skill must cost one link core");
+            if (effects.Count == 0) Fail(path + ".effects", "support skill requires at least one effect");
+        }
+        for (int i = 0; i < effects.Count; i++) ValidateSkillEffect(Obj(effects[i], $"{path}.effects[{i}]"), $"{path}.effects[{i}]");
+    }
+    static void ValidateSkillEffect(JsonObject effect, string path)
+    {
+        string type = Str(effect, "type", path);
+        if (!SkillEffectTypes.Contains(type)) Fail(path + ".type", "unknown skill effect");
+        switch (type)
+        {
+            case "add_projectiles":
+            case "add_pierce":
+                Fields(effect, path, "type", "intValue");
+                Num(effect, "intValue", path, integer: true, positive: true);
+                break;
+            case "add_fire_damage":
+            case "multiply_damage":
+            case "multiply_healing":
+                Fields(effect, path, "type", "floatValue");
+                Num(effect, "floatValue", path, positive: true);
+                break;
+            case "add_tag":
+                Fields(effect, path, "type", "tagValue");
+                string tag = Str(effect, "tagValue", path);
+                if (!SkillTags.Contains(tag)) Fail(path + ".tagValue", "unknown tag");
+                break;
+        }
     }
     void ValidateStage(JsonObject s, string p, HashSet<string> ids)
     {
@@ -260,6 +348,7 @@ sealed class Pipeline(string project)
     static string N(JsonNode? n) => n!.GetValue<double>().ToString("R", CultureInfo.InvariantCulture);
     static string Vec(JsonNode? n, bool integer = false) => $"Vector2{(integer ? "i" : "")}({N(n![0])}, {N(n[1])})";
     static string PointsText(JsonNode? n) => "Array[Vector2i]([" + string.Join(", ", n!.AsArray().Select(v => Vec(v, true))) + "])";
+    static string StringsText(JsonNode? n) => "Array[String]([" + string.Join(", ", n!.AsArray().Select(v => Q(v!.GetValue<string>()))) + "])";
     static string Script(string name, string id) => $"[ext_resource type=\"Script\" path=\"res://scripts/data/{name}.cs\" id=\"{id}\"]\n";
     static string Ext(string id) => $"ExtResource(\"{id}\")";
     static string Sub(string id) => $"SubResource(\"{id}\")";
@@ -323,6 +412,46 @@ sealed class Pipeline(string project)
         }
         b.AppendLine("\n[resource]\nscript = " + Ext("StageCatalog"));
         b.AppendLine("Stages = Array[" + Ext("StageDefinition") + "]([" + string.Join(", ", Enumerable.Range(0, stages.Count).Select(i => Ext("stage_" + i))) + "])");
+        return b.ToString().Replace("\r\n", "\n");
+    }
+    static string RenderSkill(JsonObject skill)
+    {
+        var effects = skill["effects"]!.AsArray();
+        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={3 + effects.Count} format=3]\n\n");
+        b.Append(Script("SkillDefinition", "SkillDefinition"));
+        b.Append(Script("SkillEffectDefinition", "SkillEffectDefinition"));
+        for (int i = 0; i < effects.Count; i++)
+        {
+            var effect = effects[i]!.AsObject();
+            b.AppendLine($"\n[sub_resource type=\"Resource\" id=\"effect_{i}\"]\nscript = {Ext("SkillEffectDefinition")}");
+            b.AppendLine("Type = " + Array.IndexOf(SkillEffectTypes, S(effect, "type")));
+            if (effect.ContainsKey("intValue")) b.AppendLine("IntValue = " + N(effect["intValue"]));
+            if (effect.ContainsKey("floatValue")) b.AppendLine("FloatValue = " + N(effect["floatValue"]));
+            if (effect.ContainsKey("tagValue")) b.AppendLine("TagValue = " + Q(S(effect, "tagValue")));
+        }
+        b.AppendLine("\n[resource]\nscript = " + Ext("SkillDefinition"));
+        b.AppendLine("Id = " + Q(S(skill, "id")) + "\nDisplayName = " + Q(S(skill, "displayName")));
+        b.AppendLine("Role = " + Array.IndexOf(SkillRoles, S(skill, "role")));
+        foreach (string key in new[] { "tags", "requiredAnyTags", "requiredAllTags", "forbiddenTags" })
+            b.AppendLine(char.ToUpperInvariant(key[0]) + key[1..] + " = " + StringsText(skill[key]));
+        b.AppendLine("LinkCost = " + N(skill["linkCost"]));
+        foreach (string key in new[] { "baseProjectileCount", "basePierceCount", "baseDamageMultiplier" })
+            if (skill.ContainsKey(key)) b.AppendLine(char.ToUpperInvariant(key[0]) + key[1..] + " = " + N(skill[key]));
+        b.AppendLine("Effects = Array[" + Ext("SkillEffectDefinition") + "]([" + string.Join(", ", Enumerable.Range(0, effects.Count).Select(i => Sub("effect_" + i))) + "])");
+        return b.ToString().Replace("\r\n", "\n");
+    }
+    static string RenderSkillCatalog(JsonArray skills)
+    {
+        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={3 + skills.Count} format=3]\n\n");
+        b.Append(Script("SkillCatalog", "SkillCatalog"));
+        b.Append(Script("SkillDefinition", "SkillDefinition"));
+        for (int i = 0; i < skills.Count; i++)
+        {
+            string id = S(skills[i]!.AsObject(), "id");
+            b.AppendLine($"[ext_resource type=\"Resource\" path=\"res://data/skills/{id}.tres\" id=\"skill_{i}\"]");
+        }
+        b.AppendLine("\n[resource]\nscript = " + Ext("SkillCatalog"));
+        b.AppendLine("Skills = Array[" + Ext("SkillDefinition") + "]([" + string.Join(", ", Enumerable.Range(0, skills.Count).Select(i => Ext("skill_" + i))) + "])");
         return b.ToString().Replace("\r\n", "\n");
     }
 }

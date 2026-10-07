@@ -17,6 +17,20 @@ func run():
     check(definition.Id == "stage_01" and definition.Roster.size() == 3 and definition.Waves.size() == 3, "Typed stage resources")
     var catalog = load("res://data/stages/catalog.tres")
     check(catalog.Stages.size() == 3, "Stage catalog size")
+    var skill_catalog = load("res://data/skills/catalog.tres")
+    check(skill_catalog != null and skill_catalog.Skills.size() == 5, "Skill catalog size")
+    var basic_arrow = load("res://data/skills/basic_arrow.tres")
+    check(basic_arrow.Id == "basic_arrow" and basic_arrow.Role == 0, "Active skill resource")
+    check(basic_arrow.Tags == ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"], "Active skill tags")
+    check(basic_arrow.BaseProjectileCount == 1 and basic_arrow.BasePierceCount == 0 and basic_arrow.BaseDamageMultiplier == 1.0, "Active skill base values")
+    var multiple = load("res://data/skills/multiple_projectiles.tres")
+    check(multiple.Role == 1 and multiple.LinkCost == 1 and multiple.RequiredAnyTags == ["PROJECTILE"], "Support compatibility resource")
+    check(multiple.Effects.size() == 2 and multiple.Effects[0].Type == 0 and multiple.Effects[0].IntValue == 2, "Integer skill effect")
+    check(multiple.Effects[1].Type == 3 and is_equal_approx(multiple.Effects[1].FloatValue, 0.7), "Float skill effect")
+    var fire = load("res://data/skills/fire_infusion.tres")
+    check(fire.Effects.size() == 2 and fire.Effects[1].Type == 4 and fire.Effects[1].TagValue == "FIRE", "Tag skill effect")
+    var healing = load("res://data/skills/healing_amplification.tres")
+    check(healing.RequiredAnyTags == ["HEAL"] and healing.Effects[0].Type == 5, "Incompatible support fixture")
     var expected_totals = [21, 30, 42]
     for stage_index in range(catalog.Stages.size()):
         var total := 0

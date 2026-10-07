@@ -1,0 +1,26 @@
+[gd_resource type="Resource" load_steps=5 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/SkillDefinition.cs" id="SkillDefinition"]
+[ext_resource type="Script" path="res://scripts/data/SkillEffectDefinition.cs" id="SkillEffectDefinition"]
+
+[sub_resource type="Resource" id="effect_0"]
+script = ExtResource("SkillEffectDefinition")
+Type = 0
+IntValue = 2
+
+[sub_resource type="Resource" id="effect_1"]
+script = ExtResource("SkillEffectDefinition")
+Type = 3
+FloatValue = 0.7
+
+[resource]
+script = ExtResource("SkillDefinition")
+Id = "multiple_projectiles"
+DisplayName = "Multiple Projectiles"
+Role = 1
+Tags = Array[String]([])
+RequiredAnyTags = Array[String](["PROJECTILE"])
+RequiredAllTags = Array[String]([])
+ForbiddenTags = Array[String]([])
+LinkCost = 1
+Effects = Array[ExtResource("SkillEffectDefinition")]([SubResource("effect_0"), SubResource("effect_1")])
