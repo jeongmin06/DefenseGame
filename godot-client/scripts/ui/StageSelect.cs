@@ -43,7 +43,7 @@ public partial class StageSelect : Node2D
     {
         if (Catalog is null || index < 0 || index >= Catalog.Stages.Count) return;
         StageSelectionState.SelectedStage = Catalog.Stages[index];
-        GetTree().ChangeSceneToFile("res://scenes/stage_one.tscn");
+        GetTree().ChangeSceneToFile("res://scenes/skill_loadout.tscn");
     }
 
     private void BuildStageButtons()

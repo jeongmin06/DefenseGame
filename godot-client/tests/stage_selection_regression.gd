@@ -32,8 +32,13 @@ func run():
 
     selector.SelectStage(1)
     await ticks(5)
+    check(current_scene.name == "SkillLoadout", "Selection enters skill loadout")
+    check(current_scene.CandidateCount == 4, "Four support candidates")
+    check(current_scene.StartBattle(), "Valid empty loadout enters battle")
+    await ticks(5)
     check(current_scene.name == "StageOne", "Selection enters battle")
     check(current_scene.Definition.Id == "stage_02", "Selected definition reaches battle")
+    check(current_scene.Loadout != null and current_scene.Loadout.TotalLinkCost == 0, "Validated loadout reaches battle")
     check("STAGE 02" in current_scene.get_node("HUD/TopPanel/Title").text, "HUD shows selected stage")
 
     current_scene.RestartStage()

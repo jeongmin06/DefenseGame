@@ -1,11 +1,13 @@
 using Godot;
 using DefenseGame.Client.Data;
+using DefenseGame.Client.Skills;
 
 namespace DefenseGame.Client.Combat;
 
 public partial class StageOne : Node2D
 {
     [Export] public StageDefinition Definition { get; set; } = null!;
+    public SkillLoadout? Loadout { get; private set; }
     private DeploymentGrid _grid = null!;
     private Vector2I[] _pathCorners = [];
     private WaveSpec[] _waves = [];
@@ -35,6 +37,7 @@ public partial class StageOne : Node2D
     {
         if (StageSelectionState.SelectedStage is not null)
             Definition = StageSelectionState.SelectedStage;
+        Loadout = StageSelectionState.SelectedLoadout;
 
         _enemyPath = GetNode<Path2D>("EnemyPath");
         _spawnTimer = GetNode<Timer>("SpawnTimer");
