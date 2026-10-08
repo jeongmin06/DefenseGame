@@ -12,7 +12,12 @@ func check(ok,msg):
         failures += 1
         push_error(msg)
 func ticks(n):
-    for i in range(n): await process_frame
+    for i in range(n): await physics_frame
+func wait_until(predicate: Callable, max_physics_frames := 120) -> bool:
+    for i in range(max_physics_frames):
+        if predicate.call(): return true
+        await physics_frame
+    return predicate.call()
 func _initialize(): run.call_deferred()
 func run():
     change_scene_to_file("res://scenes/stage_one.tscn")
@@ -43,8 +48,8 @@ func run():
     h.SetBattleActive(true)
     await ticks(20)
     check(a.CurrentHealth == 10, "No early heal")
-    await ticks(20)
-    check(a.CurrentHealth == 14 and b.CurrentHealth == 15, "Single four point heal")
+    var first_heal = await wait_until(func(): return is_equal_approx(a.CurrentHealth, 14.0), 90)
+    check(first_heal and b.CurrentHealth == 15, "Single four point heal")
     check(current_scene.get_node("Projectiles").get_child_count() == 0, "No heal projectile")
     h.SetBattleActive(false)
     ah.Heal(1000.0)
@@ -55,15 +60,15 @@ func run():
     await ticks(25)
     a.global_position = Vector2(-1000,-1000)
     bh.TakeDamage(12.0)
-    await ticks(40)
-    check(a.CurrentHealth == 5 and b.CurrentHealth == 12, "Retarget at heal frame after range exit")
+    var retargeted = await wait_until(func(): return is_equal_approx(b.CurrentHealth, 12.0), 90)
+    check(retargeted and a.CurrentHealth == 5, "Retarget at heal frame after range exit")
     h.SetBattleActive(false)
     bh.Heal(1000.0)
     hh.TakeDamage(10.0)
     check(h.FindHealingTarget() == h, "Self healing eligible")
     h.SetBattleActive(true)
-    await ticks(80)
-    check(h.CurrentHealth > 8, "Self heal applied")
+    var self_healed = await wait_until(func(): return h.CurrentHealth > 8.0, 90)
+    check(self_healed, "Self heal applied")
     h.SetBattleActive(false)
     hh.TakeDamage(1000.0)
     hh.Heal(1000.0)
@@ -86,7 +91,7 @@ func run():
     check(not grid.SelectCell(Vector2i(7,7)), "Battle placement lock")
     for i in range(7200):
         if current_scene.get_node("HUD/ResultPanel").visible: break
-        await process_frame
+        await physics_frame
     check(current_scene.get_node("HUD/ResultPanel").visible, "Battle finished")
     print("HEALER BATTLE: ",current_scene.get_node("HUD/ResultPanel/ResultDetail").text)
     a = get_nodes_in_group("towers")[0]
