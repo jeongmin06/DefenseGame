@@ -361,7 +361,9 @@ public partial class StageOne : Node2D
 
     private void BuildArcherQueue()
     {
-        var profiles = Defaults.CatProfiles.ToDictionary(profile => profile.CharacterId, StringComparer.Ordinal);
+        IEnumerable<CatProfile> runtimeProfiles = StageSelectionState.SelectedProfiles.Count > 0
+            ? StageSelectionState.SelectedProfiles : Defaults.CatProfiles;
+        var profiles = runtimeProfiles.ToDictionary(profile => profile.CharacterId, StringComparer.Ordinal);
         var loadouts = StageSelectionState.SelectedCharacterLoadouts
             .ToDictionary(entry => entry.CharacterId, entry => entry.Loadout, StringComparer.Ordinal);
         var composer = new RangedSkillEffectComposer();

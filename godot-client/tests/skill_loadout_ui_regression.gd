@@ -23,7 +23,11 @@ func run():
     change_scene_to_file("res://scenes/stage_select.tscn")
     await ticks(5)
     current_scene.SetSkillProfileStoragePathOverride(profile_path)
+    current_scene.SetStageSquadStoragePathOverride("/tmp/defense-skill-loadout-squad-%d-%d.json" % [OS.get_process_id(), Time.get_ticks_usec()])
     current_scene.SelectStage(1)
+    await ticks(5)
+    check(current_scene.name == "SquadFormation", "Stage selection opens squad formation")
+    current_scene.ContinueToSkills()
     await ticks(5)
 
     var screen = current_scene
@@ -53,9 +57,9 @@ func run():
     check(screen.SaveProfile() and screen.SaveStatusCode == "Saved", "Explicit save writes both character presets")
     check(FileAccess.file_exists(profile_path), "Explicit save creates the user profile")
 
-    screen.ReturnToStageList()
+    screen.ReturnToFormation()
     await ticks(5)
-    current_scene.SelectStage(1)
+    current_scene.ContinueToSkills()
     await ticks(5)
     screen = current_scene
     check(screen.LoadStatusCode == "Loaded", "Reopening preparation loads the explicit save")

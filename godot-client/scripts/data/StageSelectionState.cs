@@ -8,6 +8,7 @@ public static class StageSelectionState
     public static SkillLoadout? SelectedLoadout { get; set; }
     public static Godot.Collections.Array<CharacterSkillLoadout> SelectedCharacterLoadouts { get; set; } = new();
     public static Godot.Collections.Array<string> SelectedCharacterIds { get; set; } = new();
+    public static Godot.Collections.Array<CatProfile> SelectedProfiles { get; set; } = new();
     public static string ActiveSquadStageId { get; set; } = "";
     public static string SkillProfileStoragePathOverride { get; set; } = "";
     public static string StageSquadStoragePathOverride { get; set; } = "";
@@ -18,6 +19,7 @@ public static class StageSelectionState
         SelectedLoadout = null;
         SelectedCharacterLoadouts = new();
         SelectedCharacterIds = new();
+        SelectedProfiles = new();
         ActiveSquadStageId = "";
     }
 
@@ -27,6 +29,7 @@ public static class StageSelectionState
         SelectedLoadout = null;
         SelectedCharacterLoadouts = new();
         SelectedCharacterIds = new();
+        SelectedProfiles = new();
         ActiveSquadStageId = "";
     }
 }

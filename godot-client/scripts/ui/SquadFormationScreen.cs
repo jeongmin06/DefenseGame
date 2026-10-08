@@ -90,6 +90,14 @@ public partial class SquadFormationScreen : Node2D
     public bool MoveSelectedUp(string characterId) => Move(characterId, -1);
     public bool MoveSelectedDown(string characterId) => Move(characterId, 1);
 
+    public bool RemoveSelectedAt(int index)
+    {
+        if (index < 0 || index >= _selectedIds.Count) return false;
+        _selectedIds.RemoveAt(index);
+        Refresh();
+        return true;
+    }
+
     public bool ContinueToSkills()
     {
         StageDefinition? stage = StageSelectionState.SelectedStage;
@@ -124,6 +132,7 @@ public partial class SquadFormationScreen : Node2D
         }
         _requiresRecoverySave = false;
         StageSelectionState.SelectedCharacterIds = new Godot.Collections.Array<string>(_selectedIds);
+        StageSelectionState.SelectedProfiles = new Godot.Collections.Array<CatProfile>(validation.SelectedProfiles);
         StageSelectionState.ActiveSquadStageId = stage.Id;
         GetTree().ChangeSceneToFile("res://scenes/skill_loadout.tscn");
         return true;
@@ -189,6 +198,10 @@ public partial class SquadFormationScreen : Node2D
         _statusLabel.Text = _loadResult?.Status == StageSquadPresetLoadStatus.MigrationRequired
             ? "수정 필요 // Saved squads require migration before they can be changed."
             : validation is { IsValid: false } ? "수정 필요 // " + validation.Issues[0].Message
+            : _loadResult?.Status == StageSquadPresetLoadStatus.RecoveredFromBackup
+                ? "수정 필요 // Restored the last valid backup. Review this formation before continuing."
+            : _loadResult?.Status == StageSquadPresetLoadStatus.Corrupt
+                ? "수정 필요 // Saved squad data was corrupt. Review this proposed formation before continuing."
             : "Formation ready. Order determines archer deployment order.";
         RefreshLists();
     }
@@ -219,8 +232,11 @@ public partial class SquadFormationScreen : Node2D
             text.AddThemeColorOverride("font_color", new Color(profile is null ? "ff8e78" : "fff0c2"));
             var up = new Button { Text = "▲", Disabled = index == 0, CustomMinimumSize = new Vector2(48, 40) };
             var down = new Button { Text = "▼", Disabled = index == _selectedIds.Count - 1, CustomMinimumSize = new Vector2(48, 40) };
+            var remove = new Button { Text = "×", CustomMinimumSize = new Vector2(48, 40) };
+            int slotIndex = index;
             up.Pressed += () => MoveSelectedUp(id); down.Pressed += () => MoveSelectedDown(id);
-            row.AddChild(text); row.AddChild(up); row.AddChild(down); _selectedList.AddChild(row);
+            remove.Pressed += () => RemoveSelectedAt(slotIndex);
+            row.AddChild(text); row.AddChild(up); row.AddChild(down); row.AddChild(remove); _selectedList.AddChild(row);
         }
     }
 

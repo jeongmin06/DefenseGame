@@ -84,6 +84,8 @@ func run():
     check(formation.GetSelectedCharacterIds().size() == 9, "Invalid restored selection remains unchanged for repair")
     check("수정 필요" in formation.StatusMessage, "Invalid restored selection shows repair state")
     check(not formation.ContinueToSkills(), "Invalid restored selection cannot continue")
+    check(formation.RemoveSelectedAt(0), "Unknown restored character can be removed explicitly")
+    check(formation.GetSelectedCharacterIds().size() == 8, "Explicit repair changes only the selected runtime list")
     check(FileAccess.get_file_as_string(invalid_path) == invalid_text, "Validation never rewrites invalid restored content")
 
     print("SQUAD FORMATION UI QA failures=", failures)

@@ -57,7 +57,10 @@ func run():
     change_scene_to_file("res://scenes/stage_select.tscn")
     await ticks(5)
     current_scene.SetSkillProfileStoragePathOverride(profile_path)
+    current_scene.SetStageSquadStoragePathOverride(root_path + "/squad.json")
     current_scene.SelectStage(0)
+    await ticks(5)
+    current_scene.ContinueToSkills()
     await ticks(5)
     var screen = current_scene
 
@@ -83,14 +86,19 @@ func run():
     check(screen.SaveProfile() and screen.SaveStatusCode == "Saved", "Explicit save persists repaired presets")
     check(FileAccess.get_file_as_string(profile_path) != invalid_text, "Save button is the write boundary")
 
-    screen.ReturnToStageList()
+    screen.ReturnToFormation()
+    await ticks(5)
+    current_scene.ReturnToStageList()
     await ticks(5)
     var recovery_path = root_path + "/recovery.json"
     write_text(recovery_path, "{ broken json")
     write_text(recovery_path + ".bak", document("basic_arrow", ["multiple_projectiles", "piercing_shot"], 2,
         ["fire_infusion"], 1))
     current_scene.SetSkillProfileStoragePathOverride(recovery_path)
+    current_scene.SetStageSquadStoragePathOverride(root_path + "/recovery-squad.json")
     current_scene.SelectStage(0)
+    await ticks(5)
+    current_scene.ContinueToSkills()
     await ticks(5)
     screen = current_scene
     check(screen.LoadStatusCode == "RecoveredFromBackup", "Preparation reports backup recovery")
