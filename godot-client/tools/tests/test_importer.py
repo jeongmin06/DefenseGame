@@ -51,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
     assert 'UnlockedPoints = 5' in defaults and 'OwnedSkillIds = Array[String]([' in defaults
     for index, cap in enumerate((3, 4, 5), start=1):
         stage = (output / f'stages/stage_0{index}.tres').read_text()
-        assert f'StageCap = {cap}' in stage and 'HasStageCap = true' in stage
+        assert f'StageCap = {cap}' in stage and 'HasStageCap = true' in stage and 'MaxSquadUnits = 10' in stage
     assert run().returncode == 0 and snapshot(output) == baseline
     assert run('--check').returncode == 0 and snapshot(output) == baseline
     cases = [
@@ -82,6 +82,9 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         ('unknown field', 'stages', lambda d: d['stages'][0].update(typo=1), '.typo'),
         ('duplicate stage', 'stages', lambda d: d['stages'].append(copy.deepcopy(d['stages'][0])), '.id'),
         ('negative stage cap', 'stages', lambda d: d['stages'][0].update(skillPointCap=-1), '.skillPointCap'),
+        ('zero squad max', 'stages', lambda d: d['stages'][0].update(maxSquadUnits=0), '.maxSquadUnits'),
+        ('large squad max', 'stages', lambda d: d['stages'][0].update(maxSquadUnits=11), '.maxSquadUnits'),
+        ('no selectable cat slot', 'stages', lambda d: d['stages'][0].update(maxSquadUnits=2), '.maxSquadUnits'),
         ('skill schema', 'skills', lambda d: d.update(schemaVersion=2), 'schemaVersion'),
         ('skill duplicate', 'skills', lambda d: d['skills'].append(copy.deepcopy(d['skills'][0])), '.id'),
         ('skill role', 'skills', lambda d: d['skills'][0].update(role='spell'), '.role'),
@@ -158,10 +161,12 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
     # A missing cap and an explicit zero cap must remain distinguishable in generated resources.
     s = copy.deepcopy(stages)
     s['stages'][0].pop('skillPointCap')
+    s['stages'][0].pop('maxSquadUnits')
     s['stages'][1]['skillPointCap'] = 0
     write(units, s, skills, player)
     assert run().returncode == 0
     assert 'HasStageCap = false' in (output / 'stages/stage_01.tres').read_text()
+    assert 'MaxSquadUnits = 10' in (output / 'stages/stage_01.tres').read_text()
     zero_cap_stage = (output / 'stages/stage_02.tres').read_text()
     assert 'HasStageCap = true' in zero_cap_stage and 'StageCap = 0' in zero_cap_stage
     existing = snapshot(output)

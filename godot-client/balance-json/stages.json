@@ -4,6 +4,7 @@
     {
       "id": "stage_01",
       "displayName": "Iron Path",
+      "maxSquadUnits": 10,
       "skillPointCap": 3,
       "baseHealth": 5,
       "firstWaveDelay": 0.8,
@@ -102,6 +103,7 @@
     {
       "id": "stage_02",
       "displayName": "Iron Path II",
+      "maxSquadUnits": 10,
       "skillPointCap": 4,
       "baseHealth": 5,
       "firstWaveDelay": 0.8,
@@ -170,6 +172,7 @@
     {
       "id": "stage_03",
       "displayName": "Iron Path III",
+      "maxSquadUnits": 10,
       "skillPointCap": 5,
       "baseHealth": 5,
       "firstWaveDelay": 0.8,

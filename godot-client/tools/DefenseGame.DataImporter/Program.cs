@@ -401,9 +401,12 @@ sealed class Pipeline(string project)
     }
     void ValidateStage(JsonObject s, string p, HashSet<string> ids)
     {
-        Fields(s, p, "id", "displayName", "skillPointCap", "baseHealth", "firstWaveDelay", "waveGap", "grid", "pathCorners", "blockedCells", "roster", "waves");
+        Fields(s, p, "id", "displayName", "maxSquadUnits", "skillPointCap", "baseHealth", "firstWaveDelay", "waveGap", "grid", "pathCorners", "blockedCells", "roster", "waves");
         if (!ids.Add(Id(s, p))) Fail(p + ".id", "duplicate ID");
         Str(s, "displayName", p); Num(s, "baseHealth", p, integer: true, positive: true);
+        int maxSquadUnits = s.ContainsKey("maxSquadUnits")
+            ? (int)Num(s, "maxSquadUnits", p, integer: true, positive: true) : 10;
+        if (maxSquadUnits > 10) Fail(p + ".maxSquadUnits", "maximum squad size is 10");
         if (s.ContainsKey("skillPointCap")) Num(s, "skillPointCap", p, integer: true);
         Num(s, "firstWaveDelay", p, positive: true); Num(s, "waveGap", p, positive: true);
         var grid = Obj(s["grid"], p + ".grid");
@@ -439,7 +442,7 @@ sealed class Pipeline(string project)
         }
         var roster = Arr(s["roster"], p + ".roster");
         var roles = new HashSet<string>();
-        long total = 0, ground = 0;
+        long total = 0, ground = 0, legacy = 0, melee = 0;
         for (int i = 0; i < roster.Count; i++)
         {
             string rp = $"{p}.roster[{i}]"; var r = Obj(roster[i], rp);
@@ -450,10 +453,16 @@ sealed class Pipeline(string project)
             if (role == "enemy" || !roles.Add(role)) Fail(rp + ".unitId", "HUD requires one definition per allied role");
             int count = (int)Num(r, "count", rp, integer: true, positive: true);
             total += count; if (role != "melee") ground += count;
+            if (role is "melee" or "support") legacy += count;
+            if (role == "melee") melee += count;
         }
         if (!roles.SetEquals(["ranged", "melee", "support"])) Fail(p + ".roster", "HUD requires ranged, melee and support");
+        if (maxSquadUnits <= legacy) Fail(p + ".maxSquadUnits", "must leave room for at least one selectable cat after legacy roster units");
         if (total > (long)cols * rows - blocked.Count || ground > (long)cols * rows - blocked.Count - pathCells.Count)
             Fail(p + ".roster", "not enough legal deployment cells");
+        if (maxSquadUnits > (long)cols * rows - blocked.Count
+            || maxSquadUnits - melee > (long)cols * rows - blocked.Count - pathCells.Count)
+            Fail(p + ".maxSquadUnits", "not enough legal deployment cells for maximum squad size");
         var waves = Arr(s["waves"], p + ".waves");
         if (waves.Count == 0) Fail(p + ".waves", "cannot be empty");
         for (int i = 0; i < waves.Count; i++)
@@ -521,6 +530,7 @@ sealed class Pipeline(string project)
         }
         b.AppendLine("\n[resource]\nscript = " + Ext("StageDefinition"));
         b.AppendLine("Id = " + Q(S(s, "id")) + "\nDisplayName = " + Q(S(s, "displayName")));
+        b.AppendLine("MaxSquadUnits = " + (s.ContainsKey("maxSquadUnits") ? N(s["maxSquadUnits"]) : "10"));
         foreach (string key in new[] { "baseHealth", "firstWaveDelay", "waveGap" }) b.AppendLine(char.ToUpperInvariant(key[0]) + key[1..] + " = " + N(s[key]));
         b.AppendLine("SkillBudget = " + Sub("skill_budget"));
         b.AppendLine("Grid = " + Sub("grid") + "\nPathCorners = " + PointsText(s["pathCorners"]) + "\nBlockedCells = " + PointsText(s["blockedCells"]));

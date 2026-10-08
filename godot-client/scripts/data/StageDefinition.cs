@@ -8,6 +8,7 @@ public partial class StageDefinition : Resource
 {
     [Export] public string Id { get; set; } = "";
     [Export] public string DisplayName { get; set; } = "";
+    [Export] public int MaxSquadUnits { get; set; } = 10;
     [Export] public int BaseHealth { get; set; }
     [Export] public float FirstWaveDelay { get; set; }
     [Export] public float WaveGap { get; set; }

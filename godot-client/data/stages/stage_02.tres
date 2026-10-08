@@ -66,6 +66,7 @@ SpeedOverride = 92
 script = ExtResource("StageDefinition")
 Id = "stage_02"
 DisplayName = "Iron Path II"
+MaxSquadUnits = 10
 BaseHealth = 5
 FirstWaveDelay = 0.8
 WaveGap = 2
