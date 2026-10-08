@@ -14,6 +14,8 @@ public partial class Enemy : PathFollow2D
 
     public float AttackDamage { get; set; }
     public float AttackInterval { get; set; }
+    public float CurrentHealth => _health;
+    public float MaxHealth => _maxHealth;
     private double _attackCooldown;
     private bool _battleActive = true;
 

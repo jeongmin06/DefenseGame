@@ -8,6 +8,7 @@ public partial class StageOne : Node2D
 {
     [Export] public StageDefinition Definition { get; set; } = null!;
     public SkillLoadout? Loadout { get; private set; }
+    public RangedAttackSettings ArcherAttackSettings { get; private set; } = new();
     private DeploymentGrid _grid = null!;
     private Vector2I[] _pathCorners = [];
     private WaveSpec[] _waves = [];
@@ -38,6 +39,7 @@ public partial class StageOne : Node2D
         if (StageSelectionState.SelectedStage is not null)
             Definition = StageSelectionState.SelectedStage;
         Loadout = StageSelectionState.SelectedLoadout;
+        ArcherAttackSettings = new RangedSkillEffectComposer().Compose(Loadout);
 
         _enemyPath = GetNode<Path2D>("EnemyPath");
         _spawnTimer = GetNode<Timer>("SpawnTimer");
@@ -130,7 +132,7 @@ public partial class StageOne : Node2D
             _remainingArchers--;
             Tower tower = unit.Scene.Instantiate<Tower>();
             AddChild(tower);
-            tower.Setup(unit);
+            tower.SetupRanged(unit, ArcherAttackSettings);
             tower.GlobalPosition = _grid.CellToGlobal(cell);
             tower.Defeated += _ => _grid.ReleaseCell(cell);
         }

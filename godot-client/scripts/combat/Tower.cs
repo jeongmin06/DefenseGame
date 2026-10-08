@@ -55,12 +55,17 @@ public partial class Tower : Node2D
 
     public void Setup(UnitDefinition definition)
     {
+        SetupRanged(definition, new RangedAttackSettings());
+    }
+
+    public void SetupRanged(UnitDefinition definition, RangedAttackSettings settings)
+    {
         _health.Setup(definition.MaxHealth);
         AttackRange = definition.RangePixels;
         AttackDamage = definition.ActionPower;
         AttackInterval = definition.ActionInterval;
         _releaseFrame = definition.ActionFrame;
-        _rangedAttack.Configure(definition);
+        _rangedAttack.ConfigureWithSettings(definition, settings);
         QueueRedraw();
     }
 

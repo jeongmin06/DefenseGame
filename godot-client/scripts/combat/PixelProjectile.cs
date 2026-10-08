@@ -5,16 +5,33 @@ namespace DefenseGame.Client.Combat;
 public partial class PixelProjectile : Node2D
 {
     private Enemy? _target;
-    private float _damage;
     private float _speed;
     private float _hitDistanceSquared;
+    private readonly System.Collections.Generic.HashSet<ulong> _hitEnemyIds = new();
+
+    public float Damage { get; private set; }
+    public int RemainingPierces { get; private set; }
+    public Godot.Collections.Array<string> HitTags { get; private set; } = new();
 
     public void Setup(Enemy target, float damage, float speed, float hitDistance)
     {
+        SetupWithEffects(target, damage, speed, hitDistance, 0, new Godot.Collections.Array<string>());
+    }
+
+    public void SetupWithEffects(
+        Enemy target,
+        float damage,
+        float speed,
+        float hitDistance,
+        int pierceCount,
+        Godot.Collections.Array<string> hitTags)
+    {
         _target = target;
-        _damage = damage;
+        Damage = damage;
         _speed = speed;
         _hitDistanceSquared = hitDistance * hitDistance;
+        RemainingPierces = Mathf.Max(0, pierceCount);
+        HitTags = new Godot.Collections.Array<string>(hitTags);
         FaceTarget();
         QueueRedraw();
     }
@@ -23,8 +40,12 @@ public partial class PixelProjectile : Node2D
     {
         if (_target is null || !GodotObject.IsInstanceValid(_target) || !_target.IsActive())
         {
-            QueueFree();
-            return;
+            _target = FindNextTarget();
+            if (_target is null)
+            {
+                QueueFree();
+                return;
+            }
         }
 
         FaceTarget();
@@ -34,8 +55,46 @@ public partial class PixelProjectile : Node2D
             return;
         }
 
-        _target.TakeDamage(_damage);
-        QueueFree();
+        Enemy hit = _target;
+        _hitEnemyIds.Add(hit.GetInstanceId());
+        hit.TakeDamage(Damage);
+        if (RemainingPierces <= 0)
+        {
+            QueueFree();
+            return;
+        }
+
+        Enemy? next = FindNextTarget();
+        if (next is null)
+        {
+            QueueFree();
+            return;
+        }
+
+        RemainingPierces--;
+        _target = next;
+    }
+
+    private Enemy? FindNextTarget()
+    {
+        Enemy? best = null;
+        float bestDistance = float.MaxValue;
+        ulong bestId = ulong.MaxValue;
+        foreach (Node node in GetTree().GetNodesInGroup("enemies"))
+        {
+            if (node is not Enemy candidate || !GodotObject.IsInstanceValid(candidate)
+                || candidate.IsQueuedForDeletion() || !candidate.IsActive()) continue;
+            ulong id = candidate.GetInstanceId();
+            if (_hitEnemyIds.Contains(id)) continue;
+            float distance = GlobalPosition.DistanceSquaredTo(candidate.GlobalPosition);
+            if (distance < bestDistance || (Mathf.IsEqualApprox(distance, bestDistance) && id < bestId))
+            {
+                best = candidate;
+                bestDistance = distance;
+                bestId = id;
+            }
+        }
+        return best;
     }
 
     private void FaceTarget()
