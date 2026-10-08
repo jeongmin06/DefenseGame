@@ -55,6 +55,14 @@ dotnet build godot-client/DefenseGame.csproj
 
 저장소 루트에서 실행한다. JSON 필드, 검증 범위, 오류 처리와 테스트 명령은 [변환기 README](tools/DefenseGame.DataImporter/README.md)를 참고한다. `.tres`는 생성물이므로 직접 편집하지 않는다.
 
+### 고양이 스킬 프로필 저장
+
+`SkillProfileStore`는 `user://skill_profile.json`에 스키마 버전 1의 `PlayerSkillProgress`와 `CatSkillPreset` 배열을 저장한다. 로드 결과는 정상, 기본값, 백업 복구, 손상, 마이그레이션 필요를 구분하고 저장 결과는 성공, 실패, 보호 데이터 차단, 마이그레이션 필요를 구분한다. 테스트는 `ConfigureStoragePath`로 격리된 절대 경로를 주입한다.
+
+저장 시 같은 디렉터리의 `.tmp`에 전체 JSON을 쓰고 파일을 flush한 다음, 기존 정상 원본이 있으면 `File.Replace`로 원본 교체와 `.bak` 생성을 한 번에 요청한다. 원본이 없으면 같은 파일 시스템 안에서 rename한다. 이는 지원 OS와 파일 시스템이 제공하는 원자적 replace/rename 범위에서 보장하며 디렉터리 메타데이터까지 별도로 fsync하지 않는다. 교체 API가 실패하면 성공으로 간주하거나 비원자적 복사로 대체하지 않는다.
+
+파싱·스키마 오류 원본은 `skill_profile.corrupt-<UTC timestamp>.json`으로 보존한 뒤 `.bak`을 읽는다. 미래 스키마는 원래 경로에서 보존하고 저장을 차단한다. 삭제된 콘텐츠 ID, 예산 초과, 태그 불일치와 장착 규칙 위반은 저장 문서 손상이 아니므로 ID·배열 순서·배분 값 그대로 반환하며 `SquadSkillValidator`가 별도로 판정한다. 복구 기본값은 `data/player/defaults.tres`를 복제하므로 생성 Resource를 수정하지 않는다.
+
 씬을 트리에 추가한 뒤 `Tower.Setup(UnitDefinition)`, `Healer.Setup(UnitDefinition)`, `Warrior.Setup(UnitDefinition, DeploymentGrid, cell)`, `Enemy.Setup(UnitDefinition, healthOverride, speedOverride)`를 호출한다. 체력·공격·치유·투사체 수치는 인스턴스에 복사하며 Resource는 수정하지 않는다. 편성, 웨이브, 기지 체력, 대기 시간, 경로와 격자 규격은 `StageDefinition`에서 읽는다.
 
 원거리 캐릭터는 `RangedAttack.Configure(UnitDefinition)`으로 투사체 씬·속도·명중 거리·발사 오프셋을 복사하고 `Fire(target, damage, facingLeft)`로 발사한다. 현재 씬의 `Projectiles` 노드(없으면 현재 씬)에 생성한다. 대상 선정과 애니메이션 타이밍은 호출 캐릭터가 담당한다. `PixelProjectile`은 이동 방향 회전·명중 피해·대상 소멸 시 제거를 담당한다.
@@ -62,6 +70,7 @@ dotnet build godot-client/DefenseGame.csproj
 ### 검증
 
 `dotnet build godot-client/DefenseGame.csproj`를 저장소 루트에서 실행한다.
+저장 회귀는 `Godot --headless --path godot-client --script res://tests/skill_profile_store_regression.gd`로 실행한다.
 고정 60Hz 검증은 `--fixed-fps 60`을 사용한다. 입력 없는 headless 실행은 배치 대기 상태를 유지한다. 자동 검증에서는 `StageOne.SelectPlacementType(DeploymentGrid.PlacementType)`으로 타입을 선택하고 `DeploymentGrid.SelectCell(Vector2I)`로 허용 셀을 선택한다. 타입별 재고가 소진되면 남은 타입을 자동 선택한다. 경로가 타일 중심으로 변경되었으므로 전투 결과는 배치 좌표에 따라 달라진다.
 
 격자는 원점 `(40, 120)`, 16열×8행, 셀 크기 75px이다. `CellToGlobal`과 `GlobalToCell`이 좌표 변환을 담당한다. `CanPlace(cell, profile)`은 입력 활성 여부와 분리된 지형·점유 판정이며 Ranged와 Support는 Ground, Melee는 Ground와 EnemyPath를 허용한다. Blocked와 점유 셀은 모두 거부한다. 현재 스테이지의 Blocked 셀은 `(15, 0)`, `(15, 1)`이다. 전사는 경로 위에서 자기 셀의 적 1명을 저지한다. Ground에서는 공격만 한다.
