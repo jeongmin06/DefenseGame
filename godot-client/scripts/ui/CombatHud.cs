@@ -53,7 +53,8 @@ public partial class CombatHud : CanvasLayer
         _title.Text = $"{displayName.ToUpperInvariant()}  //  {id.Replace('_', ' ').ToUpperInvariant()}";
     }
 
-    public void UpdatePlacement(int archers, int warriors, int healers, DeploymentGrid.PlacementType selected)
+    public void UpdatePlacement(int archers, int warriors, int healers, DeploymentGrid.PlacementType selected,
+        string nextArcher = "")
     {
         _healerButton.Text = $"HEALER {healers}";
         _healerButton.Disabled = healers == 0;
@@ -69,7 +70,9 @@ public partial class CombatHud : CanvasLayer
         };
         _placementLabel.Text = archers + warriors + healers == 0 ? "BATTLE START"
             : selected == DeploymentGrid.PlacementType.Melee ? $"{name} // GROUND OR PATH"
-            : $"{name} // SELECT GROUND";
+            : selected == DeploymentGrid.PlacementType.Ranged && !string.IsNullOrEmpty(nextArcher)
+                ? $"{name} // {nextArcher} // SELECT GROUND"
+                : $"{name} // SELECT GROUND";
     }
 
     public void UpdateStatus(

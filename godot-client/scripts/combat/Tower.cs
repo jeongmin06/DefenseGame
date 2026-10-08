@@ -11,6 +11,7 @@ public partial class Tower : Node2D
     public float CurrentHealth => _health.CurrentHealth;
     public float MaxHealth => _health.MaxHealth;
     public bool IsAlive => _health.IsAlive;
+    public string CharacterId { get; private set; } = "";
 
     public void TakeDamage(float amount)
     {
@@ -60,6 +61,12 @@ public partial class Tower : Node2D
 
     public void SetupRanged(UnitDefinition definition, RangedAttackSettings settings)
     {
+        SetupRanged(definition, settings, "");
+    }
+
+    public void SetupRanged(UnitDefinition definition, RangedAttackSettings settings, string characterId)
+    {
+        CharacterId = characterId;
         _health.Setup(definition.MaxHealth);
         AttackRange = definition.RangePixels;
         AttackDamage = definition.ActionPower;

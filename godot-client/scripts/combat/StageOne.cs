@@ -1,18 +1,29 @@
 using Godot;
 using DefenseGame.Client.Data;
 using DefenseGame.Client.Skills;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace DefenseGame.Client.Combat;
 
 public partial class StageOne : Node2D
 {
     [Export] public StageDefinition Definition { get; set; } = null!;
+    [Export] public PlayerSkillDefaults Defaults { get; set; } = null!;
     public SkillLoadout? Loadout { get; private set; }
     public RangedAttackSettings ArcherAttackSettings { get; private set; } = new();
+    public int RemainingArchers => _remainingArchers;
+    public string NextArcherCharacterId => _archerPlacementIndex < _archerQueue.Count
+        ? _archerQueue[_archerPlacementIndex].CharacterId : "";
+    public string[] PlacedArcherCharacterIds => _placedArcherCharacterIds.ToArray();
     private DeploymentGrid _grid = null!;
     private Vector2I[] _pathCorners = [];
     private WaveSpec[] _waves = [];
-    private readonly System.Collections.Generic.Dictionary<DeploymentGrid.PlacementType, UnitDefinition> _units = new();
+    private readonly Dictionary<DeploymentGrid.PlacementType, UnitDefinition> _units = new();
+    private readonly List<ArcherDeployment> _archerQueue = new();
+    private readonly List<string> _placedArcherCharacterIds = new();
+    private int _archerPlacementIndex;
     private int _remainingArchers;
     private int _remainingWarriors;
     private int _remainingHealers;
@@ -38,8 +49,10 @@ public partial class StageOne : Node2D
     {
         if (StageSelectionState.SelectedStage is not null)
             Definition = StageSelectionState.SelectedStage;
-        Loadout = StageSelectionState.SelectedLoadout;
-        ArcherAttackSettings = new RangedSkillEffectComposer().Compose(Loadout);
+        BuildArcherQueue();
+        Loadout = _archerQueue.FirstOrDefault()?.Loadout ?? StageSelectionState.SelectedLoadout;
+        ArcherAttackSettings = _archerQueue.FirstOrDefault()?.Settings
+            ?? new RangedSkillEffectComposer().Compose(Loadout);
 
         _enemyPath = GetNode<Path2D>("EnemyPath");
         _spawnTimer = GetNode<Timer>("SpawnTimer");
@@ -57,7 +70,9 @@ public partial class StageOne : Node2D
             _units.Add(type, entry.Unit);
             switch (type)
             {
-                case DeploymentGrid.PlacementType.Ranged: _remainingArchers = entry.Count; break;
+                case DeploymentGrid.PlacementType.Ranged:
+                    if (_archerQueue.Count == 0) _remainingArchers = entry.Count;
+                    break;
                 case DeploymentGrid.PlacementType.Melee: _remainingWarriors = entry.Count; break;
                 case DeploymentGrid.PlacementType.Support: _remainingHealers = entry.Count; break;
             }
@@ -82,7 +97,7 @@ public partial class StageOne : Node2D
 
     public void ReturnToStageList()
     {
-        StageSelectionState.SelectedStage = null;
+        StageSelectionState.ClearStage();
         GetTree().ChangeSceneToFile("res://scenes/stage_select.tscn");
     }
 
@@ -120,7 +135,7 @@ public partial class StageOne : Node2D
     };
 
     private void UpdatePlacementHud() => _hud.UpdatePlacement(_remainingArchers, _remainingWarriors,
-        _remainingHealers, _selectedType);
+        _remainingHealers, _selectedType, NextArcherCharacterId);
 
     private void OnCellSelected(Vector2I cell)
     {
@@ -130,9 +145,13 @@ public partial class StageOne : Node2D
         if (_selectedType == DeploymentGrid.PlacementType.Ranged)
         {
             _remainingArchers--;
+            ArcherDeployment? deployment = _archerPlacementIndex < _archerQueue.Count
+                ? _archerQueue[_archerPlacementIndex++] : null;
+            if (deployment is not null) unit = deployment.Unit;
             Tower tower = unit.Scene.Instantiate<Tower>();
             AddChild(tower);
-            tower.SetupRanged(unit, ArcherAttackSettings);
+            tower.SetupRanged(unit, deployment?.Settings ?? ArcherAttackSettings, deployment?.CharacterId ?? "");
+            _placedArcherCharacterIds.Add(tower.CharacterId);
             tower.GlobalPosition = _grid.CellToGlobal(cell);
             tower.Defeated += _ => _grid.ReleaseCell(cell);
         }
@@ -340,5 +359,22 @@ public partial class StageOne : Node2D
             _baseHealth);
     }
 
+    private void BuildArcherQueue()
+    {
+        var profiles = Defaults.CatProfiles.ToDictionary(profile => profile.CharacterId, StringComparer.Ordinal);
+        var loadouts = StageSelectionState.SelectedCharacterLoadouts
+            .ToDictionary(entry => entry.CharacterId, entry => entry.Loadout, StringComparer.Ordinal);
+        var composer = new RangedSkillEffectComposer();
+        foreach (string characterId in StageSelectionState.SelectedCharacterIds)
+        {
+            if (!profiles.TryGetValue(characterId, out CatProfile? profile) || profile.Unit is null) continue;
+            loadouts.TryGetValue(characterId, out SkillLoadout? loadout);
+            _archerQueue.Add(new ArcherDeployment(characterId, profile.Unit, loadout, composer.Compose(loadout)));
+        }
+        _remainingArchers = _archerQueue.Count;
+    }
+
     private readonly record struct WaveSpec(UnitDefinition Enemy, int Count, float Health, float Speed, double Interval);
+    private sealed record ArcherDeployment(string CharacterId, UnitDefinition Unit, SkillLoadout? Loadout,
+        RangedAttackSettings Settings);
 }
