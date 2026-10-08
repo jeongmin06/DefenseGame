@@ -13,7 +13,7 @@ public partial class SkillLoadoutScreen : Node2D
     [Export] public PlayerSkillDefaults Defaults { get; set; } = null!;
 
     public int CandidateCount => _supportById.Count;
-    public int CharacterCount => Defaults?.CatProfiles.Count ?? 0;
+    public int CharacterCount => _selectedProfiles.Count;
     public string SelectedCharacterId => _selectedCharacterId;
     public int SelectedSupportCount => CurrentPreset?.SupportSkillIds.Count ?? 0;
     public int UsedPoints { get; private set; }
@@ -30,6 +30,7 @@ public partial class SkillLoadoutScreen : Node2D
     private readonly Dictionary<string, CatProfile> _profilesById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CatSkillPreset> _squadPresetsById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Button> _characterButtons = new(StringComparer.Ordinal);
+    private readonly List<CatProfile> _selectedProfiles = new();
     private readonly SquadSkillValidator _validator = new();
     private readonly SkillProfileStore _profileStore = new();
 
@@ -62,7 +63,7 @@ public partial class SkillLoadoutScreen : Node2D
         _statusLabel = GetNode<Label>("UI/MainPanel/StatusLabel");
         _saveButton = GetNode<Button>("UI/MainPanel/Actions/SaveButton");
         _startButton = GetNode<Button>("UI/MainPanel/Actions/StartButton");
-        GetNode<Button>("UI/MainPanel/Actions/BackButton").Pressed += ReturnToStageList;
+        GetNode<Button>("UI/MainPanel/Actions/BackButton").Pressed += ReturnToFormation;
         _saveButton.Pressed += () => SaveProfile();
         _startButton.Pressed += () => StartBattle();
 
@@ -74,7 +75,7 @@ public partial class SkillLoadoutScreen : Node2D
         LoadCatalog();
         LoadProfile();
         BuildCharacterButtons();
-        _selectedCharacterId = Defaults.CatProfiles.FirstOrDefault()?.CharacterId ?? "";
+        _selectedCharacterId = _selectedProfiles.FirstOrDefault()?.CharacterId ?? "";
         Refresh();
         _characterButtons.GetValueOrDefault(_selectedCharacterId)?.GrabFocus();
         QueueRedraw();
@@ -208,17 +209,19 @@ public partial class SkillLoadoutScreen : Node2D
             return false;
         }
         // Stage 3 keeps the existing single-loadout battle bridge. Per-character instance mapping is stage 4.
-        string firstCharacterId = Defaults.CatProfiles.First().CharacterId;
+        string firstCharacterId = _selectedProfiles.First().CharacterId;
         StageSelectionState.SelectedLoadout = _validation.GetLoadout(firstCharacterId);
+        StageSelectionState.SelectedCharacterLoadouts = new Godot.Collections.Array<CharacterSkillLoadout>(_validation.CharacterLoadouts);
         GetTree().ChangeSceneToFile("res://scenes/stage_one.tscn");
         return true;
     }
 
-    public void ReturnToStageList()
+    public void ReturnToFormation()
     {
-        StageSelectionState.SelectedStage = null;
-        GetTree().ChangeSceneToFile("res://scenes/stage_select.tscn");
+        GetTree().ChangeSceneToFile("res://scenes/squad_formation.tscn");
     }
+
+    public void ReturnToStageList() => ReturnToFormation();
 
     private void LoadCatalog()
     {
@@ -233,6 +236,12 @@ public partial class SkillLoadoutScreen : Node2D
 
     private void LoadProfile()
     {
+        var allProfiles = Defaults.CatProfiles.ToDictionary(profile => profile.CharacterId, StringComparer.Ordinal);
+        IEnumerable<string> selectedIds = StageSelectionState.SelectedCharacterIds.Count > 0
+            ? StageSelectionState.SelectedCharacterIds
+            : Defaults.CatProfiles.Select(profile => profile.CharacterId);
+        foreach (string characterId in selectedIds)
+            if (allProfiles.TryGetValue(characterId, out CatProfile? selected)) _selectedProfiles.Add(selected);
         if (!string.IsNullOrWhiteSpace(StageSelectionState.SkillProfileStoragePathOverride))
             _profileStore.ConfigureStoragePath(StageSelectionState.SkillProfileStoragePathOverride);
         _loadResult = _profileStore.Load();
@@ -241,7 +250,6 @@ public partial class SkillLoadoutScreen : Node2D
         _requiresRecoverySave = _loadResult.RequiresExplicitOverwrite;
         foreach (CatProfile profile in Defaults.CatProfiles)
         {
-            _profilesById.Add(profile.CharacterId, profile);
             CatSkillPreset? preset = _storedPresets.FirstOrDefault(candidate => candidate.CharacterId == profile.CharacterId);
             if (preset is null)
             {
@@ -254,13 +262,17 @@ public partial class SkillLoadoutScreen : Node2D
                 };
                 _storedPresets.Add(preset);
             }
-            _squadPresetsById.Add(profile.CharacterId, preset);
+            if (_selectedProfiles.Contains(profile))
+            {
+                _profilesById.Add(profile.CharacterId, profile);
+                _squadPresetsById.Add(profile.CharacterId, preset);
+            }
         }
     }
 
     private void BuildCharacterButtons()
     {
-        foreach (CatProfile profile in Defaults.CatProfiles)
+        foreach (CatProfile profile in _selectedProfiles)
         {
             string characterId = profile.CharacterId;
             var button = new Button { Name = $"Character_{characterId}", CustomMinimumSize = new Vector2(300, 44) };
@@ -401,8 +413,8 @@ public partial class SkillLoadoutScreen : Node2D
             HasStageCap = stage?.SkillBudget?.HasStageCap ?? false, StageCap = stage?.SkillBudget?.StageCap ?? 0,
             TotalAllocatedPoints = _squadPresetsById.Values.Sum(preset => preset.AllocatedPoints)
         };
-        foreach (CatProfile profile in Defaults.CatProfiles) allocation.CatProfiles.Add(profile);
-        foreach (CatProfile profile in Defaults.CatProfiles)
+        foreach (CatProfile profile in _selectedProfiles) allocation.CatProfiles.Add(profile);
+        foreach (CatProfile profile in _selectedProfiles)
             if (_squadPresetsById.TryGetValue(profile.CharacterId, out CatSkillPreset? preset)) allocation.Presets.Add(preset);
         return _validator.Validate(allocation, _progress, Catalog);
     }
