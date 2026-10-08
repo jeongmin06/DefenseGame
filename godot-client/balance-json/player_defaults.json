@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "playerSkillProgress": {
+    "playerLevel": 5,
+    "unlockedPoints": 5,
+    "ownedSkillIds": [
+      "basic_arrow",
+      "multiple_projectiles",
+      "piercing_shot",
+      "fire_infusion",
+      "healing_amplification"
+    ]
+  },
+  "catProfiles": [
+    {
+      "characterId": "starter_archer_a",
+      "displayName": "Starter Archer A",
+      "unitId": "cat_archer"
+    },
+    {
+      "characterId": "starter_archer_b",
+      "displayName": "Starter Archer B",
+      "unitId": "cat_archer"
+    }
+  ],
+  "catSkillPresets": [
+    {
+      "characterId": "starter_archer_a",
+      "activeSkillId": "basic_arrow",
+      "supportSkillIds": ["multiple_projectiles", "piercing_shot"],
+      "allocatedPoints": 2,
+      "updatedAtUtc": "2026-10-08T00:00:00Z"
+    },
+    {
+      "characterId": "starter_archer_b",
+      "activeSkillId": "basic_arrow",
+      "supportSkillIds": ["fire_infusion"],
+      "allocatedPoints": 1,
+      "updatedAtUtc": "2026-10-08T00:00:00Z"
+    }
+  ]
+}

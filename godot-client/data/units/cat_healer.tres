@@ -9,6 +9,7 @@ Id = "cat_healer"
 DisplayName = "cat_healer"
 Role = 2
 Placement = 0
+SkillTags = Array[String](["HEAL"])
 Scene = ExtResource("scene")
 MaxHealth = 18
 ActionPower = 4

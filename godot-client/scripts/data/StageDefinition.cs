@@ -11,6 +11,7 @@ public partial class StageDefinition : Resource
     [Export] public int BaseHealth { get; set; }
     [Export] public float FirstWaveDelay { get; set; }
     [Export] public float WaveGap { get; set; }
+    [Export] public StageSkillBudget SkillBudget { get; set; } = null!;
     [Export] public GridDefinition Grid { get; set; } = null!;
     [Export] public Godot.Collections.Array<Vector2I> PathCorners { get; set; } = new();
     [Export] public Godot.Collections.Array<Vector2I> BlockedCells { get; set; } = new();

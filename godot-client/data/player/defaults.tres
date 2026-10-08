@@ -1,0 +1,49 @@
+[gd_resource type="Resource" load_steps=11 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/PlayerSkillDefaults.cs" id="PlayerSkillDefaults"]
+[ext_resource type="Script" path="res://scripts/data/PlayerSkillProgress.cs" id="PlayerSkillProgress"]
+[ext_resource type="Script" path="res://scripts/data/CatProfile.cs" id="CatProfile"]
+[ext_resource type="Script" path="res://scripts/data/CatSkillPreset.cs" id="CatSkillPreset"]
+[ext_resource type="Resource" path="res://data/units/cat_archer.tres" id="unit_cat_archer"]
+
+[sub_resource type="Resource" id="progress"]
+script = ExtResource("PlayerSkillProgress")
+PlayerLevel = 5
+UnlockedPoints = 5
+OwnedSkillIds = Array[String](["basic_arrow", "multiple_projectiles", "piercing_shot", "fire_infusion", "healing_amplification"])
+
+[sub_resource type="Resource" id="profile_0"]
+script = ExtResource("CatProfile")
+CharacterId = "starter_archer_a"
+DisplayName = "Starter Archer A"
+UnitId = "cat_archer"
+Unit = ExtResource("unit_cat_archer")
+
+[sub_resource type="Resource" id="profile_1"]
+script = ExtResource("CatProfile")
+CharacterId = "starter_archer_b"
+DisplayName = "Starter Archer B"
+UnitId = "cat_archer"
+Unit = ExtResource("unit_cat_archer")
+
+[sub_resource type="Resource" id="preset_0"]
+script = ExtResource("CatSkillPreset")
+CharacterId = "starter_archer_a"
+ActiveSkillId = "basic_arrow"
+SupportSkillIds = Array[String](["multiple_projectiles", "piercing_shot"])
+AllocatedPoints = 2
+UpdatedAtUtc = "2026-10-08T00:00:00Z"
+
+[sub_resource type="Resource" id="preset_1"]
+script = ExtResource("CatSkillPreset")
+CharacterId = "starter_archer_b"
+ActiveSkillId = "basic_arrow"
+SupportSkillIds = Array[String](["fire_infusion"])
+AllocatedPoints = 1
+UpdatedAtUtc = "2026-10-08T00:00:00Z"
+
+[resource]
+script = ExtResource("PlayerSkillDefaults")
+Progress = SubResource("progress")
+CatProfiles = Array[ExtResource("CatProfile")]([SubResource("profile_0"), SubResource("profile_1")])
+InitialPresets = Array[ExtResource("CatSkillPreset")]([SubResource("preset_0"), SubResource("preset_1")])

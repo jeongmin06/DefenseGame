@@ -11,6 +11,7 @@ cli = project / 'tools/DefenseGame.DataImporter/bin/Debug/net9.0/DefenseGame.Dat
 units = json.loads((project / 'balance-json/units.json').read_text())
 stages = json.loads((project / 'balance-json/stages.json').read_text())
 skills = json.loads((project / 'balance-json/skills.json').read_text())
+player = json.loads((project / 'balance-json/player_defaults.json').read_text())
 
 def snapshot(root):
     return {str(p.relative_to(root)): hashlib.sha256(p.read_bytes()).hexdigest()
@@ -20,14 +21,15 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
     base = Path(temp)
     source, output = base / 'input', base / 'data'
     source.mkdir()
-    def write(u, s, k):
+    def write(u, s, k, p):
         (source / 'units.json').write_text(json.dumps(u))
         (source / 'stages.json').write_text(json.dumps(s))
         (source / 'skills.json').write_text(json.dumps(k))
+        (source / 'player_defaults.json').write_text(json.dumps(p))
     def run(*extra):
         return subprocess.run(['dotnet', str(cli), '--input', str(source), '--output', str(output),
                                '--project-root', str(project), *extra], capture_output=True, text=True)
-    write(units, stages, skills)
+    write(units, stages, skills, player)
     assert run().returncode == 0
     baseline = snapshot(output)
     assert set(baseline) == {
@@ -36,12 +38,20 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         'stages/stage_03.tres', 'stages/catalog.tres',
         'skills/basic_arrow.tres', 'skills/multiple_projectiles.tres',
         'skills/piercing_shot.tres', 'skills/fire_infusion.tres',
-        'skills/healing_amplification.tres', 'skills/catalog.tres'
+        'skills/healing_amplification.tres', 'skills/catalog.tres',
+        'player/defaults.tres'
     }
     catalog = (output / 'stages/catalog.tres').read_text()
     assert all(f'stage_0{i}.tres' in catalog for i in range(1, 4))
     skill_catalog = (output / 'skills/catalog.tres').read_text()
     assert all(f'{skill["id"]}.tres' in skill_catalog for skill in skills['skills'])
+    defaults = (output / 'player/defaults.tres').read_text()
+    assert 'CharacterId = "starter_archer_a"' in defaults
+    assert 'CharacterId = "starter_archer_b"' in defaults
+    assert 'UnlockedPoints = 5' in defaults and 'OwnedSkillIds = Array[String]([' in defaults
+    for index, cap in enumerate((3, 4, 5), start=1):
+        stage = (output / f'stages/stage_0{index}.tres').read_text()
+        assert f'StageCap = {cap}' in stage and 'HasStageCap = true' in stage
     assert run().returncode == 0 and snapshot(output) == baseline
     assert run('--check').returncode == 0 and snapshot(output) == baseline
     cases = [
@@ -71,6 +81,7 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         ('override', 'stages', lambda d: d['stages'][0]['waves'][0].update(speedOverride=-1), '.speedOverride'),
         ('unknown field', 'stages', lambda d: d['stages'][0].update(typo=1), '.typo'),
         ('duplicate stage', 'stages', lambda d: d['stages'].append(copy.deepcopy(d['stages'][0])), '.id'),
+        ('negative stage cap', 'stages', lambda d: d['stages'][0].update(skillPointCap=-1), '.skillPointCap'),
         ('skill schema', 'skills', lambda d: d.update(schemaVersion=2), 'schemaVersion'),
         ('skill duplicate', 'skills', lambda d: d['skills'].append(copy.deepcopy(d['skills'][0])), '.id'),
         ('skill role', 'skills', lambda d: d['skills'][0].update(role='spell'), '.role'),
@@ -88,20 +99,38 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         ('zero multiplier', 'skills', lambda d: d['skills'][1]['effects'][1].update(floatValue=0), '.floatValue'),
         ('unknown effect tag', 'skills', lambda d: d['skills'][3]['effects'][1].update(tagValue='ICE'), '.tagValue'),
         ('conflicting tag', 'skills', lambda d: d['skills'][3].update(forbiddenTags=['HIT']), '.forbiddenTags'),
+        ('player schema', 'player', lambda d: d.update(schemaVersion=2), 'schemaVersion'),
+        ('player level', 'player', lambda d: d['playerSkillProgress'].update(playerLevel=0), '.playerLevel'),
+        ('player points', 'player', lambda d: d['playerSkillProgress'].update(unlockedPoints=-1), '.unlockedPoints'),
+        ('owned duplicate', 'player', lambda d: d['playerSkillProgress']['ownedSkillIds'].append('basic_arrow'), 'duplicate ID'),
+        ('owned missing', 'player', lambda d: d['playerSkillProgress']['ownedSkillIds'].__setitem__(0, 'missing_skill'), 'unknown skill reference'),
+        ('profile duplicate', 'player', lambda d: d['catProfiles'].append(copy.deepcopy(d['catProfiles'][0])), 'duplicate character ID'),
+        ('profile unit', 'player', lambda d: d['catProfiles'][0].update(unitId='missing_unit'), 'allied unit reference'),
+        ('preset duplicate', 'player', lambda d: d['catSkillPresets'].append(copy.deepcopy(d['catSkillPresets'][0])), 'duplicate preset'),
+        ('preset character', 'player', lambda d: d['catSkillPresets'][0].update(characterId='missing_cat'), 'unknown character reference'),
+        ('preset allocated', 'player', lambda d: d['catSkillPresets'][0].update(allocatedPoints=1), '.allocatedPoints'),
+        ('preset duplicate support', 'player', lambda d: d['catSkillPresets'][0]['supportSkillIds'].append('multiple_projectiles'), 'duplicate ID'),
+        ('preset active missing', 'player', lambda d: d['catSkillPresets'][0].update(activeSkillId='missing_skill'), '.activeSkillId'),
+        ('preset active role', 'player', lambda d: d['catSkillPresets'][0].update(activeSkillId='fire_infusion'), 'expected free active skill'),
+        ('preset support role', 'player', lambda d: d['catSkillPresets'][0]['supportSkillIds'].__setitem__(0, 'basic_arrow'), 'one-point support'),
+        ('preset incompatible', 'player', lambda d: d['catSkillPresets'][0]['supportSkillIds'].__setitem__(0, 'healing_amplification'), 'required-any'),
+        ('preset timestamp', 'player', lambda d: d['catSkillPresets'][0].update(updatedAtUtc='not-a-date'), '.updatedAtUtc'),
+        ('preset absent', 'player', lambda d: d['catSkillPresets'].pop(), 'exactly one preset'),
+        ('preset budget', 'player', lambda d: d['playerSkillProgress'].update(unlockedPoints=2), 'exceed unlocked points'),
     ]
     for name, kind, mutate, field in cases:
-        u, s, k = copy.deepcopy(units), copy.deepcopy(stages), copy.deepcopy(skills)
-        mutate({'units': u, 'stages': s, 'skills': k}[kind])
-        write(u, s, k)
+        u, s, k, p = copy.deepcopy(units), copy.deepcopy(stages), copy.deepcopy(skills), copy.deepcopy(player)
+        mutate({'units': u, 'stages': s, 'skills': k, 'player': p}[kind])
+        write(u, s, k, p)
         result = run()
         assert result.returncode == 1 and field in result.stderr, (name, result.stdout, result.stderr)
         assert snapshot(output) == baseline, name + ': partial output'
-    write(units, stages, skills)
+    write(units, stages, skills, player)
     (source / 'units.json').write_text('{bad json')
     result = run()
     assert result.returncode == 1 and 'units.json' in result.stderr
     assert snapshot(output) == baseline
-    write(units, stages, skills)
+    write(units, stages, skills, player)
     generated = output / 'units/cat_archer.tres'
     generated.write_text(generated.read_text() + '\n')
     changed = snapshot(output)
@@ -117,18 +146,33 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
     assert run().returncode == 0 and snapshot(output) == baseline
     u = copy.deepcopy(units)
     u['units'][0]['actionPower'] = 9
-    write(u, stages, skills)
+    write(u, stages, skills, player)
     assert run().returncode == 0 and 'ActionPower = 9' in generated.read_text()
     # Missing wave overrides are legal and omitted rather than replaced by magic values.
     s = copy.deepcopy(stages)
     s['stages'][0]['waves'][0].pop('healthOverride')
     s['stages'][0]['waves'][0].pop('speedOverride')
-    write(units, s, skills)
+    write(units, s, skills, player)
     assert run().returncode == 0
     existing = snapshot(output)
-    write(units, stages, skills)
+    # A missing cap and an explicit zero cap must remain distinguishable in generated resources.
+    s = copy.deepcopy(stages)
+    s['stages'][0].pop('skillPointCap')
+    s['stages'][1]['skillPointCap'] = 0
+    write(units, s, skills, player)
+    assert run().returncode == 0
+    assert 'HasStageCap = false' in (output / 'stages/stage_01.tres').read_text()
+    zero_cap_stage = (output / 'stages/stage_02.tres').read_text()
+    assert 'HasStageCap = true' in zero_cap_stage and 'StageCap = 0' in zero_cap_stage
+    existing = snapshot(output)
+    write(units, stages, skills, player)
     (source / 'skills.json').write_text('{bad json')
     result = run()
     assert result.returncode == 1 and 'skills.json' in result.stderr
+    assert snapshot(output) == existing
+    write(units, stages, skills, player)
+    (source / 'player_defaults.json').write_text('{bad json')
+    result = run()
+    assert result.returncode == 1 and 'player_defaults.json' in result.stderr
     assert snapshot(output) == existing
 print(f'IMPORTER QA PASS: {len(cases)} invalid cases, malformed JSON, no partial writes, deterministic output, check drift/stale, overrides, changed power')

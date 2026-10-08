@@ -4,6 +4,7 @@
     {
       "id": "stage_01",
       "displayName": "Iron Path",
+      "skillPointCap": 3,
       "baseHealth": 5,
       "firstWaveDelay": 0.8,
       "waveGap": 2,
@@ -101,6 +102,7 @@
     {
       "id": "stage_02",
       "displayName": "Iron Path II",
+      "skillPointCap": 4,
       "baseHealth": 5,
       "firstWaveDelay": 0.8,
       "waveGap": 2,
@@ -168,6 +170,7 @@
     {
       "id": "stage_03",
       "displayName": "Iron Path III",
+      "skillPointCap": 5,
       "baseHealth": 5,
       "firstWaveDelay": 0.8,
       "waveGap": 2,

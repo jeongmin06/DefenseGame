@@ -9,6 +9,7 @@ Id = "mutant_mouse"
 DisplayName = "mutant_mouse"
 Role = 3
 Placement = 2
+SkillTags = Array[String]([])
 Scene = ExtResource("scene")
 MaxHealth = 12
 ActionPower = 3

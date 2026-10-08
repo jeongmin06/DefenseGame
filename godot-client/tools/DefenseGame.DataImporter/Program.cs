@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -75,6 +76,7 @@ sealed class Pipeline(string project)
     static readonly string[] SkillTags = ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT", "FIRE", "HEAL"];
     static readonly string[] SkillEffectTypes = ["add_projectiles", "add_pierce", "add_fire_damage", "multiply_damage", "add_tag", "multiply_healing"];
     readonly Dictionary<string, JsonObject> units = new(StringComparer.Ordinal);
+    [DoesNotReturn]
     static void Fail(string path, string message) => throw new InvalidDataException($"{path}: {message}");
     static JsonObject Obj(JsonNode? node, string path) => node as JsonObject ?? throw new InvalidDataException($"{path}: expected object");
     static JsonArray Arr(JsonNode? node, string path) => node as JsonArray ?? throw new InvalidDataException($"{path}: expected array");
@@ -98,7 +100,12 @@ sealed class Pipeline(string project)
     static string Id(JsonObject o, string path)
     {
         string id = Str(o, "id", path);
-        if (!Regex.IsMatch(id, "^[a-z][a-z0-9_]*$")) Fail(path + ".id", "expected lowercase identifier");
+        ValidateId(id, path + ".id");
+        return id;
+    }
+    static string ValidateId(string id, string path)
+    {
+        if (!Regex.IsMatch(id, "^[a-z][a-z0-9_]*$")) Fail(path, "expected lowercase identifier");
         return id;
     }
     void ScenePath(JsonObject o, string key, string path)
@@ -150,6 +157,23 @@ sealed class Pipeline(string project)
         }
         return result;
     }
+    static string[] Ids(JsonNode? node, string path)
+    {
+        var a = Arr(node, path);
+        var result = new string[a.Count];
+        var seen = new HashSet<string>(StringComparer.Ordinal);
+        for (int i = 0; i < a.Count; i++)
+        {
+            if (a[i] is not JsonValue value || !value.TryGetValue<string>(out string? parsedId) || string.IsNullOrWhiteSpace(parsedId))
+            {
+                Fail($"{path}[{i}]", "expected identifier");
+                return result;
+            }
+            result[i] = ValidateId(parsedId, $"{path}[{i}]");
+            if (!seen.Add(result[i])) Fail($"{path}[{i}]", "duplicate ID");
+        }
+        return result;
+    }
     static JsonArray Document(string file, string key)
     {
         JsonObject o;
@@ -161,6 +185,15 @@ sealed class Pipeline(string project)
         if (a.Count == 0) Fail(file + "." + key, "cannot be empty");
         return a;
     }
+    static JsonObject ObjectDocument(string file, params string[] fields)
+    {
+        JsonObject o;
+        try { o = Obj(JsonNode.Parse(File.ReadAllText(file)), file); }
+        catch (JsonException ex) { throw new InvalidDataException($"{file}{ex.Path}: {ex.Message}"); }
+        Fields(o, file, ["schemaVersion", .. fields]);
+        if (Num(o, "schemaVersion", file, integer: true) != 1) Fail(file + ".schemaVersion", "only version 1 is supported");
+        return o;
+    }
     public SortedDictionary<string, string> Generate(string input)
     {
         var sourceUnits = Document(Path.Combine(input, "units.json"), "units");
@@ -171,7 +204,7 @@ sealed class Pipeline(string project)
             string id = Id(o, p), role = Str(o, "role", p);
             if (!units.TryAdd(id, o)) Fail(p + ".id", "duplicate ID");
             if (!Roles.Contains(role)) Fail(p + ".role", "unknown role");
-            string[] common = ["id", "displayName", "role", "scenePath", "placement", "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit"];
+            string[] common = ["id", "displayName", "role", "skillTags", "scenePath", "placement", "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit"];
             string[] extra = role switch
             {
                 "ranged" => ["rangePixels", "projectileScenePath", "projectileSpeed", "projectileHitDistance", "projectileSpawnOffset"],
@@ -180,6 +213,7 @@ sealed class Pipeline(string project)
                 _ => ["moveSpeed"]
             };
             Fields(o, p, [.. common, .. extra]);
+            Tags(o["skillTags"], p + ".skillTags");
             Str(o, "displayName", p); ScenePath(o, "scenePath", p);
             string expected = role == "enemy" ? "none" : role == "melee" ? "ground_or_path" : "ground";
             if (Str(o, "placement", p) != expected) Fail(p + ".placement", "invalid placement for role");
@@ -210,12 +244,16 @@ sealed class Pipeline(string project)
         var skills = Document(Path.Combine(input, "skills.json"), "skills");
         var skillIds = new HashSet<string>(StringComparer.Ordinal);
         for (int i = 0; i < skills.Count; i++) ValidateSkill(Obj(skills[i], $"skills[{i}]"), $"skills[{i}]", skillIds);
+        var playerDefaults = ObjectDocument(Path.Combine(input, "player_defaults.json"),
+            "playerSkillProgress", "catProfiles", "catSkillPresets");
+        ValidatePlayerDefaults(playerDefaults, skills);
         var result = new SortedDictionary<string, string>(StringComparer.Ordinal);
         foreach (var (id, unit) in units.OrderBy(p => p.Key, StringComparer.Ordinal)) result[$"units/{id}.tres"] = RenderUnit(unit);
         foreach (var stage in stages) { var s = stage!.AsObject(); result[$"stages/{S(s, "id")}.tres"] = RenderStage(s); }
         result["stages/catalog.tres"] = RenderStageCatalog(stages);
         foreach (var skill in skills) { var s = skill!.AsObject(); result[$"skills/{S(s, "id")}.tres"] = RenderSkill(s); }
         result["skills/catalog.tres"] = RenderSkillCatalog(skills);
+        result["player/defaults.tres"] = RenderPlayerDefaults(playerDefaults);
         return result;
     }
     static void ValidateSkill(JsonObject skill, string path, HashSet<string> ids)
@@ -277,11 +315,96 @@ sealed class Pipeline(string project)
                 break;
         }
     }
+    void ValidatePlayerDefaults(JsonObject root, JsonArray skillArray)
+    {
+        var skillMap = skillArray.Select(node => node!.AsObject())
+            .ToDictionary(skill => S(skill, "id"), StringComparer.Ordinal);
+        var progress = Obj(root["playerSkillProgress"], "playerSkillProgress");
+        Fields(progress, "playerSkillProgress", "playerLevel", "unlockedPoints", "ownedSkillIds");
+        Num(progress, "playerLevel", "playerSkillProgress", integer: true, positive: true);
+        int unlockedPoints = (int)Num(progress, "unlockedPoints", "playerSkillProgress", integer: true);
+        string[] ownedIds = Ids(progress["ownedSkillIds"], "playerSkillProgress.ownedSkillIds");
+        if (ownedIds.Length == 0) Fail("playerSkillProgress.ownedSkillIds", "cannot be empty");
+        foreach (string id in ownedIds)
+            if (!skillMap.ContainsKey(id)) Fail("playerSkillProgress.ownedSkillIds", $"unknown skill reference '{id}'");
+        var owned = new HashSet<string>(ownedIds, StringComparer.Ordinal);
+
+        var profiles = Arr(root["catProfiles"], "catProfiles");
+        if (profiles.Count == 0) Fail("catProfiles", "cannot be empty");
+        var profileIds = new HashSet<string>(StringComparer.Ordinal);
+        var profileUnits = new Dictionary<string, JsonObject>(StringComparer.Ordinal);
+        for (int i = 0; i < profiles.Count; i++)
+        {
+            string path = $"catProfiles[{i}]";
+            var profile = Obj(profiles[i], path);
+            Fields(profile, path, "characterId", "displayName", "unitId");
+            string characterId = ValidateId(Str(profile, "characterId", path), path + ".characterId");
+            if (!profileIds.Add(characterId)) Fail(path + ".characterId", "duplicate character ID");
+            Str(profile, "displayName", path);
+            string unitId = ValidateId(Str(profile, "unitId", path), path + ".unitId");
+            if (!units.TryGetValue(unitId, out JsonObject? unit) || S(unit, "role") == "enemy")
+                Fail(path + ".unitId", "expected allied unit reference");
+            profileUnits.Add(characterId, unit);
+        }
+
+        var presets = Arr(root["catSkillPresets"], "catSkillPresets");
+        var presetIds = new HashSet<string>(StringComparer.Ordinal);
+        int totalAllocated = 0;
+        for (int i = 0; i < presets.Count; i++)
+        {
+            string path = $"catSkillPresets[{i}]";
+            var preset = Obj(presets[i], path);
+            Fields(preset, path, "characterId", "activeSkillId", "supportSkillIds", "allocatedPoints", "updatedAtUtc");
+            string characterId = ValidateId(Str(preset, "characterId", path), path + ".characterId");
+            if (!presetIds.Add(characterId)) Fail(path + ".characterId", "duplicate preset character ID");
+            if (!profileUnits.TryGetValue(characterId, out JsonObject? unit)) Fail(path + ".characterId", "unknown character reference");
+            string activeId = ValidateId(Str(preset, "activeSkillId", path), path + ".activeSkillId");
+            string[] supportIds = Ids(preset["supportSkillIds"], path + ".supportSkillIds");
+            if (supportIds.Length > 5) Fail(path + ".supportSkillIds", "maximum five support skills");
+            int allocated = (int)Num(preset, "allocatedPoints", path, integer: true);
+            if (allocated != supportIds.Length) Fail(path + ".allocatedPoints", "must equal support skill count");
+            totalAllocated += allocated;
+            string updatedAt = Str(preset, "updatedAtUtc", path);
+            if (!DateTimeOffset.TryParse(updatedAt, CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal, out DateTimeOffset parsed)
+                || parsed.Offset != TimeSpan.Zero)
+                Fail(path + ".updatedAtUtc", "expected UTC timestamp");
+
+            if (!skillMap.TryGetValue(activeId, out JsonObject? active)) Fail(path + ".activeSkillId", "unknown skill reference");
+            if (!owned.Contains(activeId)) Fail(path + ".activeSkillId", "skill is not owned");
+            if (S(active!, "role") != "active" || Num(active!, "linkCost", path + ".activeSkillId", integer: true) != 0)
+                Fail(path + ".activeSkillId", "expected free active skill");
+            var unitTags = new HashSet<string>(Tags(unit!["skillTags"], path + ".unitId.skillTags"), StringComparer.Ordinal);
+            foreach (string tag in Tags(active!["tags"], path + ".activeSkillId.tags"))
+                if (!unitTags.Contains(tag)) Fail(path + ".activeSkillId", $"unit does not support tag '{tag}'");
+
+            var activeTags = new HashSet<string>(Tags(active!["tags"], path + ".activeSkillId.tags"), StringComparer.Ordinal);
+            foreach (string supportId in supportIds)
+            {
+                if (!skillMap.TryGetValue(supportId, out JsonObject? support)) Fail(path + ".supportSkillIds", $"unknown skill reference '{supportId}'");
+                if (!owned.Contains(supportId)) Fail(path + ".supportSkillIds", $"skill '{supportId}' is not owned");
+                if (S(support!, "role") != "support" || Num(support!, "linkCost", path + ".supportSkillIds", integer: true) != 1)
+                    Fail(path + ".supportSkillIds", $"skill '{supportId}' is not a one-point support");
+                string[] requiredAny = Tags(support!["requiredAnyTags"], path + ".supportSkillIds.requiredAnyTags");
+                string[] requiredAll = Tags(support!["requiredAllTags"], path + ".supportSkillIds.requiredAllTags");
+                string[] forbidden = Tags(support!["forbiddenTags"], path + ".supportSkillIds.forbiddenTags");
+                if (requiredAny.Length > 0 && !requiredAny.Any(activeTags.Contains))
+                    Fail(path + ".supportSkillIds", $"skill '{supportId}' lacks required-any tag");
+                if (requiredAll.Any(tag => !activeTags.Contains(tag)))
+                    Fail(path + ".supportSkillIds", $"skill '{supportId}' lacks required-all tag");
+                if (forbidden.Any(activeTags.Contains))
+                    Fail(path + ".supportSkillIds", $"skill '{supportId}' conflicts with forbidden tag");
+            }
+        }
+        if (!presetIds.SetEquals(profileIds)) Fail("catSkillPresets", "must contain exactly one preset per cat profile");
+        if (totalAllocated > unlockedPoints) Fail("catSkillPresets", "default presets exceed unlocked points");
+    }
     void ValidateStage(JsonObject s, string p, HashSet<string> ids)
     {
-        Fields(s, p, "id", "displayName", "baseHealth", "firstWaveDelay", "waveGap", "grid", "pathCorners", "blockedCells", "roster", "waves");
+        Fields(s, p, "id", "displayName", "skillPointCap", "baseHealth", "firstWaveDelay", "waveGap", "grid", "pathCorners", "blockedCells", "roster", "waves");
         if (!ids.Add(Id(s, p))) Fail(p + ".id", "duplicate ID");
         Str(s, "displayName", p); Num(s, "baseHealth", p, integer: true, positive: true);
+        if (s.ContainsKey("skillPointCap")) Num(s, "skillPointCap", p, integer: true);
         Num(s, "firstWaveDelay", p, positive: true); Num(s, "waveGap", p, positive: true);
         var grid = Obj(s["grid"], p + ".grid");
         Fields(grid, p + ".grid", "columns", "rows", "cellSize", "origin");
@@ -362,6 +485,7 @@ sealed class Pipeline(string project)
         b.AppendLine("\n[resource]\nscript = " + Ext("script"));
         b.AppendLine("Id = " + Q(S(u, "id"))); b.AppendLine("DisplayName = " + Q(S(u, "displayName")));
         b.AppendLine("Role = " + Array.IndexOf(Roles, S(u, "role"))); b.AppendLine("Placement = " + Array.IndexOf(Placements, S(u, "placement")));
+        b.AppendLine("SkillTags = " + StringsText(u["skillTags"]));
         b.AppendLine("Scene = " + Ext("scene"));
         foreach (string key in new[] { "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit", "rangePixels", "rangeCells", "blockCount", "projectileSpeed", "projectileHitDistance", "moveSpeed" })
             if (u.ContainsKey(key)) b.AppendLine(char.ToUpperInvariant(key[0]) + key[1..] + " = " + N(u[key]));
@@ -373,9 +497,13 @@ sealed class Pipeline(string project)
     {
         var roster = s["roster"]!.AsArray(); var waves = s["waves"]!.AsArray();
         var refs = roster.Select(r => S(r!.AsObject(), "unitId")).Concat(waves.Select(w => S(w!.AsObject(), "enemyId"))).Distinct().Order(StringComparer.Ordinal).ToArray();
-        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={6 + refs.Length + roster.Count + waves.Count} format=3]\n\n");
-        foreach (string name in new[] { "StageDefinition", "GridDefinition", "RosterEntry", "WaveDefinition" }) b.Append(Script(name, name));
+        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={8 + refs.Length + roster.Count + waves.Count} format=3]\n\n");
+        foreach (string name in new[] { "StageDefinition", "StageSkillBudget", "GridDefinition", "RosterEntry", "WaveDefinition" }) b.Append(Script(name, name));
         foreach (string id in refs) b.AppendLine($"[ext_resource type=\"Resource\" path=\"res://data/units/{id}.tres\" id=\"unit_{id}\"]");
+        b.AppendLine("\n[sub_resource type=\"Resource\" id=\"skill_budget\"]\nscript = " + Ext("StageSkillBudget"));
+        b.AppendLine("StageId = " + Q(S(s, "id")));
+        b.AppendLine("HasStageCap = " + (s.ContainsKey("skillPointCap") ? "true" : "false"));
+        if (s.ContainsKey("skillPointCap")) b.AppendLine("StageCap = " + N(s["skillPointCap"]));
         b.AppendLine("\n[sub_resource type=\"Resource\" id=\"grid\"]\nscript = " + Ext("GridDefinition"));
         var grid = s["grid"]!.AsObject();
         foreach (string key in new[] { "columns", "rows", "cellSize" }) b.AppendLine(char.ToUpperInvariant(key[0]) + key[1..] + " = " + N(grid[key]));
@@ -394,6 +522,7 @@ sealed class Pipeline(string project)
         b.AppendLine("\n[resource]\nscript = " + Ext("StageDefinition"));
         b.AppendLine("Id = " + Q(S(s, "id")) + "\nDisplayName = " + Q(S(s, "displayName")));
         foreach (string key in new[] { "baseHealth", "firstWaveDelay", "waveGap" }) b.AppendLine(char.ToUpperInvariant(key[0]) + key[1..] + " = " + N(s[key]));
+        b.AppendLine("SkillBudget = " + Sub("skill_budget"));
         b.AppendLine("Grid = " + Sub("grid") + "\nPathCorners = " + PointsText(s["pathCorners"]) + "\nBlockedCells = " + PointsText(s["blockedCells"]));
         b.AppendLine("Roster = Array[" + Ext("RosterEntry") + "]([" + string.Join(", ", Enumerable.Range(0, roster.Count).Select(i => Sub("roster_" + i))) + "])");
         b.AppendLine("Waves = Array[" + Ext("WaveDefinition") + "]([" + string.Join(", ", Enumerable.Range(0, waves.Count).Select(i => Sub("wave_" + i))) + "])");
@@ -452,6 +581,51 @@ sealed class Pipeline(string project)
         }
         b.AppendLine("\n[resource]\nscript = " + Ext("SkillCatalog"));
         b.AppendLine("Skills = Array[" + Ext("SkillDefinition") + "]([" + string.Join(", ", Enumerable.Range(0, skills.Count).Select(i => Ext("skill_" + i))) + "])");
+        return b.ToString().Replace("\r\n", "\n");
+    }
+
+    static string RenderPlayerDefaults(JsonObject root)
+    {
+        var progress = root["playerSkillProgress"]!.AsObject();
+        var profiles = root["catProfiles"]!.AsArray();
+        var presets = root["catSkillPresets"]!.AsArray();
+        var unitIds = profiles.Select(profile => S(profile!.AsObject(), "unitId"))
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={6 + unitIds.Length + profiles.Count + presets.Count} format=3]\n\n");
+        foreach (string name in new[] { "PlayerSkillDefaults", "PlayerSkillProgress", "CatProfile", "CatSkillPreset" })
+            b.Append(Script(name, name));
+        foreach (string unitId in unitIds)
+            b.AppendLine($"[ext_resource type=\"Resource\" path=\"res://data/units/{unitId}.tres\" id=\"unit_{unitId}\"]");
+
+        b.AppendLine("\n[sub_resource type=\"Resource\" id=\"progress\"]\nscript = " + Ext("PlayerSkillProgress"));
+        b.AppendLine("PlayerLevel = " + N(progress["playerLevel"]));
+        b.AppendLine("UnlockedPoints = " + N(progress["unlockedPoints"]));
+        b.AppendLine("OwnedSkillIds = " + StringsText(progress["ownedSkillIds"]));
+
+        for (int i = 0; i < profiles.Count; i++)
+        {
+            var profile = profiles[i]!.AsObject();
+            b.AppendLine($"\n[sub_resource type=\"Resource\" id=\"profile_{i}\"]\nscript = {Ext("CatProfile")}");
+            b.AppendLine("CharacterId = " + Q(S(profile, "characterId")));
+            b.AppendLine("DisplayName = " + Q(S(profile, "displayName")));
+            b.AppendLine("UnitId = " + Q(S(profile, "unitId")));
+            b.AppendLine("Unit = " + Ext("unit_" + S(profile, "unitId")));
+        }
+        for (int i = 0; i < presets.Count; i++)
+        {
+            var preset = presets[i]!.AsObject();
+            b.AppendLine($"\n[sub_resource type=\"Resource\" id=\"preset_{i}\"]\nscript = {Ext("CatSkillPreset")}");
+            b.AppendLine("CharacterId = " + Q(S(preset, "characterId")));
+            b.AppendLine("ActiveSkillId = " + Q(S(preset, "activeSkillId")));
+            b.AppendLine("SupportSkillIds = " + StringsText(preset["supportSkillIds"]));
+            b.AppendLine("AllocatedPoints = " + N(preset["allocatedPoints"]));
+            b.AppendLine("UpdatedAtUtc = " + Q(S(preset, "updatedAtUtc")));
+        }
+
+        b.AppendLine("\n[resource]\nscript = " + Ext("PlayerSkillDefaults"));
+        b.AppendLine("Progress = " + Sub("progress"));
+        b.AppendLine("CatProfiles = Array[" + Ext("CatProfile") + "]([" + string.Join(", ", Enumerable.Range(0, profiles.Count).Select(i => Sub("profile_" + i))) + "])");
+        b.AppendLine("InitialPresets = Array[" + Ext("CatSkillPreset") + "]([" + string.Join(", ", Enumerable.Range(0, presets.Count).Select(i => Sub("preset_" + i))) + "])");
         return b.ToString().Replace("\r\n", "\n");
     }
 }

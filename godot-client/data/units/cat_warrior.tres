@@ -9,6 +9,7 @@ Id = "cat_warrior"
 DisplayName = "cat_warrior"
 Role = 1
 Placement = 1
+SkillTags = Array[String](["ATTACK", "PHYSICAL", "HIT"])
 Scene = ExtResource("scene")
 MaxHealth = 30
 ActionPower = 6

@@ -16,6 +16,13 @@ public partial class SkillLinkValidator : RefCounted
     public SkillLinkValidationResult Validate(
         SkillDefinition? activeSkill,
         Godot.Collections.Array<SkillDefinition> supportSkills)
+        => ValidateWithLimits(activeSkill, supportSkills, MaxSupportSkills, LinkCoreBudget);
+
+    public SkillLinkValidationResult ValidateWithLimits(
+        SkillDefinition? activeSkill,
+        Godot.Collections.Array<SkillDefinition> supportSkills,
+        int maxSupportSkills,
+        int linkCoreBudget)
     {
         if (activeSkill is null)
             return Failure(SkillLinkError.MissingActiveSkill, "An active skill is required.");
@@ -23,8 +30,8 @@ public partial class SkillLinkValidator : RefCounted
             return Failure(SkillLinkError.ActiveRoleRequired, $"Skill '{activeSkill.Id}' is not active.");
         if (activeSkill.LinkCost != 0)
             return Failure(SkillLinkError.InvalidActiveLinkCost, $"Active skill '{activeSkill.Id}' must cost 0 link cores.");
-        if (supportSkills.Count > MaxSupportSkills)
-            return Failure(SkillLinkError.TooManySupports, $"At most {MaxSupportSkills} support skills can be linked.");
+        if (supportSkills.Count > maxSupportSkills)
+            return Failure(SkillLinkError.TooManySupports, $"At most {maxSupportSkills} support skills can be linked.");
 
         var activeTags = new HashSet<string>(activeSkill.Tags, StringComparer.Ordinal);
         var orderedSupports = supportSkills.OrderBy(skill => skill?.Id ?? "", StringComparer.Ordinal).ToArray();
@@ -32,9 +39,9 @@ public partial class SkillLinkValidator : RefCounted
             return Failure(SkillLinkError.MissingSupportSkill, "A support skill entry is missing.");
 
         int totalLinkCost = orderedSupports.Sum(support => support!.LinkCost);
-        if (totalLinkCost > LinkCoreBudget)
+        if (totalLinkCost > linkCoreBudget)
             return Failure(SkillLinkError.LinkBudgetExceeded,
-                $"Linked supports cost {totalLinkCost} cores, exceeding the budget of {LinkCoreBudget}.");
+                $"Linked supports cost {totalLinkCost} cores, exceeding the budget of {linkCoreBudget}.");
 
         var seenIds = new HashSet<string>(StringComparer.Ordinal);
 

@@ -17,6 +17,7 @@ func run():
     check(definition.Id == "stage_01" and definition.Roster.size() == 3 and definition.Waves.size() == 3, "Typed stage resources")
     var catalog = load("res://data/stages/catalog.tres")
     check(catalog.Stages.size() == 3, "Stage catalog size")
+    check(definition.SkillBudget != null and definition.SkillBudget.HasStageCap and definition.SkillBudget.StageCap == 3, "Stage skill budget")
     var skill_catalog = load("res://data/skills/catalog.tres")
     check(skill_catalog != null and skill_catalog.Skills.size() == 5, "Skill catalog size")
     var basic_arrow = load("res://data/skills/basic_arrow.tres")
@@ -31,6 +32,9 @@ func run():
     check(fire.Effects.size() == 2 and fire.Effects[1].Type == 4 and fire.Effects[1].TagValue == "FIRE", "Tag skill effect")
     var healing = load("res://data/skills/healing_amplification.tres")
     check(healing.RequiredAnyTags == ["HEAL"] and healing.Effects[0].Type == 5, "Incompatible support fixture")
+    var defaults = load("res://data/player/defaults.tres")
+    check(defaults.Progress.PlayerLevel == 5 and defaults.Progress.UnlockedPoints == 5, "Player skill defaults")
+    check(defaults.CatProfiles.size() == 2 and defaults.InitialPresets.size() == 2, "Cat profile defaults")
     var expected_totals = [21, 30, 42]
     for stage_index in range(catalog.Stages.size()):
         var total := 0
@@ -56,6 +60,7 @@ func run():
     grid.SelectCell(Vector2i(4,2))
     var archer = get_nodes_in_group("towers")[0]
     var archer_def = load("res://data/units/cat_archer.tres")
+    check(archer_def.SkillTags == ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"], "Unit skill compatibility tags")
     check(archer.AttackDamage == expected_power and archer.AttackDamage == archer_def.ActionPower, "JSON power reaches runtime")
     check(archer.MaxHealth == archer_def.MaxHealth, "Archer health")
     var ranged = archer.get_node("RangedAttack")

@@ -10,6 +10,7 @@ Id = "cat_archer"
 DisplayName = "cat_archer"
 Role = 0
 Placement = 0
+SkillTags = Array[String](["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"])
 Scene = ExtResource("scene")
 MaxHealth = 20
 ActionPower = 4
