@@ -6,5 +6,24 @@ public static class StageSelectionState
 {
     public static StageDefinition? SelectedStage { get; set; }
     public static SkillLoadout? SelectedLoadout { get; set; }
+    public static Godot.Collections.Array<string> SelectedCharacterIds { get; set; } = new();
+    public static string ActiveSquadStageId { get; set; } = "";
     public static string SkillProfileStoragePathOverride { get; set; } = "";
+    public static string StageSquadStoragePathOverride { get; set; } = "";
+
+    public static void BeginStage(StageDefinition stage)
+    {
+        SelectedStage = stage;
+        SelectedLoadout = null;
+        SelectedCharacterIds = new();
+        ActiveSquadStageId = "";
+    }
+
+    public static void ClearStage()
+    {
+        SelectedStage = null;
+        SelectedLoadout = null;
+        SelectedCharacterIds = new();
+        ActiveSquadStageId = "";
+    }
 }

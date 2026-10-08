@@ -42,11 +42,14 @@ public partial class StageSelect : Node2D
     public void SetSkillProfileStoragePathOverride(string path) =>
         StageSelectionState.SkillProfileStoragePathOverride = path;
 
+    public void SetStageSquadStoragePathOverride(string path) =>
+        StageSelectionState.StageSquadStoragePathOverride = path;
+
     public void SelectStage(int index)
     {
         if (Catalog is null || index < 0 || index >= Catalog.Stages.Count) return;
-        StageSelectionState.SelectedStage = Catalog.Stages[index];
-        GetTree().ChangeSceneToFile("res://scenes/skill_loadout.tscn");
+        StageSelectionState.BeginStage(Catalog.Stages[index]);
+        GetTree().ChangeSceneToFile("res://scenes/squad_formation.tscn");
     }
 
     private void BuildStageButtons()
