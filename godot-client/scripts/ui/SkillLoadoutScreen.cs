@@ -3,50 +3,80 @@ using DefenseGame.Client.Skills;
 using Godot;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DefenseGame.Client.UI;
 
 public partial class SkillLoadoutScreen : Node2D
 {
-    private const string ActiveSkillId = "basic_arrow";
-
     [Export] public SkillCatalog Catalog { get; set; } = null!;
+    [Export] public PlayerSkillDefaults Defaults { get; set; } = null!;
 
     public int CandidateCount => _supportById.Count;
-    public int SelectedSupportCount => _selectedSupportIds.Count;
-    public int UsedLinkCores { get; private set; }
-    public int RemainingLinkCores => SkillLinkValidator.LinkCoreBudget - UsedLinkCores;
+    public int CharacterCount => Defaults?.CatProfiles.Count ?? 0;
+    public string SelectedCharacterId => _selectedCharacterId;
+    public int SelectedSupportCount => CurrentPreset?.SupportSkillIds.Count ?? 0;
+    public int UsedPoints { get; private set; }
+    public int UsablePoints { get; private set; }
+    public int RemainingPoints => UsablePoints - UsedPoints;
+    public int UsedLinkCores => SelectedSupportCount;
+    public int RemainingLinkCores => RemainingPoints;
     public string StatusMessage => _statusLabel.Text;
+    public string LoadStatusCode => _loadResult?.StatusCode ?? "";
+    public string SaveStatusCode => _lastSaveStatus;
 
+    private readonly Dictionary<string, SkillDefinition> _skillsById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, SkillDefinition> _supportById = new(StringComparer.Ordinal);
-    private readonly HashSet<string> _selectedSupportIds = new(StringComparer.Ordinal);
-    private readonly Dictionary<string, Button> _buttonsById = new(StringComparer.Ordinal);
-    private readonly SkillLinkValidator _validator = new();
-    private SkillDefinition _activeSkill = null!;
+    private readonly Dictionary<string, CatProfile> _profilesById = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, CatSkillPreset> _squadPresetsById = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Button> _characterButtons = new(StringComparer.Ordinal);
+    private readonly SquadSkillValidator _validator = new();
+    private readonly SkillProfileStore _profileStore = new();
+
+    private PlayerSkillProgress _progress = null!;
+    private Godot.Collections.Array<CatSkillPreset> _storedPresets = new();
+    private SkillProfileLoadResult? _loadResult;
+    private SquadSkillValidationResult _validation = new();
+    private string _selectedCharacterId = "";
+    private string _lastSaveStatus = "";
+    private bool _requiresRecoverySave;
+
+    private HBoxContainer _characterList = null!;
+    private HBoxContainer _activeList = null!;
     private VBoxContainer _candidateList = null!;
     private Label _activeLabel = null!;
-    private Label _coreLabel = null!;
+    private Label _budgetLabel = null!;
     private Label _statusLabel = null!;
+    private Button _saveButton = null!;
     private Button _startButton = null!;
+
+    private CatSkillPreset? CurrentPreset => _squadPresetsById.GetValueOrDefault(_selectedCharacterId);
 
     public override void _Ready()
     {
-        _candidateList = GetNode<VBoxContainer>("UI/MainPanel/CandidateList");
+        _characterList = GetNode<HBoxContainer>("UI/MainPanel/CharacterList");
+        _activeList = GetNode<HBoxContainer>("UI/MainPanel/ActiveCard/ActiveList");
+        _candidateList = GetNode<VBoxContainer>("UI/MainPanel/SupportScroll/CandidateList");
         _activeLabel = GetNode<Label>("UI/MainPanel/ActiveCard/ActiveLabel");
-        _coreLabel = GetNode<Label>("UI/MainPanel/CoreLabel");
+        _budgetLabel = GetNode<Label>("UI/MainPanel/BudgetLabel");
         _statusLabel = GetNode<Label>("UI/MainPanel/StatusLabel");
+        _saveButton = GetNode<Button>("UI/MainPanel/Actions/SaveButton");
         _startButton = GetNode<Button>("UI/MainPanel/Actions/StartButton");
         GetNode<Button>("UI/MainPanel/Actions/BackButton").Pressed += ReturnToStageList;
+        _saveButton.Pressed += () => SaveProfile();
         _startButton.Pressed += () => StartBattle();
+
         StageDefinition? stage = StageSelectionState.SelectedStage;
         GetNode<Label>("UI/StageLabel").Text = stage is null
             ? "NO STAGE SELECTED"
             : $"{stage.DisplayName.ToUpperInvariant()}  //  {stage.Id.Replace('_', ' ').ToUpperInvariant()}";
 
         LoadCatalog();
-        RestoreSelection();
-        BuildCandidateButtons();
-        Refresh("Choose up to three compatible support skills.", false);
+        LoadProfile();
+        BuildCharacterButtons();
+        _selectedCharacterId = Defaults.CatProfiles.FirstOrDefault()?.CharacterId ?? "";
+        Refresh();
+        _characterButtons.GetValueOrDefault(_selectedCharacterId)?.GrabFocus();
         QueueRedraw();
     }
 
@@ -67,60 +97,119 @@ public partial class SkillLoadoutScreen : Node2D
         DrawLine(new Vector2(760, 0), new Vector2(1280, 520), new Color("2f5f43"), 90);
     }
 
-    public bool TryToggleSupport(string id)
+    public bool SelectCharacter(string characterId)
     {
-        if (!_supportById.TryGetValue(id, out SkillDefinition? support))
-        {
-            Refresh($"Unknown support skill '{id}'.", true);
-            return false;
-        }
-
-        if (_selectedSupportIds.Contains(id))
-        {
-            var remaining = BuildSupportArray(id);
-            SkillLinkValidationResult removal = _validator.Validate(_activeSkill, remaining);
-            if (!removal.IsValid)
-            {
-                Refresh(removal.Message, true);
-                return false;
-            }
-            _selectedSupportIds.Remove(id);
-            ApplyValidResult(removal, $"Removed {support.DisplayName}.");
-            return true;
-        }
-
-        var proposed = BuildSupportArray();
-        proposed.Add(support);
-        SkillLinkValidationResult addition = _validator.Validate(_activeSkill, proposed);
-        if (!addition.IsValid)
-        {
-            Refresh(addition.Message, true);
-            return false;
-        }
-
-        _selectedSupportIds.Add(id);
-        ApplyValidResult(addition, $"Equipped {support.DisplayName}.");
+        if (!_profilesById.ContainsKey(characterId)) return false;
+        _selectedCharacterId = characterId;
+        Refresh();
         return true;
     }
 
-    public bool IsSupportSelected(string id) => _selectedSupportIds.Contains(id);
+    public bool TrySelectActive(string id)
+    {
+        CatSkillPreset? preset = CurrentPreset;
+        if (preset is null || !_skillsById.TryGetValue(id, out SkillDefinition? skill)
+            || skill.Role != SkillRole.Active || !_progress.OwnedSkillIds.Contains(id))
+        {
+            ShowTransient($"수정 필요 // Active skill '{id}' cannot be selected.", true);
+            return false;
+        }
+        preset.ActiveSkillId = id;
+        Touch(preset);
+        Refresh();
+        return true;
+    }
+
+    public bool TryToggleSupport(string id)
+    {
+        CatSkillPreset? preset = CurrentPreset;
+        if (preset is null || !_supportById.TryGetValue(id, out SkillDefinition? support))
+        {
+            ShowTransient($"수정 필요 // Unknown support skill '{id}'.", true);
+            return false;
+        }
+        int existingIndex = preset.SupportSkillIds.IndexOf(id);
+        if (existingIndex >= 0)
+        {
+            preset.SupportSkillIds.RemoveAt(existingIndex);
+            preset.AllocatedPoints = preset.SupportSkillIds.Count;
+            Touch(preset);
+            Refresh($"Removed {support.DisplayName}.");
+            return true;
+        }
+        if (preset.SupportSkillIds.Count >= SquadSkillValidator.MaxSupportsPerCat)
+        {
+            ShowTransient($"수정 필요 // A cat can equip at most {SquadSkillValidator.MaxSupportsPerCat} support skills.", true);
+            return false;
+        }
+
+        preset.SupportSkillIds.Add(id);
+        preset.AllocatedPoints = preset.SupportSkillIds.Count;
+        SquadSkillValidationResult proposed = ValidateAllocation();
+        bool rejected = proposed.Issues.Any(issue => issue.CharacterId == _selectedCharacterId)
+            || proposed.Issues.Any(issue => issue.Error == SquadSkillError.SquadBudgetExceeded);
+        if (rejected)
+        {
+            preset.SupportSkillIds.RemoveAt(preset.SupportSkillIds.Count - 1);
+            preset.AllocatedPoints = preset.SupportSkillIds.Count;
+            _validation = ValidateAllocation();
+            ShowTransient("수정 필요 // " + FirstRelevantMessage(proposed), true);
+            return false;
+        }
+        Touch(preset);
+        Refresh($"Equipped {support.DisplayName}.");
+        return true;
+    }
+
+    public bool RemoveSupportAt(int index)
+    {
+        CatSkillPreset? preset = CurrentPreset;
+        if (preset is null || index < 0 || index >= preset.SupportSkillIds.Count) return false;
+        preset.SupportSkillIds.RemoveAt(index);
+        preset.AllocatedPoints = preset.SupportSkillIds.Count;
+        Touch(preset);
+        Refresh("Removed the invalid support slot.");
+        return true;
+    }
+
+    public bool IsSupportSelected(string id) => CurrentPreset?.SupportSkillIds.Contains(id) ?? false;
+
+    public bool IsRepairRequired(string characterId) =>
+        _validation.Issues.Any(issue => issue.CharacterId == characterId)
+        || (_validation.Issues.Any(issue => string.IsNullOrEmpty(issue.CharacterId)) && _profilesById.ContainsKey(characterId));
+
+    public string[] GetSupportIds(string characterId) => _squadPresetsById.TryGetValue(characterId, out CatSkillPreset? preset)
+        ? preset.SupportSkillIds.ToArray() : [];
+
+    public bool SaveProfile()
+    {
+        SkillProfileSaveResult result = _requiresRecoverySave
+            ? _profileStore.SaveAfterRecovery(_progress, _storedPresets)
+            : _profileStore.Save(_progress, _storedPresets);
+        _lastSaveStatus = result.StatusCode;
+        if (result.Status == SkillProfileSaveStatus.Saved) _requiresRecoverySave = false;
+        ShowTransient(result.Status == SkillProfileSaveStatus.Saved
+            ? "PROFILE SAVED // Cat presets remain keyed by character ID."
+            : $"수정 필요 // SAVE {result.StatusCode}: {result.Message}", result.Status != SkillProfileSaveStatus.Saved);
+        return result.Status == SkillProfileSaveStatus.Saved;
+    }
 
     public bool StartBattle()
     {
         if (StageSelectionState.SelectedStage is null)
         {
-            Refresh("Select a stage before entering battle.", true);
+            ShowTransient("수정 필요 // Select a stage before entering battle.", true);
             return false;
         }
-
-        SkillLinkValidationResult result = _validator.Validate(_activeSkill, BuildSupportArray());
-        if (!result.IsValid || result.Loadout is null)
+        _validation = ValidateAllocation();
+        if (!_validation.IsValid)
         {
-            Refresh(result.Message, true);
+            Refresh();
             return false;
         }
-
-        StageSelectionState.SelectedLoadout = result.Loadout;
+        // Stage 3 keeps the existing single-loadout battle bridge. Per-character instance mapping is stage 4.
+        string firstCharacterId = Defaults.CatProfiles.First().CharacterId;
+        StageSelectionState.SelectedLoadout = _validation.GetLoadout(firstCharacterId);
         GetTree().ChangeSceneToFile("res://scenes/stage_one.tscn");
         return true;
     }
@@ -135,88 +224,222 @@ public partial class SkillLoadoutScreen : Node2D
     {
         foreach (SkillDefinition skill in Catalog.Skills)
         {
-            if (skill.Id == ActiveSkillId)
-                _activeSkill = skill;
-            else if (skill.Role == SkillRole.Support)
-                _supportById.Add(skill.Id, skill);
+            _skillsById.Add(skill.Id, skill);
+            if (skill.Role == SkillRole.Support) _supportById.Add(skill.Id, skill);
         }
-
-        if (_activeSkill is null)
-            throw new InvalidOperationException($"Skill catalog is missing '{ActiveSkillId}'.");
-
-        _activeLabel.Text = $"ACTIVE  //  {_activeSkill.DisplayName.ToUpperInvariant()}\n{string.Join("  ·  ", _activeSkill.Tags)}";
+        if (!_skillsById.Values.Any(skill => skill.Role == SkillRole.Active))
+            throw new InvalidOperationException("Skill catalog has no active skill.");
     }
 
-    private void RestoreSelection()
+    private void LoadProfile()
     {
-        SkillLoadout? saved = StageSelectionState.SelectedLoadout;
-        if (saved is null || saved.ActiveSkill.Id != ActiveSkillId) return;
-
-        var candidates = new Godot.Collections.Array<SkillDefinition>();
-        foreach (SkillDefinition skill in saved.SupportSkills)
-            if (_supportById.TryGetValue(skill.Id, out SkillDefinition? current)) candidates.Add(current);
-
-        SkillLinkValidationResult restored = _validator.Validate(_activeSkill, candidates);
-        if (!restored.IsValid || restored.Loadout is null) return;
-        foreach (SkillDefinition support in restored.Loadout.SupportSkills)
-            _selectedSupportIds.Add(support.Id);
-        UsedLinkCores = restored.Loadout.TotalLinkCost;
-    }
-
-    private void BuildCandidateButtons()
-    {
-        foreach (SkillDefinition support in Catalog.Skills)
+        if (!string.IsNullOrWhiteSpace(StageSelectionState.SkillProfileStoragePathOverride))
+            _profileStore.ConfigureStoragePath(StageSelectionState.SkillProfileStoragePathOverride);
+        _loadResult = _profileStore.Load();
+        _progress = _loadResult.Progress;
+        _storedPresets = _loadResult.Presets;
+        _requiresRecoverySave = _loadResult.RequiresExplicitOverwrite;
+        foreach (CatProfile profile in Defaults.CatProfiles)
         {
-            if (support.Role != SkillRole.Support) continue;
-            var button = new Button
+            _profilesById.Add(profile.CharacterId, profile);
+            CatSkillPreset? preset = _storedPresets.FirstOrDefault(candidate => candidate.CharacterId == profile.CharacterId);
+            if (preset is null)
             {
-                Name = $"Support_{support.Id}",
-                CustomMinimumSize = new Vector2(700, 62),
-                Alignment = HorizontalAlignment.Left,
-                TooltipText = CompatibilityText(support)
-            };
-            button.AddThemeFontSizeOverride("font_size", 18);
+                preset = new CatSkillPreset
+                {
+                    CharacterId = profile.CharacterId,
+                    ActiveSkillId = "",
+                    AllocatedPoints = 0,
+                    UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O")
+                };
+                _storedPresets.Add(preset);
+            }
+            _squadPresetsById.Add(profile.CharacterId, preset);
+        }
+    }
+
+    private void BuildCharacterButtons()
+    {
+        foreach (CatProfile profile in Defaults.CatProfiles)
+        {
+            string characterId = profile.CharacterId;
+            var button = new Button { Name = $"Character_{characterId}", CustomMinimumSize = new Vector2(300, 44) };
+            button.AddThemeFontSizeOverride("font_size", 16);
             button.AddThemeColorOverride("font_color", new Color("fff0c2"));
-            button.AddThemeColorOverride("font_disabled_color", new Color("8f9b87"));
             button.AddThemeStyleboxOverride("normal", CardStyle("3b4938", "8f6d38"));
             button.AddThemeStyleboxOverride("hover", CardStyle("536344", "f1bb55"));
             button.AddThemeStyleboxOverride("focus", CardStyle("536344", "fff0c2"));
+            button.Pressed += () => SelectCharacter(characterId);
+            _characterList.AddChild(button);
+            _characterButtons.Add(characterId, button);
+        }
+    }
+
+    private void RebuildActiveButtons()
+    {
+        ClearChildren(_activeList);
+        foreach (SkillDefinition skill in Catalog.Skills)
+        {
+            if (skill.Role != SkillRole.Active) continue;
+            string id = skill.Id;
+            var button = new Button
+            {
+                Name = $"Active_{id}", Text = CurrentPreset?.ActiveSkillId == id ? "SELECTED" : "SELECT",
+                CustomMinimumSize = new Vector2(130, 42), Disabled = !_progress.OwnedSkillIds.Contains(id)
+            };
+            button.AddThemeFontSizeOverride("font_size", 14);
+            button.AddThemeColorOverride("font_color", new Color("fff0c2"));
+            button.AddThemeStyleboxOverride("normal", CardStyle("6f3424", "d8943f"));
+            button.AddThemeStyleboxOverride("hover", CardStyle("8d4429", "ffd166"));
+            button.Pressed += () => TrySelectActive(id);
+            _activeList.AddChild(button);
+        }
+    }
+
+    private void RebuildSupportButtons()
+    {
+        ClearChildren(_candidateList);
+        CatSkillPreset? preset = CurrentPreset;
+        if (preset is null) return;
+        var occurrence = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (string id in preset.SupportSkillIds) occurrence[id] = occurrence.GetValueOrDefault(id) + 1;
+
+        foreach (SkillDefinition support in Catalog.Skills)
+        {
+            if (support.Role != SkillRole.Support) continue;
+            bool selected = preset.SupportSkillIds.Contains(support.Id);
+            bool repair = selected && HasSupportIssue(support.Id);
+            var button = new Button
+            {
+                Name = $"Support_{support.Id}",
+                Text = $"{(selected ? "[X]" : "[ ]")}  {support.DisplayName.ToUpperInvariant()}   //   {CompatibilityText(support)}{(repair ? "   //   수정 필요" : "")}",
+                CustomMinimumSize = new Vector2(900, 48), Alignment = HorizontalAlignment.Left,
+                TooltipText = CompatibilityText(support)
+            };
+            button.AddThemeFontSizeOverride("font_size", 16);
+            button.AddThemeColorOverride("font_color", new Color(repair ? "ff8e78" : "fff0c2"));
+            button.AddThemeStyleboxOverride("normal", CardStyle("3b4938", repair ? "d45d4c" : "8f6d38"));
+            button.AddThemeStyleboxOverride("hover", CardStyle("536344", "f1bb55"));
             string id = support.Id;
             button.Pressed += () => TryToggleSupport(id);
             _candidateList.AddChild(button);
-            _buttonsById.Add(id, button);
         }
 
-        if (_candidateList.GetChildCount() > 0)
-            _candidateList.GetChild<Control>(0).GrabFocus();
-    }
-
-    private Godot.Collections.Array<SkillDefinition> BuildSupportArray(string excludedId = "")
-    {
-        var supports = new Godot.Collections.Array<SkillDefinition>();
-        foreach (string id in _selectedSupportIds)
-            if (id != excludedId && _supportById.TryGetValue(id, out SkillDefinition? skill)) supports.Add(skill);
-        return supports;
-    }
-
-    private void ApplyValidResult(SkillLinkValidationResult result, string message)
-    {
-        UsedLinkCores = result.Loadout?.TotalLinkCost ?? 0;
-        Refresh(message, false);
-    }
-
-    private void Refresh(string message, bool isError)
-    {
-        foreach ((string id, Button button) in _buttonsById)
+        for (int index = 0; index < preset.SupportSkillIds.Count; index++)
         {
-            SkillDefinition support = _supportById[id];
-            bool selected = _selectedSupportIds.Contains(id);
-            button.Text = $"{(selected ? "[X]" : "[ ]")}  {support.DisplayName.ToUpperInvariant()}   //   {CompatibilityText(support)}";
+            string id = preset.SupportSkillIds[index];
+            bool missing = !_supportById.ContainsKey(id);
+            bool duplicate = occurrence[id] > 1 && preset.SupportSkillIds.IndexOf(id) != index;
+            bool overLimit = index >= SquadSkillValidator.MaxSupportsPerCat;
+            if (!missing && !duplicate && !overLimit) continue;
+            int slotIndex = index;
+            string reason = missing ? "MISSING SKILL" : duplicate ? "DUPLICATE SLOT" : "OVER LIMIT SLOT";
+            var invalid = new Button
+            {
+                Name = $"InvalidSupport_{index}",
+                Text = $"[X]  {id.ToUpperInvariant()}   //   수정 필요: {reason}   //   REMOVE",
+                CustomMinimumSize = new Vector2(900, 44), Alignment = HorizontalAlignment.Left
+            };
+            invalid.AddThemeFontSizeOverride("font_size", 15);
+            invalid.AddThemeColorOverride("font_color", new Color("ff8e78"));
+            invalid.AddThemeStyleboxOverride("normal", CardStyle("4b2b28", "d45d4c"));
+            invalid.Pressed += () => RemoveSupportAt(slotIndex);
+            _candidateList.AddChild(invalid);
         }
-        _coreLabel.Text = $"LINK CORES   USED {UsedLinkCores} / {SkillLinkValidator.LinkCoreBudget}    REMAINING {RemainingLinkCores}";
+    }
+
+    private void Refresh(string transientMessage = "")
+    {
+        _validation = ValidateAllocation();
+        UsedPoints = _squadPresetsById.Values.Sum(preset => preset.AllocatedPoints);
+        UsablePoints = _validation.UsablePoints;
+        foreach ((string id, Button button) in _characterButtons)
+        {
+            CatProfile profile = _profilesById[id];
+            bool selected = id == _selectedCharacterId;
+            bool repair = IsRepairRequired(id);
+            button.Text = $"{(selected ? ">" : " ")} {profile.DisplayName.ToUpperInvariant()}  //  {id}{(repair ? "  //  수정 필요" : "")}";
+            button.Modulate = new Color(repair ? "ffb09e" : selected ? "ffffff" : "c9d8bc");
+        }
+
+        CatSkillPreset? preset = CurrentPreset;
+        string activeId = preset?.ActiveSkillId ?? "";
+        string activeName = _skillsById.TryGetValue(activeId, out SkillDefinition? active) ? active.DisplayName : activeId;
+        bool activeRepair = HasActiveIssue();
+        _activeLabel.Text = $"ACTIVE  //  {(string.IsNullOrEmpty(activeName) ? "MISSING" : activeName.ToUpperInvariant())}\n{(active is null ? activeId : string.Join("  ·  ", active.Tags))}{(activeRepair ? "   //   수정 필요" : "")}";
+        _activeLabel.Modulate = new Color(activeRepair ? "ff8e78" : "fff0c2");
+
+        StageSkillBudget? budget = StageSelectionState.SelectedStage?.SkillBudget;
+        string cap = budget is null || !budget.HasStageCap ? "NONE" : budget.StageCap.ToString();
+        bool budgetRepair = _validation.Issues.Any(issue => string.IsNullOrEmpty(issue.CharacterId));
+        _budgetLabel.Text = $"POINTS   USABLE {UsablePoints}   USED {UsedPoints}   REMAINING {RemainingPoints}   //   STAGE CAP {cap}{(budgetRepair ? "   //   수정 필요" : "")}";
+        _budgetLabel.Modulate = new Color(budgetRepair ? "ff8e78" : "ffd66b");
+
+        RebuildActiveButtons();
+        RebuildSupportButtons();
+        string validationMessage = _validation.IsValid ? "ALL CATS READY" : "수정 필요 // " + FirstRelevantMessage(_validation);
+        string loadNote = _loadResult is null ? "" : $"PROFILE {_loadResult.StatusCode}";
+        _statusLabel.Text = string.IsNullOrEmpty(transientMessage) ? $"{loadNote}   //   {validationMessage}" : transientMessage;
+        _statusLabel.Modulate = new Color(_validation.IsValid && !transientMessage.StartsWith("수정 필요", StringComparison.Ordinal)
+            ? "c9e7ae" : "ff8e78");
+        _startButton.Disabled = StageSelectionState.SelectedStage is null || !_validation.IsValid;
+        _saveButton.Disabled = _loadResult?.Status == SkillProfileLoadStatus.MigrationRequired;
+    }
+
+    private void ShowTransient(string message, bool isError)
+    {
         _statusLabel.Text = message;
         _statusLabel.Modulate = new Color(isError ? "ff8e78" : "c9e7ae");
-        _startButton.Disabled = StageSelectionState.SelectedStage is null;
+    }
+
+    private SquadSkillValidationResult ValidateAllocation()
+    {
+        StageDefinition? stage = StageSelectionState.SelectedStage;
+        var allocation = new SquadSkillAllocation
+        {
+            StageId = stage?.Id ?? "", PlayerUnlockedPoints = _progress.UnlockedPoints,
+            HasStageCap = stage?.SkillBudget?.HasStageCap ?? false, StageCap = stage?.SkillBudget?.StageCap ?? 0,
+            TotalAllocatedPoints = _squadPresetsById.Values.Sum(preset => preset.AllocatedPoints)
+        };
+        foreach (CatProfile profile in Defaults.CatProfiles) allocation.CatProfiles.Add(profile);
+        foreach (CatProfile profile in Defaults.CatProfiles)
+            if (_squadPresetsById.TryGetValue(profile.CharacterId, out CatSkillPreset? preset)) allocation.Presets.Add(preset);
+        return _validator.Validate(allocation, _progress, Catalog);
+    }
+
+    private bool HasActiveIssue()
+    {
+        CatSkillPreset? preset = CurrentPreset;
+        if (preset is null) return true;
+        return _validation.Issues.Any(issue => issue.CharacterId == _selectedCharacterId
+            && (issue.Error is SquadSkillError.MissingSkill or SquadSkillError.SkillNotOwned
+                or SquadSkillError.ActiveRoleMismatch or SquadSkillError.InvalidSkillCost or SquadSkillError.UnitSkillMismatch)
+            && (string.IsNullOrEmpty(preset.ActiveSkillId) || issue.Message.Contains(preset.ActiveSkillId, StringComparison.Ordinal)));
+    }
+
+    private bool HasSupportIssue(string supportId) => _validation.Issues.Any(issue =>
+        issue.CharacterId == _selectedCharacterId
+        && issue.Error is SquadSkillError.MissingSkill or SquadSkillError.SkillNotOwned
+            or SquadSkillError.SupportRoleMismatch or SquadSkillError.InvalidSkillCost
+            or SquadSkillError.DuplicateSupport or SquadSkillError.MissingRequiredTag or SquadSkillError.ForbiddenTag
+        && issue.Message.Contains(supportId, StringComparison.Ordinal));
+
+    private string FirstRelevantMessage(SquadSkillValidationResult result)
+    {
+        SquadSkillValidationIssue? issue = result.Issues.FirstOrDefault(candidate => candidate.CharacterId == _selectedCharacterId)
+            ?? result.Issues.FirstOrDefault(candidate => string.IsNullOrEmpty(candidate.CharacterId)) ?? result.Issues.FirstOrDefault();
+        return issue?.Message ?? "Review this cat's skill slots.";
+    }
+
+    private static void Touch(CatSkillPreset preset) => preset.UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O");
+
+    private static void ClearChildren(Node parent)
+    {
+        foreach (Node child in parent.GetChildren())
+        {
+            parent.RemoveChild(child);
+            child.QueueFree();
+        }
     }
 
     private static string CompatibilityText(SkillDefinition skill)
@@ -229,16 +452,9 @@ public partial class SkillLoadoutScreen : Node2D
 
     private static StyleBoxFlat CardStyle(string background, string border) => new()
     {
-        BgColor = new Color(background),
-        BorderColor = new Color(border),
-        BorderWidthLeft = 2,
-        BorderWidthTop = 2,
-        BorderWidthRight = 2,
-        BorderWidthBottom = 2,
-        CornerRadiusTopLeft = 6,
-        CornerRadiusTopRight = 6,
-        CornerRadiusBottomLeft = 6,
-        CornerRadiusBottomRight = 6,
-        ContentMarginLeft = 18
+        BgColor = new Color(background), BorderColor = new Color(border),
+        BorderWidthLeft = 2, BorderWidthTop = 2, BorderWidthRight = 2, BorderWidthBottom = 2,
+        CornerRadiusTopLeft = 6, CornerRadiusTopRight = 6, CornerRadiusBottomLeft = 6, CornerRadiusBottomRight = 6,
+        ContentMarginLeft = 14
     };
 }

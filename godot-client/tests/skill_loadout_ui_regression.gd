@@ -1,11 +1,10 @@
 extends SceneTree
 
 var failures := 0
-var elapsed_frames := 0
+var profile_path := "/tmp/defense-skill-loadout-ui-%d-%d.json" % [OS.get_process_id(), Time.get_ticks_usec()]
 
 func _process(_delta):
-    elapsed_frames += 1
-    if elapsed_frames > 700:
+    if Engine.get_process_frames() > 900:
         push_error("Skill loadout UI QA timed out")
         quit(1)
     return false
@@ -16,64 +15,56 @@ func check(ok, message):
         push_error(message)
 
 func ticks(count):
-    for i in range(count):
-        await process_frame
+    for i in range(count): await process_frame
 
-func support_ids(loadout) -> Array[String]:
-    var result: Array[String] = []
-    for skill in loadout.SupportSkills:
-        result.append(skill.Id)
-    return result
-
-func _initialize():
-    run.call_deferred()
+func _initialize(): run.call_deferred()
 
 func run():
     change_scene_to_file("res://scenes/stage_select.tscn")
     await ticks(5)
+    current_scene.SetSkillProfileStoragePathOverride(profile_path)
     current_scene.SelectStage(1)
     await ticks(5)
 
     var screen = current_scene
-    check(screen.name == "SkillLoadout", "Stage selection must open loadout UI")
-    check(screen.CandidateCount == 4, "All four support candidates must be displayed")
-    check(screen.get_node("UI/MainPanel/CandidateList").get_child_count() == 4, "Four candidate buttons must exist")
-    check("BASIC ARROW" in screen.get_node("UI/MainPanel/ActiveCard/ActiveLabel").text, "Basic arrow must be the fixed active")
-    check(screen.SelectedSupportCount == 0 and screen.UsedLinkCores == 0 and screen.RemainingLinkCores == 3, "Initial core state")
-    check(screen.get_viewport().gui_get_focus_owner() != null, "Keyboard focus must start on a candidate")
+    check(screen.name == "SkillLoadout", "Stage selection opens squad skill preparation")
+    check(screen.CharacterCount == 2 and screen.SelectedCharacterId == "starter_archer_a", "Two character IDs and deterministic initial selection")
+    check(screen.CandidateCount == 4, "All support candidates are displayed")
+    check(screen.get_node("UI/MainPanel/CharacterList").get_child_count() == 2, "Two character buttons exist")
+    check(screen.get_node("UI/MainPanel/SupportScroll/CandidateList").get_child_count() == 4, "Four normal support buttons exist")
+    check(screen.LoadStatusCode == "Defaults", "Missing user file loads generated defaults")
+    check(screen.GetSupportIds("starter_archer_a") == PackedStringArray(["multiple_projectiles", "piercing_shot"]), "First cat restores its own preset")
+    check(screen.GetSupportIds("starter_archer_b") == PackedStringArray(["fire_infusion"]), "Second cat restores a separate preset")
+    check(screen.UsablePoints == 4 and screen.UsedPoints == 3 and screen.RemainingPoints == 1, "Stage 02 displays squad point budget")
+    check("STAGE CAP 4" in screen.get_node("UI/MainPanel/BudgetLabel").text, "Stage cap is visible")
+    check(screen.get_viewport().gui_get_focus_owner() != null, "Keyboard focus starts on a character")
 
-    check(not screen.TryToggleSupport("healing_amplification"), "Incompatible healing support must be rejected")
-    check("HEAL" in screen.StatusMessage and screen.SelectedSupportCount == 0, "Rejected support must show its reason without changing selection")
+    check(screen.SelectCharacter("starter_archer_b"), "Second cat can be selected by characterId")
+    check(screen.SelectedSupportCount == 1 and screen.IsSupportSelected("fire_infusion"), "Second cat selection is displayed")
+    check(screen.TryToggleSupport("fire_infusion"), "Second cat support can be removed")
+    check(screen.UsedPoints == 2 and screen.RemainingPoints == 2, "Removing from one cat updates squad totals")
+    check(screen.TryToggleSupport("multiple_projectiles"), "Point can be reassigned to second cat")
+    check(screen.GetSupportIds("starter_archer_b") == PackedStringArray(["multiple_projectiles"]), "Second cat edit stays on second characterId")
+    check(screen.GetSupportIds("starter_archer_a") == PackedStringArray(["multiple_projectiles", "piercing_shot"]), "First cat remains unchanged")
+    check(not FileAccess.file_exists(profile_path), "Editing never auto-saves")
 
-    check(screen.TryToggleSupport("multiple_projectiles"), "Multiple projectiles selection")
-    check(screen.TryToggleSupport("piercing_shot"), "Piercing shot selection")
-    check(screen.TryToggleSupport("fire_infusion"), "Fire infusion selection")
-    check(screen.SelectedSupportCount == 3 and screen.UsedLinkCores == 3 and screen.RemainingLinkCores == 0, "Three supports consume all cores")
-    check("[X]" in screen.get_node("UI/MainPanel/CandidateList/Support_fire_infusion").text, "Selected state must be visible")
+    check(not screen.TryToggleSupport("healing_amplification"), "Incompatible healing support is rejected")
+    check("수정 필요" in screen.StatusMessage and "HEAL" in screen.StatusMessage, "Rejected slot shows repair reason")
+    check(screen.SaveProfile() and screen.SaveStatusCode == "Saved", "Explicit save writes both character presets")
+    check(FileAccess.file_exists(profile_path), "Explicit save creates the user profile")
 
-    check(screen.StartBattle(), "Valid loadout must enter battle")
+    screen.ReturnToStageList()
     await ticks(5)
-    check(current_scene.name == "StageOne" and current_scene.Definition.Id == "stage_02", "Selected stage must reach battle")
-    check(current_scene.Loadout != null and current_scene.Loadout.TotalLinkCost == 3, "Validated loadout must reach battle")
-    check(support_ids(current_scene.Loadout) == ["fire_infusion", "multiple_projectiles", "piercing_shot"], "Battle loadout must use canonical order")
-
-    current_scene.RestartStage()
-    await ticks(5)
-    check(current_scene.Loadout != null and current_scene.Loadout.TotalLinkCost == 3, "Retry must preserve loadout")
-
-    current_scene.ReturnToStageList()
-    await ticks(5)
-    check(current_scene.name == "StageSelect", "Battle must return to stage list")
-    current_scene.SelectStage(0)
+    current_scene.SelectStage(1)
     await ticks(5)
     screen = current_scene
-    check(screen.name == "SkillLoadout" and screen.SelectedSupportCount == 3, "Returning through stage list must reopen the editable loadout")
-    check(screen.TryToggleSupport("multiple_projectiles"), "Existing support can be removed")
-    check(screen.SelectedSupportCount == 2 and screen.UsedLinkCores == 2 and screen.RemainingLinkCores == 1, "Edited core state")
-    check(screen.StartBattle(), "Edited valid loadout must enter battle")
+    check(screen.LoadStatusCode == "Loaded", "Reopening preparation loads the explicit save")
+    check(screen.GetSupportIds("starter_archer_a") == PackedStringArray(["multiple_projectiles", "piercing_shot"]), "First cat persists independently")
+    check(screen.GetSupportIds("starter_archer_b") == PackedStringArray(["multiple_projectiles"]), "Second cat persists independently")
+    check(screen.StartBattle(), "Valid squad allocation enters battle")
     await ticks(5)
-    check(current_scene.Definition.Id == "stage_01", "New stage selection must reach battle")
-    check(current_scene.Loadout.TotalLinkCost == 2 and support_ids(current_scene.Loadout) == ["fire_infusion", "piercing_shot"], "Edited loadout must replace the previous battle state")
+    check(current_scene.name == "StageOne" and current_scene.Definition.Id == "stage_02", "Selected stage reaches battle")
+    check(current_scene.Loadout != null and current_scene.Loadout.TotalLinkCost == 2, "Stage 3 retains the legacy first-cat battle bridge")
 
     print("SKILL LOADOUT UI QA failures=", failures)
     quit(0 if failures == 0 else 1)

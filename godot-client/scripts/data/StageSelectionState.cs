@@ -6,4 +6,5 @@ public static class StageSelectionState
 {
     public static StageDefinition? SelectedStage { get; set; }
     public static SkillLoadout? SelectedLoadout { get; set; }
+    public static string SkillProfileStoragePathOverride { get; set; } = "";
 }

@@ -1,7 +1,8 @@
-[gd_scene load_steps=6 format=3]
+[gd_scene load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/SkillLoadoutScreen.cs" id="1_screen"]
 [ext_resource type="Resource" path="res://data/skills/catalog.tres" id="2_catalog"]
+[ext_resource type="Resource" path="res://data/player/defaults.tres" id="3_defaults"]
 
 [sub_resource type="StyleBoxFlat" id="PanelStyle"]
 bg_color = Color(0.035, 0.09, 0.068, 0.97)
@@ -42,6 +43,7 @@ corner_radius_bottom_left = 5
 [node name="SkillLoadout" type="Node2D"]
 script = ExtResource("1_screen")
 Catalog = ExtResource("2_catalog")
+Defaults = ExtResource("3_defaults")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
@@ -52,7 +54,7 @@ offset_right = 650.0
 offset_bottom = 50.0
 theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
 theme_override_font_sizes/font_size = 17
-text = "ARSENAL  //  ARCHER LINK CONFIGURATION"
+text = "ARSENAL  //  SQUAD SKILL PREPARATION"
 
 [node name="Title" type="Label" parent="UI"]
 offset_left = 164.0
@@ -61,7 +63,7 @@ offset_right = 760.0
 offset_bottom = 96.0
 theme_override_colors/font_color = Color(1, 0.949, 0.78, 1)
 theme_override_font_sizes/font_size = 38
-text = "EQUIP ARCHER SKILLS"
+text = "PREPARE CAT SKILLS"
 
 [node name="StageLabel" type="Label" parent="UI"]
 offset_left = 760.0
@@ -80,71 +82,105 @@ offset_right = 1130.0
 offset_bottom = 680.0
 theme_override_styles/panel = SubResource("PanelStyle")
 
-[node name="ActiveCaption" type="Label" parent="UI/MainPanel"]
+[node name="CharacterCaption" type="Label" parent="UI/MainPanel"]
 offset_left = 32.0
 offset_top = 18.0
 offset_right = 230.0
 offset_bottom = 44.0
 theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
 theme_override_font_sizes/font_size = 16
-text = "FIXED ACTIVE SKILL"
+text = "SQUAD CATS  //  CHARACTER ID"
+
+[node name="CharacterList" type="HBoxContainer" parent="UI/MainPanel"]
+offset_left = 28.0
+offset_top = 45.0
+offset_right = 952.0
+offset_bottom = 90.0
+theme_override_constants/separation = 12
+
+[node name="ActiveCaption" type="Label" parent="UI/MainPanel"]
+offset_left = 32.0
+offset_top = 98.0
+offset_right = 230.0
+offset_bottom = 122.0
+theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
+theme_override_font_sizes/font_size = 16
+text = "ACTIVE SKILL  //  FREE"
 
 [node name="ActiveCard" type="Panel" parent="UI/MainPanel"]
 offset_left = 28.0
-offset_top = 48.0
+offset_top = 124.0
 offset_right = 952.0
-offset_bottom = 122.0
+offset_bottom = 194.0
 theme_override_styles/panel = SubResource("ActiveStyle")
 
 [node name="ActiveLabel" type="Label" parent="UI/MainPanel/ActiveCard"]
 offset_left = 20.0
 offset_top = 10.0
-offset_right = 894.0
+offset_right = 720.0
 offset_bottom = 64.0
 theme_override_colors/font_color = Color(1, 0.929, 0.714, 1)
 theme_override_font_sizes/font_size = 18
 text = "ACTIVE  //  BASIC ARROW\nATTACK · BOW · PROJECTILE · PHYSICAL · HIT"
 vertical_alignment = 1
 
-[node name="CoreLabel" type="Label" parent="UI/MainPanel"]
+[node name="ActiveList" type="HBoxContainer" parent="UI/MainPanel/ActiveCard"]
+offset_left = 752.0
+offset_top = 14.0
+offset_right = 900.0
+offset_bottom = 58.0
+alignment = 2
+
+[node name="BudgetLabel" type="Label" parent="UI/MainPanel"]
 offset_left = 32.0
-offset_top = 136.0
+offset_top = 204.0
 offset_right = 948.0
-offset_bottom = 168.0
+offset_bottom = 234.0
 theme_override_colors/font_color = Color(1, 0.82, 0.42, 1)
 theme_override_font_sizes/font_size = 20
-text = "LINK CORES   USED 0 / 3    REMAINING 3"
+text = "POINTS   USABLE 3   USED 0   REMAINING 3   //   STAGE CAP 3"
 
-[node name="CandidateList" type="VBoxContainer" parent="UI/MainPanel"]
+[node name="SupportScroll" type="ScrollContainer" parent="UI/MainPanel"]
 offset_left = 28.0
-offset_top = 176.0
+offset_top = 240.0
 offset_right = 952.0
-offset_bottom = 456.0
-theme_override_constants/separation = 8
+offset_bottom = 450.0
+horizontal_scroll_mode = 0
+
+[node name="CandidateList" type="VBoxContainer" parent="UI/MainPanel/SupportScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 5
 
 [node name="StatusLabel" type="Label" parent="UI/MainPanel"]
 offset_left = 32.0
-offset_top = 470.0
+offset_top = 458.0
 offset_right = 948.0
-offset_bottom = 500.0
+offset_bottom = 492.0
 theme_override_colors/font_color = Color(0.788, 0.906, 0.682, 1)
 theme_override_font_sizes/font_size = 16
-text = "Choose up to three compatible support skills."
-text_overrun_behavior = 3
+text = "Choose a cat and edit its active and support skills."
+autowrap_mode = 2
 
 [node name="Actions" type="HBoxContainer" parent="UI/MainPanel"]
 offset_left = 28.0
-offset_top = 510.0
+offset_top = 504.0
 offset_right = 952.0
-offset_bottom = 558.0
+offset_bottom = 554.0
 theme_override_constants/separation = 16
 alignment = 2
 
 [node name="BackButton" type="Button" parent="UI/MainPanel/Actions"]
-custom_minimum_size = Vector2(200, 48)
+custom_minimum_size = Vector2(180, 48)
 theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("ActionStyle")
 text = "BACK TO STAGES"
+
+[node name="SaveButton" type="Button" parent="UI/MainPanel/Actions"]
+custom_minimum_size = Vector2(220, 48)
+theme_override_font_sizes/font_size = 18
+theme_override_styles/normal = SubResource("ActionStyle")
+text = "SAVE PRESETS"
 
 [node name="StartButton" type="Button" parent="UI/MainPanel/Actions"]
 custom_minimum_size = Vector2(250, 48)

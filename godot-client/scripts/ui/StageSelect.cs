@@ -39,6 +39,9 @@ public partial class StageSelect : Node2D
         return total;
     }
 
+    public void SetSkillProfileStoragePathOverride(string path) =>
+        StageSelectionState.SkillProfileStoragePathOverride = path;
+
     public void SelectStage(int index)
     {
         if (Catalog is null || index < 0 || index >= Catalog.Stages.Count) return;

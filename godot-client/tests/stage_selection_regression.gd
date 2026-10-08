@@ -24,6 +24,7 @@ func run():
     change_scene_to_file("res://scenes/stage_select.tscn")
     await ticks(5)
     var selector = current_scene
+    selector.SetSkillProfileStoragePathOverride("/tmp/defense-stage-selection-profile-%d-%d.json" % [OS.get_process_id(), Time.get_ticks_usec()])
     check(selector.StageCount == 3, "Three selectable stages")
     check(selector.get_node("UI/StagePanel/StageList").get_child_count() == 3, "Three generated buttons")
     check(selector.GetEnemyCount(0) == 21, "Stage 1 enemy count")
@@ -38,7 +39,7 @@ func run():
     await ticks(5)
     check(current_scene.name == "StageOne", "Selection enters battle")
     check(current_scene.Definition.Id == "stage_02", "Selected definition reaches battle")
-    check(current_scene.Loadout != null and current_scene.Loadout.TotalLinkCost == 0, "Validated loadout reaches battle")
+    check(current_scene.Loadout != null and current_scene.Loadout.TotalLinkCost == 2, "Validated first-cat loadout reaches battle")
     check("STAGE 02" in current_scene.get_node("HUD/TopPanel/Title").text, "HUD shows selected stage")
 
     current_scene.RestartStage()
