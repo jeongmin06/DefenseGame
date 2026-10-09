@@ -2,6 +2,7 @@ using Godot;
 using DefenseGame.Client.Data;
 using System.Collections.Generic;
 using DefenseGame.Client.Visuals;
+using DefenseGame.Client.Skills;
 
 namespace DefenseGame.Client.Combat;
 
@@ -12,6 +13,7 @@ public partial class Warrior : Node2D
     public float CurrentHealth => _health.CurrentHealth;
     public float MaxHealth => _health.MaxHealth;
     public bool IsAlive => _health.IsAlive;
+    public string CharacterId { get; private set; } = "";
 
     public void TakeDamage(float amount)
     {
@@ -55,8 +57,15 @@ public partial class Warrior : Node2D
 
     public void Setup(UnitDefinition definition, DeploymentGrid grid, Vector2I cell)
     {
+        Setup(definition, grid, cell, "", null);
+    }
+
+    public void Setup(UnitDefinition definition, DeploymentGrid grid, Vector2I cell, string characterId, SkillLoadout? loadout)
+    {
+        CharacterId = characterId;
+        UnitSkillEffectSettings effects = new UnitSkillEffectComposer().Compose(loadout);
         _health.Setup(definition.MaxHealth);
-        Damage = definition.ActionPower;
+        Damage = definition.ActionPower * effects.DamageMultiplier + effects.AddedHitDamage;
         AttackInterval = definition.ActionInterval;
         AttackRangeCells = definition.RangeCells;
         AttackCellOffsets = new Godot.Collections.Array<Vector2I>(definition.AttackCellOffsets);

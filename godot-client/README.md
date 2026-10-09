@@ -6,9 +6,11 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 
 1. Godot 4 .NET 안정 버전과 .NET SDK를 설치한다.
 2. `project.godot`을 Import 한다.
-3. 프로젝트 실행 버튼을 누르고 총 몬스터 수가 다른 세 스테이지 중 하나를 선택한다.
-4. HUD의 ARCHER/WARRIOR/HEALER 버튼으로 타입을 선택한다. 궁수 2명과 힐러 1명은 빈 Ground, 전사 1명은 빈 Ground 또는 EnemyPath에 무료 배치한다. 네 유닛 모두 배치하면 0.8초 뒤 첫 웨이브가 시작된다.
-5. 전투 종료 후 `RETRY STAGE`로 같은 스테이지를 다시 시작하거나 `STAGE LIST`로 목록에 돌아간다.
+3. 저장소 루트에서 `dotnet run --project server/src/DefenseGame.Server`로 편성 저장 서버를 실행한다.
+4. 프로젝트 실행 버튼을 누르고 총 몬스터 수가 다른 세 스테이지 중 하나를 선택한다.
+5. 서버에서 최근 편성을 불러온 뒤 궁수·전사·힐러를 선택하고 확정한다.
+6. HUD의 ARCHER/WARRIOR/HEALER 버튼으로 편성한 고양이를 배치한다. 궁수와 힐러는 빈 Ground, 전사는 빈 Ground 또는 EnemyPath에 배치한다. 모두 배치하면 0.8초 뒤 첫 웨이브가 시작된다.
+7. 전투 종료 후 `RETRY STAGE`로 같은 스테이지를 다시 시작하거나 `STAGE LIST`로 목록에 돌아간다.
 
 현재 개발 환경에서는 `/Applications/Godot_mono.app`을 사용한다.
 
@@ -18,7 +20,9 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 - 밝은 잔디밭과 따뜻한 흙길의 공용 단일 경로
 - 이동 방향을 바라보는 4족 유전자 조작 생쥐 적 한 종류
 - 8프레임 활 공격 애니메이션을 사용하는 SD 고양이 궁수 타워 두 개
-- 궁수 2명·근접 전사 1명·힐러 1명 직접 배치, 점유·Blocked 및 재고 초과 배치 차단
+- 고유 `characterId`를 가진 궁수 2명·근접 전사 1명·힐러 1명의 스테이지별 선택 편성
+- `PlayerActor` 서버에 최근 편성을 저장하고 재진입 시 복원
+- 편성한 고양이 직접 배치, 점유·Blocked 및 재고 초과 배치 차단
 - 배치 완료 후 자동 시작하는 세 개 웨이브
 - 궁수의 투사체 공격과 전사의 직접 근접 공격·적 1명 저지
 - 기지 체력과 전투 HUD
@@ -58,6 +62,12 @@ dotnet build godot-client/DefenseGame.csproj
 ### 고양이 스킬 프로필 저장
 
 `SkillProfileStore`는 `user://skill_profile.json`에 스키마 버전 1의 `PlayerSkillProgress`와 `CatSkillPreset` 배열을 저장한다. 로드 결과는 정상, 기본값, 백업 복구, 손상, 마이그레이션 필요를 구분하고 저장 결과는 성공, 실패, 보호 데이터 차단, 마이그레이션 필요를 구분한다. 테스트는 `ConfigureStoragePath`로 격리된 절대 경로를 주입한다.
+
+이 저장소는 편성보다 먼저 구현된 legacy 로컬 저장이다. 플레이어 상태의 원본은 서버에 둔다는 현재 원칙에 따라 다음 서버 영속화 대상이며, 완료 전에는 여러 기기에서 스킬 프리셋이 동기화되지 않는다.
+
+### 스테이지 편성 서버 저장
+
+일반 실행에서 편성 화면은 `http://127.0.0.1:5080`의 `GET/PUT /v1/squads`를 사용한다. 개발 사용자 ID는 `local-development-user`이며 두 값은 `project.godot`의 `defense_game` 설정에서 바꿀 수 있다. 서버 조회나 저장이 실패하면 다음 화면으로 진행하지 않는다. `user://squad_presets.json` 경로는 자동 테스트가 명시적으로 주입할 때만 서버 대역으로 사용한다.
 
 저장 시 같은 디렉터리의 `.tmp`에 전체 JSON을 쓰고 파일을 flush한 다음, 기존 정상 원본이 있으면 `File.Replace`로 원본 교체와 `.bak` 생성을 한 번에 요청한다. 원본이 없으면 같은 파일 시스템 안에서 rename한다. 이는 지원 OS와 파일 시스템이 제공하는 원자적 replace/rename 범위에서 보장하며 디렉터리 메타데이터까지 별도로 fsync하지 않는다. 교체 API가 실패하면 성공으로 간주하거나 비원자적 복사로 대체하지 않는다.
 

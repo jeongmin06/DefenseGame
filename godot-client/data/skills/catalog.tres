@@ -1,4 +1,4 @@
-[gd_resource type="Resource" load_steps=8 format=3]
+[gd_resource type="Resource" load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/SkillCatalog.cs" id="SkillCatalog"]
 [ext_resource type="Script" path="res://scripts/data/SkillDefinition.cs" id="SkillDefinition"]
@@ -7,7 +7,9 @@
 [ext_resource type="Resource" path="res://data/skills/piercing_shot.tres" id="skill_2"]
 [ext_resource type="Resource" path="res://data/skills/fire_infusion.tres" id="skill_3"]
 [ext_resource type="Resource" path="res://data/skills/healing_amplification.tres" id="skill_4"]
+[ext_resource type="Resource" path="res://data/skills/basic_slash.tres" id="skill_5"]
+[ext_resource type="Resource" path="res://data/skills/basic_heal.tres" id="skill_6"]
 
 [resource]
 script = ExtResource("SkillCatalog")
-Skills = Array[ExtResource("SkillDefinition")]([ExtResource("skill_0"), ExtResource("skill_1"), ExtResource("skill_2"), ExtResource("skill_3"), ExtResource("skill_4")])
+Skills = Array[ExtResource("SkillDefinition")]([ExtResource("skill_0"), ExtResource("skill_1"), ExtResource("skill_2"), ExtResource("skill_3"), ExtResource("skill_4"), ExtResource("skill_5"), ExtResource("skill_6")])

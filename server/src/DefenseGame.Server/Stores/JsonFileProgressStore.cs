@@ -87,6 +87,16 @@ public sealed class JsonFileProgressStore : IProgressStore
         return new ProgressEntry
         {
             ClearedStageIds = progress.ClearedStageIds.OrderBy(x => x).ToList(),
+            OwnedCharacterIds = progress.OwnedCharacterIds.Order(StringComparer.Ordinal).ToList(),
+            StageSquads = progress.StageSquads.ToDictionary(
+                pair => pair.Key,
+                pair => new StageSquadEntry
+                {
+                    CharacterIds = new List<string>(pair.Value.CharacterIds),
+                    Revision = pair.Value.Revision,
+                    UpdatedAtUtc = pair.Value.UpdatedAtUtc
+                },
+                StringComparer.Ordinal),
             UpdatedAtUtc = progress.UpdatedAtUtc
         };
     }
@@ -97,6 +107,19 @@ public sealed class JsonFileProgressStore : IProgressStore
         {
             UserId = userId,
             ClearedStageIds = entry.ClearedStageIds.ToHashSet(),
+            OwnedCharacterIds = entry.OwnedCharacterIds.Count == 0
+                ? new HashSet<string>(PlayerDefaults.InitialCharacterIds, StringComparer.Ordinal)
+                : new HashSet<string>(entry.OwnedCharacterIds, StringComparer.Ordinal),
+            StageSquads = entry.StageSquads.ToDictionary(
+                pair => pair.Key,
+                pair => new StageSquadState
+                {
+                    StageId = pair.Key,
+                    CharacterIds = new List<string>(pair.Value.CharacterIds),
+                    Revision = pair.Value.Revision,
+                    UpdatedAtUtc = pair.Value.UpdatedAtUtc
+                },
+                StringComparer.Ordinal),
             UpdatedAtUtc = entry.UpdatedAtUtc
         };
     }
@@ -109,6 +132,15 @@ public sealed class JsonFileProgressStore : IProgressStore
     private sealed class ProgressEntry
     {
         public List<int> ClearedStageIds { get; init; } = new();
+        public List<string> OwnedCharacterIds { get; init; } = new();
+        public Dictionary<string, StageSquadEntry> StageSquads { get; init; } = new(StringComparer.Ordinal);
+        public DateTimeOffset UpdatedAtUtc { get; init; }
+    }
+
+    private sealed class StageSquadEntry
+    {
+        public List<string> CharacterIds { get; init; } = new();
+        public int Revision { get; init; }
         public DateTimeOffset UpdatedAtUtc { get; init; }
     }
 }

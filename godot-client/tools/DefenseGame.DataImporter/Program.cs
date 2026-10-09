@@ -442,7 +442,7 @@ sealed class Pipeline(string project)
         }
         var roster = Arr(s["roster"], p + ".roster");
         var roles = new HashSet<string>();
-        long total = 0, ground = 0, legacy = 0, melee = 0;
+        long total = 0, ground = 0, melee = 0;
         for (int i = 0; i < roster.Count; i++)
         {
             string rp = $"{p}.roster[{i}]"; var r = Obj(roster[i], rp);
@@ -453,11 +453,9 @@ sealed class Pipeline(string project)
             if (role == "enemy" || !roles.Add(role)) Fail(rp + ".unitId", "HUD requires one definition per allied role");
             int count = (int)Num(r, "count", rp, integer: true, positive: true);
             total += count; if (role != "melee") ground += count;
-            if (role is "melee" or "support") legacy += count;
             if (role == "melee") melee += count;
         }
         if (!roles.SetEquals(["ranged", "melee", "support"])) Fail(p + ".roster", "HUD requires ranged, melee and support");
-        if (maxSquadUnits <= legacy) Fail(p + ".maxSquadUnits", "must leave room for at least one selectable cat after legacy roster units");
         if (total > (long)cols * rows - blocked.Count || ground > (long)cols * rows - blocked.Count - pathCells.Count)
             Fail(p + ".roster", "not enough legal deployment cells");
         if (maxSquadUnits > (long)cols * rows - blocked.Count

@@ -1,6 +1,7 @@
 using Godot;
 using DefenseGame.Client.Data;
 using DefenseGame.Client.Visuals;
+using DefenseGame.Client.Skills;
 
 namespace DefenseGame.Client.Combat;
 
@@ -13,6 +14,7 @@ public partial class Healer : Node2D
     public float CurrentHealth => _health.CurrentHealth;
     public float MaxHealth => _health.MaxHealth;
     public bool IsAlive => _health.IsAlive;
+    public string CharacterId { get; private set; } = "";
     private UnitHealth _health = null!;
     private DirectionalAnimatedSprite _sprite = null!;
     private bool _battleActive;
@@ -33,9 +35,16 @@ public partial class Healer : Node2D
 
     public void Setup(UnitDefinition definition)
     {
+        Setup(definition, "", null);
+    }
+
+    public void Setup(UnitDefinition definition, string characterId, SkillLoadout? loadout)
+    {
+        CharacterId = characterId;
+        UnitSkillEffectSettings effects = new UnitSkillEffectComposer().Compose(loadout);
         _health.Setup(definition.MaxHealth);
         HealRange = definition.RangePixels;
-        HealAmount = definition.ActionPower;
+        HealAmount = definition.ActionPower * effects.HealingMultiplier;
         HealInterval = definition.ActionInterval;
         _healFrame = definition.ActionFrame;
     }

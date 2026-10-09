@@ -1,9 +1,12 @@
 using DefenseGame.Client.Data;
 using DefenseGame.Client.Skills;
+using DefenseGame.Client.Network;
 using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace DefenseGame.Client.UI;
 
@@ -13,16 +16,17 @@ public partial class SquadFormationScreen : Node2D
 
     public int OwnedCharacterCount => Defaults?.CatProfiles.Count ?? 0;
     public int SelectedCount => _selectedIds.Count;
-    public int LegacyWarriorCount { get; private set; }
-    public int LegacyHealerCount { get; private set; }
-    public int LegacyRosterCount => LegacyWarriorCount + LegacyHealerCount;
     public int Capacity { get; private set; }
     public int MaxSquadUnits => StageSelectionState.SelectedStage?.MaxSquadUnits ?? 0;
     public string StatusMessage => _statusLabel?.Text ?? "";
-    public string LoadStatusCode => _loadResult?.StatusCode ?? "";
+    public string LoadStatusCode => _usingLocalTestStorage ? _loadResult?.StatusCode ?? "" : _remoteLoadStatus;
     public string SaveStatusCode => _lastSaveStatus;
+    public int ServerRevision => _serverRevision;
+    public bool IsServerReady => _usingLocalTestStorage || _serverReady;
 
     private readonly StageSquadPresetStore _store = new();
+    private readonly StageSquadServerClient _serverClient = new();
+    private readonly CancellationTokenSource _serverCancellation = new();
     private readonly StageSquadValidator _validator = new();
     private readonly Dictionary<string, CatProfile> _profilesById = new(StringComparer.Ordinal);
     private Godot.Collections.Array<StageSquadPreset> _presets = new();
@@ -30,6 +34,11 @@ public partial class SquadFormationScreen : Node2D
     private StageSquadPresetLoadResult? _loadResult;
     private string _lastSaveStatus = "";
     private bool _requiresRecoverySave;
+    private bool _usingLocalTestStorage;
+    private bool _serverReady;
+    private bool _serverBusy;
+    private int _serverRevision;
+    private string _remoteLoadStatus = "Loading";
     private VBoxContainer _ownedList = null!;
     private VBoxContainer _selectedList = null!;
     private Label _countsLabel = null!;
@@ -52,6 +61,8 @@ public partial class SquadFormationScreen : Node2D
             : $"{stage.DisplayName.ToUpperInvariant()}  //  {stage.Id.Replace('_', ' ').ToUpperInvariant()}";
         Load(stage);
         Refresh();
+        if (!_usingLocalTestStorage && !_serverReady && stage is not null)
+            _ = LoadFromServerAsync(stage);
         QueueRedraw();
     }
 
@@ -113,6 +124,17 @@ public partial class SquadFormationScreen : Node2D
             RefreshLists();
             return false;
         }
+        if (!_usingLocalTestStorage)
+        {
+            if (!_serverReady || _serverBusy)
+            {
+                _statusLabel.Text = "수정 필요 // Server squad state is not ready.";
+                return false;
+            }
+            _ = SaveToServerAndContinueAsync(stage, validation);
+            return true;
+        }
+
         StageSquadPreset? preset = _presets.FirstOrDefault(item => item.StageId == stage.Id);
         if (preset is null)
         {
@@ -131,10 +153,7 @@ public partial class SquadFormationScreen : Node2D
             return false;
         }
         _requiresRecoverySave = false;
-        StageSelectionState.SelectedCharacterIds = new Godot.Collections.Array<string>(_selectedIds);
-        StageSelectionState.SelectedProfiles = new Godot.Collections.Array<CatProfile>(validation.SelectedProfiles);
-        StageSelectionState.ActiveSquadStageId = stage.Id;
-        GetTree().ChangeSceneToFile("res://scenes/skill_loadout.tscn");
+        ApplySelectionAndContinue(stage, validation);
         return true;
     }
 
@@ -147,26 +166,30 @@ public partial class SquadFormationScreen : Node2D
     private void Load(StageDefinition? stage)
     {
         foreach (CatProfile profile in Defaults.CatProfiles) _profilesById[profile.CharacterId] = profile;
-        if (!string.IsNullOrWhiteSpace(StageSelectionState.StageSquadStoragePathOverride))
-            _store.ConfigureStoragePath(StageSelectionState.StageSquadStoragePathOverride);
-        _loadResult = _store.Load();
-        _presets = _loadResult.Presets;
-        _requiresRecoverySave = _loadResult.RequiresExplicitOverwrite;
-        if (stage is null) return;
-        foreach (RosterEntry entry in stage.Roster)
+        _usingLocalTestStorage = !string.IsNullOrWhiteSpace(StageSelectionState.StageSquadStoragePathOverride);
+        if (_usingLocalTestStorage)
         {
-            if (entry.Unit.Role == UnitRole.Melee) LegacyWarriorCount += entry.Count;
-            if (entry.Unit.Role == UnitRole.Support) LegacyHealerCount += entry.Count;
+            _store.ConfigureStoragePath(StageSelectionState.StageSquadStoragePathOverride);
+            _loadResult = _store.Load();
+            _presets = _loadResult.Presets;
+            _requiresRecoverySave = _loadResult.RequiresExplicitOverwrite;
         }
-        Capacity = Math.Max(0, stage.MaxSquadUnits - LegacyRosterCount);
+        if (stage is null) return;
+        Capacity = stage.MaxSquadUnits;
         if (StageSelectionState.ActiveSquadStageId == stage.Id)
+        {
             _selectedIds.AddRange(StageSelectionState.SelectedCharacterIds);
-        else
+            _serverRevision = StageSelectionState.ActiveSquadRevision;
+            _serverReady = true;
+            _remoteLoadStatus = "Session";
+        }
+        else if (_usingLocalTestStorage)
         {
             StageSquadPreset? stored = _presets.FirstOrDefault(item => item.StageId == stage.Id);
             if (stored is not null) _selectedIds.AddRange(stored.CharacterIds);
             else foreach (CatProfile profile in Defaults.CatProfiles.Take(Capacity)) _selectedIds.Add(profile.CharacterId);
         }
+        else foreach (CatProfile profile in Defaults.CatProfiles.Take(Capacity)) _selectedIds.Add(profile.CharacterId);
     }
 
     private bool Move(string characterId, int direction)
@@ -184,7 +207,6 @@ public partial class SquadFormationScreen : Node2D
     {
         StageId = stage.Id,
         MaxSquadUnits = stage.MaxSquadUnits,
-        LegacyRosterUnitCount = LegacyRosterCount,
         OwnedProfiles = Defaults.CatProfiles,
         CharacterIds = new Godot.Collections.Array<string>(_selectedIds)
     });
@@ -193,16 +215,22 @@ public partial class SquadFormationScreen : Node2D
     {
         StageDefinition? stage = StageSelectionState.SelectedStage;
         StageSquadValidationResult? validation = stage is null ? null : Validate(stage);
-        _countsLabel.Text = $"SQUAD  {SelectedCount + LegacyRosterCount}/{MaxSquadUnits}   //   CATS {SelectedCount}/{Capacity}   //   WARRIOR {LegacyWarriorCount}   HEALER {LegacyHealerCount}";
-        _continueButton.Disabled = validation is null || !validation.IsValid || _loadResult?.Status == StageSquadPresetLoadStatus.MigrationRequired;
-        _statusLabel.Text = _loadResult?.Status == StageSquadPresetLoadStatus.MigrationRequired
+        _countsLabel.Text = $"SQUAD  {SelectedCount}/{MaxSquadUnits}   //   OWNED {OwnedCharacterCount}";
+        _continueButton.Disabled = validation is null || !validation.IsValid || _serverBusy
+            || (!_usingLocalTestStorage && !_serverReady)
+            || _loadResult?.Status == StageSquadPresetLoadStatus.MigrationRequired;
+        _statusLabel.Text = !_usingLocalTestStorage && _serverBusy
+            ? (_lastSaveStatus == "Saving" ? "SERVER // Saving formation..." : "SERVER // Loading formation...")
+            : !_usingLocalTestStorage && !_serverReady
+                ? $"수정 필요 // SERVER {_remoteLoadStatus}: Start the server and retry this screen."
+            : _loadResult?.Status == StageSquadPresetLoadStatus.MigrationRequired
             ? "수정 필요 // Saved squads require migration before they can be changed."
             : validation is { IsValid: false } ? "수정 필요 // " + validation.Issues[0].Message
             : _loadResult?.Status == StageSquadPresetLoadStatus.RecoveredFromBackup
                 ? "수정 필요 // Restored the last valid backup. Review this formation before continuing."
             : _loadResult?.Status == StageSquadPresetLoadStatus.Corrupt
                 ? "수정 필요 // Saved squad data was corrupt. Review this proposed formation before continuing."
-            : "Formation ready. Order determines archer deployment order.";
+            : "Formation ready. Order is preserved within each deployment role.";
         RefreshLists();
     }
 
@@ -256,5 +284,78 @@ public partial class SquadFormationScreen : Node2D
             CornerRadiusTopLeft = 6, CornerRadiusTopRight = 6, CornerRadiusBottomLeft = 6, CornerRadiusBottomRight = 6,
             ContentMarginLeft = 14
         });
+    }
+
+    private async Task LoadFromServerAsync(StageDefinition stage)
+    {
+        _serverBusy = true;
+        _remoteLoadStatus = "Loading";
+        Refresh();
+        StageSquadServerResult result = await _serverClient.LoadAsync(
+            ServerBaseUrl(), PlayerId(), stage.Id, _serverCancellation.Token);
+        if (!IsInsideTree()) return;
+        _serverBusy = false;
+        if (!result.IsSuccess || result.Payload is null)
+        {
+            _remoteLoadStatus = result.ErrorCode;
+            _serverReady = false;
+            Refresh();
+            return;
+        }
+        _serverRevision = result.Payload.Revision;
+        _remoteLoadStatus = "Loaded";
+        _serverReady = true;
+        if (result.Payload.CharacterIds.Length > 0)
+        {
+            _selectedIds.Clear();
+            _selectedIds.AddRange(result.Payload.CharacterIds);
+        }
+        Refresh();
+    }
+
+    private async Task SaveToServerAndContinueAsync(StageDefinition stage, StageSquadValidationResult validation)
+    {
+        _serverBusy = true;
+        _lastSaveStatus = "Saving";
+        Refresh();
+        StageSquadServerResult result = await _serverClient.SaveAsync(
+            ServerBaseUrl(), PlayerId(), stage.Id, _selectedIds.ToArray(), _serverRevision, _serverCancellation.Token);
+        if (!IsInsideTree()) return;
+        _serverBusy = false;
+        if (!result.IsSuccess || result.Payload is null)
+        {
+            _lastSaveStatus = result.ErrorCode;
+            if (result.IsConflict && result.Payload is not null) _serverRevision = result.Payload.Revision;
+            _statusLabel.Text = result.IsConflict
+                ? "수정 필요 // SERVER revision conflict. Review and save again."
+                : $"수정 필요 // SERVER {result.ErrorCode}: {result.Message}";
+            RefreshLists();
+            _continueButton.Disabled = false;
+            return;
+        }
+        _serverRevision = result.Payload.Revision;
+        _lastSaveStatus = "Saved";
+        ApplySelectionAndContinue(stage, validation);
+    }
+
+    private void ApplySelectionAndContinue(StageDefinition stage, StageSquadValidationResult validation)
+    {
+        StageSelectionState.SelectedCharacterIds = new Godot.Collections.Array<string>(_selectedIds);
+        StageSelectionState.SelectedProfiles = new Godot.Collections.Array<CatProfile>(validation.SelectedProfiles);
+        StageSelectionState.ActiveSquadStageId = stage.Id;
+        StageSelectionState.ActiveSquadRevision = _serverRevision;
+        GetTree().ChangeSceneToFile("res://scenes/skill_loadout.tscn");
+    }
+
+    private static string ServerBaseUrl() => (string)ProjectSettings.GetSetting(
+        "defense_game/server/base_url", "http://127.0.0.1:5080");
+
+    private static string PlayerId() => (string)ProjectSettings.GetSetting(
+        "defense_game/player/development_user_id", "local-development-user");
+
+    public override void _ExitTree()
+    {
+        _serverCancellation.Cancel();
+        _serverCancellation.Dispose();
     }
 }

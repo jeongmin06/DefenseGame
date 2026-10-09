@@ -33,7 +33,7 @@ func run():
         "schemaVersion": 1,
         "playerSkillProgress": {
             "playerLevel": 5, "unlockedPoints": 5,
-            "ownedSkillIds": ["basic_arrow", "multiple_projectiles", "piercing_shot", "fire_infusion", "healing_amplification"]
+            "ownedSkillIds": ["basic_arrow", "basic_slash", "basic_heal", "multiple_projectiles", "piercing_shot", "fire_infusion", "healing_amplification"]
         },
         "catSkillPresets": [
             {"characterId": "starter_archer_a", "activeSkillId": "basic_arrow", "supportSkillIds": ["multiple_projectiles", "piercing_shot"], "allocatedPoints": 2, "updatedAtUtc": "2026-10-08T00:00:00Z"},
@@ -57,7 +57,7 @@ func run():
     check(not screen.SelectCharacter("starter_archer_b"), "Unselected cat cannot be opened")
     check(screen.SaveProfile(), "Selected squad presets can be saved")
     var saved = JSON.parse_string(FileAccess.get_file_as_string(profile_path))
-    check(saved.catSkillPresets.size() == 2, "Unselected character preset is preserved")
+    check(saved.catSkillPresets.size() == 4, "All unselected character presets are preserved")
     check(saved.catSkillPresets[1].characterId == "starter_archer_b" and saved.catSkillPresets[1].supportSkillIds == ["fire_infusion", "healing_amplification"], "Unselected preset content remains unchanged")
     screen.ReturnToFormation()
     await ticks(5)

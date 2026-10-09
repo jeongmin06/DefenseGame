@@ -56,16 +56,18 @@ func run():
 
     current_scene.ReturnToStageList()
     await ticks(5)
-    await enter_battle(["starter_archer_a"])
+    await enter_battle(["starter_archer_a", "starter_warrior_a", "starter_healer_a"])
     stage = current_scene
     check(stage.RemainingArchers == 1, "One-cat formation creates exactly one archer slot")
     grid = stage.get_node("DeploymentGrid")
     check(grid.SelectCell(Vector2i(4, 2)), "Place sole selected archer")
     check(stage.RemainingArchers == 0, "No legacy ranged count leaks into selected formation")
-    check(stage.SelectPlacementType(1), "Legacy warrior remains deployable")
-    check(grid.SelectCell(Vector2i(1, 3)), "Place legacy warrior")
-    check(stage.SelectPlacementType(2), "Legacy healer remains deployable")
-    check(grid.SelectCell(Vector2i(5, 3)), "Place legacy healer")
+    check(stage.SelectPlacementType(1), "Selected warrior remains deployable")
+    check(grid.SelectCell(Vector2i(1, 3)), "Place selected warrior")
+    check(stage.PlacedWarriorCharacterIds == PackedStringArray(["starter_warrior_a"]), "Warrior keeps its character ID")
+    check(stage.SelectPlacementType(2), "Selected healer remains deployable")
+    check(grid.SelectCell(Vector2i(5, 3)), "Place selected healer")
+    check(stage.PlacedHealerCharacterIds == PackedStringArray(["starter_healer_a"]), "Healer keeps its character ID")
 
     print("FORMATION COMBAT QA failures=", failures)
     quit(0 if failures == 0 else 1)

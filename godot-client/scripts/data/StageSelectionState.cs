@@ -10,6 +10,7 @@ public static class StageSelectionState
     public static Godot.Collections.Array<string> SelectedCharacterIds { get; set; } = new();
     public static Godot.Collections.Array<CatProfile> SelectedProfiles { get; set; } = new();
     public static string ActiveSquadStageId { get; set; } = "";
+    public static int ActiveSquadRevision { get; set; }
     public static string SkillProfileStoragePathOverride { get; set; } = "";
     public static string StageSquadStoragePathOverride { get; set; } = "";
 
@@ -21,6 +22,7 @@ public static class StageSelectionState
         SelectedCharacterIds = new();
         SelectedProfiles = new();
         ActiveSquadStageId = "";
+        ActiveSquadRevision = 0;
     }
 
     public static void ClearStage()
@@ -31,5 +33,6 @@ public static class StageSelectionState
         SelectedCharacterIds = new();
         SelectedProfiles = new();
         ActiveSquadStageId = "";
+        ActiveSquadRevision = 0;
     }
 }

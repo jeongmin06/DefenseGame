@@ -18,6 +18,7 @@ builder.Services.AddSingleton<IProgressStore>(sp =>
     return new JsonFileProgressStore(filePath, clock);
 });
 builder.Services.AddSingleton<IStageProgressService, StageProgressService>();
+builder.Services.AddSingleton<IStageSquadService, StageSquadService>();
 
 builder.Services.AddSingleton<ActorThreadScheduler>();
 builder.Services.AddHostedService<ActorThreadPool>();
@@ -54,6 +55,43 @@ app.MapPost("/v1/stage-clear", async (
     return result.IsAccepted
         ? Results.Ok(result.Payload)
         : Results.BadRequest(new { errorCode = result.ErrorCode, message = result.ErrorMessage });
+});
+
+app.MapGet("/v1/squads/{userId}/{stageId}", async (
+    string userId,
+    string stageId,
+    PlayerActorRegistry players,
+    CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(userId))
+        return Results.BadRequest(new { errorCode = "invalid_user_id", message = "userId is required." });
+    StageSquadHandleResult result = await players.Get(userId).GetStageSquadAsync(stageId, cancellationToken);
+    return result.Status == StageSquadHandleStatus.Accepted
+        ? Results.Ok(result.Payload)
+        : Results.BadRequest(new { errorCode = result.ErrorCode, message = result.ErrorMessage });
+});
+
+app.MapPut("/v1/squads/{stageId}", async (
+    string stageId,
+    SaveStageSquadRequest request,
+    PlayerActorRegistry players,
+    CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.UserId))
+        return Results.BadRequest(new { errorCode = "invalid_user_id", message = "userId is required." });
+    StageSquadHandleResult result = await players.Get(request.UserId)
+        .SaveStageSquadAsync(stageId, request, cancellationToken);
+    return result.Status switch
+    {
+        StageSquadHandleStatus.Accepted => Results.Ok(result.Payload),
+        StageSquadHandleStatus.Conflict => Results.Conflict(new
+        {
+            errorCode = result.ErrorCode,
+            message = result.ErrorMessage,
+            current = result.Payload
+        }),
+        _ => Results.BadRequest(new { errorCode = result.ErrorCode, message = result.ErrorMessage })
+    };
 });
 
 app.Run();

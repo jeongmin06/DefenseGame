@@ -26,7 +26,7 @@ func document(active_a: String, supports_a: Array, allocated_a: int, supports_b:
         "playerSkillProgress": {
             "playerLevel": 5,
             "unlockedPoints": 5,
-            "ownedSkillIds": ["basic_arrow", "multiple_projectiles", "piercing_shot", "fire_infusion", "healing_amplification"]
+            "ownedSkillIds": ["basic_arrow", "basic_slash", "basic_heal", "multiple_projectiles", "piercing_shot", "fire_infusion", "healing_amplification"]
         },
         "catSkillPresets": [
             {

@@ -1,0 +1,19 @@
+[gd_resource type="Resource" load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://scripts/data/SkillDefinition.cs" id="SkillDefinition"]
+[ext_resource type="Script" path="res://scripts/data/SkillEffectDefinition.cs" id="SkillEffectDefinition"]
+
+[resource]
+script = ExtResource("SkillDefinition")
+Id = "basic_slash"
+DisplayName = "Basic Slash"
+Role = 0
+Tags = Array[String](["ATTACK", "PHYSICAL", "HIT"])
+RequiredAnyTags = Array[String]([])
+RequiredAllTags = Array[String]([])
+ForbiddenTags = Array[String]([])
+LinkCost = 0
+BaseProjectileCount = 1
+BasePierceCount = 0
+BaseDamageMultiplier = 1
+Effects = Array[ExtResource("SkillEffectDefinition")]([])

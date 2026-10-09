@@ -19,7 +19,7 @@ func run():
     check(catalog.Stages.size() == 3, "Stage catalog size")
     check(definition.SkillBudget != null and definition.SkillBudget.HasStageCap and definition.SkillBudget.StageCap == 3, "Stage skill budget")
     var skill_catalog = load("res://data/skills/catalog.tres")
-    check(skill_catalog != null and skill_catalog.Skills.size() == 5, "Skill catalog size")
+    check(skill_catalog != null and skill_catalog.Skills.size() == 7, "Skill catalog size")
     var basic_arrow = load("res://data/skills/basic_arrow.tres")
     check(basic_arrow.Id == "basic_arrow" and basic_arrow.Role == 0, "Active skill resource")
     check(basic_arrow.Tags == ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"], "Active skill tags")
@@ -34,7 +34,7 @@ func run():
     check(healing.RequiredAnyTags == ["HEAL"] and healing.Effects[0].Type == 5, "Incompatible support fixture")
     var defaults = load("res://data/player/defaults.tres")
     check(defaults.Progress.PlayerLevel == 5 and defaults.Progress.UnlockedPoints == 5, "Player skill defaults")
-    check(defaults.CatProfiles.size() == 2 and defaults.InitialPresets.size() == 2, "Cat profile defaults")
+    check(defaults.CatProfiles.size() == 4 and defaults.InitialPresets.size() == 4, "Cat profile defaults")
     var expected_totals = [21, 30, 42]
     for stage_index in range(catalog.Stages.size()):
         var total := 0

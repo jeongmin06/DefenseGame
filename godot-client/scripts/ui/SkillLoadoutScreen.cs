@@ -253,13 +253,14 @@ public partial class SkillLoadoutScreen : Node2D
             CatSkillPreset? preset = _storedPresets.FirstOrDefault(candidate => candidate.CharacterId == profile.CharacterId);
             if (preset is null)
             {
-                preset = new CatSkillPreset
+                CatSkillPreset? initial = Defaults.InitialPresets.FirstOrDefault(candidate => candidate.CharacterId == profile.CharacterId);
+                preset = initial is null ? new CatSkillPreset
                 {
                     CharacterId = profile.CharacterId,
                     ActiveSkillId = "",
                     AllocatedPoints = 0,
                     UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O")
-                };
+                } : ClonePreset(initial);
                 _storedPresets.Add(preset);
             }
             if (_selectedProfiles.Contains(profile))
@@ -444,6 +445,15 @@ public partial class SkillLoadoutScreen : Node2D
     }
 
     private static void Touch(CatSkillPreset preset) => preset.UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O");
+
+    private static CatSkillPreset ClonePreset(CatSkillPreset source) => new()
+    {
+        CharacterId = source.CharacterId,
+        ActiveSkillId = source.ActiveSkillId,
+        SupportSkillIds = new Godot.Collections.Array<string>(source.SupportSkillIds),
+        AllocatedPoints = source.AllocatedPoints,
+        UpdatedAtUtc = source.UpdatedAtUtc
+    };
 
     private static void ClearChildren(Node parent)
     {

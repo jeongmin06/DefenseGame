@@ -19,6 +19,17 @@ public class JsonFileProgressStoreTests
         {
             UserId = "user-1",
             ClearedStageIds = new HashSet<int> { 1, 2 },
+            OwnedCharacterIds = new HashSet<string>(PlayerDefaults.InitialCharacterIds, StringComparer.Ordinal),
+            StageSquads = new Dictionary<string, StageSquadState>(StringComparer.Ordinal)
+            {
+                ["stage_01"] = new StageSquadState
+                {
+                    StageId = "stage_01",
+                    CharacterIds = ["starter_archer_b", "starter_warrior_a"],
+                    Revision = 3,
+                    UpdatedAtUtc = now
+                }
+            },
             UpdatedAtUtc = now
         };
 
@@ -32,5 +43,9 @@ public class JsonFileProgressStoreTests
         Assert.Equal(3, loaded.NextUnlockedStageId);
         Assert.Equal(new[] { 1, 2 }, loaded.ClearedStageIds.OrderBy(x => x).ToArray());
         Assert.Equal(now, loaded.UpdatedAtUtc);
+        Assert.Equal(PlayerDefaults.InitialCharacterIds.Order(StringComparer.Ordinal),
+            loaded.OwnedCharacterIds.Order(StringComparer.Ordinal));
+        Assert.Equal(3, loaded.StageSquads["stage_01"].Revision);
+        Assert.Equal(["starter_archer_b", "starter_warrior_a"], loaded.StageSquads["stage_01"].CharacterIds);
     }
 }

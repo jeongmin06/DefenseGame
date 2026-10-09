@@ -20,11 +20,13 @@
 
 ## Godot 실행
 
-1. Godot 4 .NET 안정 버전에서 `godot-client/project.godot`을 연다.
-2. 프로젝트를 실행하면 스테이지 선택 화면이 시작된다.
-3. 총 몬스터 수가 다른 세 스테이지 중 하나를 선택한다.
-4. HUD에서 타입을 선택해 궁수 2명·힐러 1명(Ground)과 전사 1명(Ground 또는 경로)을 모두 배치하면 전투가 시작된다.
-5. 전투 종료 후 `RETRY STAGE` 또는 `STAGE LIST`를 선택할 수 있다.
+1. `dotnet run --project server/src/DefenseGame.Server`로 로컬 서버를 실행한다.
+2. Godot 4 .NET 안정 버전에서 `godot-client/project.godot`을 연다.
+3. 프로젝트를 실행하면 스테이지 선택 화면이 시작된다.
+4. 총 몬스터 수가 다른 세 스테이지 중 하나를 선택하고 서버에 저장된 최근 편성을 불러온다.
+5. 궁수·전사·힐러를 선택하고 편성을 확정하면 서버에 저장한 뒤 스킬 준비로 이동한다.
+6. 편성한 고양이를 모두 배치하면 전투가 시작된다.
+7. 전투 종료 후 `RETRY STAGE` 또는 `STAGE LIST`를 선택할 수 있다.
 
 ## 밸런스 데이터
 

@@ -32,9 +32,9 @@ func run():
 
     var screen = current_scene
     check(screen.name == "SkillLoadout", "Stage selection opens squad skill preparation")
-    check(screen.CharacterCount == 2 and screen.SelectedCharacterId == "starter_archer_a", "Two character IDs and deterministic initial selection")
+    check(screen.CharacterCount == 4 and screen.SelectedCharacterId == "starter_archer_a", "Four character IDs and deterministic initial selection")
     check(screen.CandidateCount == 4, "All support candidates are displayed")
-    check(screen.get_node("UI/MainPanel/CharacterList").get_child_count() == 2, "Two character buttons exist")
+    check(screen.get_node("UI/MainPanel/CharacterList").get_child_count() == 4, "Four character buttons exist")
     check(screen.get_node("UI/MainPanel/SupportScroll/CandidateList").get_child_count() == 4, "Four normal support buttons exist")
     check(screen.LoadStatusCode == "Defaults", "Missing user file loads generated defaults")
     check(screen.GetSupportIds("starter_archer_a") == PackedStringArray(["multiple_projectiles", "piercing_shot"]), "First cat restores its own preset")

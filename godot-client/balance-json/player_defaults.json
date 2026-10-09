@@ -5,6 +5,8 @@
     "unlockedPoints": 5,
     "ownedSkillIds": [
       "basic_arrow",
+      "basic_slash",
+      "basic_heal",
       "multiple_projectiles",
       "piercing_shot",
       "fire_infusion",
@@ -21,6 +23,16 @@
       "characterId": "starter_archer_b",
       "displayName": "Starter Archer B",
       "unitId": "cat_archer"
+    },
+    {
+      "characterId": "starter_warrior_a",
+      "displayName": "Starter Warrior A",
+      "unitId": "cat_warrior"
+    },
+    {
+      "characterId": "starter_healer_a",
+      "displayName": "Starter Healer A",
+      "unitId": "cat_healer"
     }
   ],
   "catSkillPresets": [
@@ -37,6 +49,20 @@
       "supportSkillIds": ["fire_infusion"],
       "allocatedPoints": 1,
       "updatedAtUtc": "2026-10-08T00:00:00Z"
+    },
+    {
+      "characterId": "starter_warrior_a",
+      "activeSkillId": "basic_slash",
+      "supportSkillIds": [],
+      "allocatedPoints": 0,
+      "updatedAtUtc": "2026-10-09T00:00:00Z"
+    },
+    {
+      "characterId": "starter_healer_a",
+      "activeSkillId": "basic_heal",
+      "supportSkillIds": [],
+      "allocatedPoints": 0,
+      "updatedAtUtc": "2026-10-09T00:00:00Z"
     }
   ]
 }

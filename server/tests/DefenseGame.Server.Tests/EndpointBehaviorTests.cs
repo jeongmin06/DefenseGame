@@ -74,6 +74,35 @@ public class EndpointBehaviorTests
     }
 
     [Fact]
+    public async Task SaveSquad_ThenGetSquad_PreservesServerState()
+    {
+        await using var app = new TestWebApplicationFactory();
+        var client = app.CreateClient();
+        var save = await client.PutAsJsonAsync("/v1/squads/stage_01",
+            new SaveStageSquadRequest("player", ["starter_warrior_a", "starter_healer_a"], 0));
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+        StageSquadResponse payload = (await save.Content.ReadFromJsonAsync<StageSquadResponse>())!;
+        Assert.Equal(1, payload.Revision);
+
+        StageSquadResponse loaded = (await client.GetFromJsonAsync<StageSquadResponse>(
+            "/v1/squads/player/stage_01"))!;
+        Assert.Equal(["starter_warrior_a", "starter_healer_a"], loaded.CharacterIds);
+        Assert.Equal(1, loaded.Revision);
+    }
+
+    [Fact]
+    public async Task SaveSquad_WithStaleRevision_ReturnsConflict()
+    {
+        await using var app = new TestWebApplicationFactory();
+        var client = app.CreateClient();
+        await client.PutAsJsonAsync("/v1/squads/stage_01",
+            new SaveStageSquadRequest("player", ["starter_archer_a"], 0));
+        var conflict = await client.PutAsJsonAsync("/v1/squads/stage_01",
+            new SaveStageSquadRequest("player", ["starter_archer_b"], 0));
+        Assert.Equal(HttpStatusCode.Conflict, conflict.StatusCode);
+    }
+
+    [Fact]
     public async Task ConcurrentFirstClear_GrantsRewardExactlyOnce_ForNormalizedUser()
     {
         await using var app = new TestWebApplicationFactory();

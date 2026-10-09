@@ -68,7 +68,7 @@ func run() -> void:
     var store = make_store(round_trip_path)
     var missing = store.Load()
     check(missing.StatusCode == "Defaults", "Missing file returns defaults status")
-    check(missing.Progress.PlayerLevel == 5 and missing.Presets.size() == 2, "Missing file clones generated defaults")
+    check(missing.Progress.PlayerLevel == 5 and missing.Presets.size() == 4, "Missing file clones generated defaults")
     missing.Progress.PlayerLevel = 99
     missing.Presets[0].SupportSkillIds.clear()
     check(defaults.Progress.PlayerLevel == 5 and defaults.InitialPresets[0].SupportSkillIds.size() == 2, "Default resources are never mutated")
@@ -141,7 +141,7 @@ func run() -> void:
     var double_store = make_store(double_corrupt_path)
     var double_corrupt = double_store.Load()
     check(double_corrupt.StatusCode == "Corrupt", "Corrupt primary and backup return corrupt status")
-    check(double_corrupt.Progress.PlayerLevel == 5 and double_corrupt.Presets.size() == 2, "Corrupt files return in-memory generated defaults")
+    check(double_corrupt.Progress.PlayerLevel == 5 and double_corrupt.Presets.size() == 4, "Corrupt files return in-memory generated defaults")
     check(double_corrupt.PreservedPath != "" and FileAccess.file_exists(double_corrupt.PreservedPath), "Corrupt primary remains diagnosable")
     check(read_text(double_corrupt_path + ".bak") == "also not json", "Corrupt backup is not overwritten")
     check(double_store.Save(double_corrupt.Progress, double_corrupt.Presets).StatusCode == "BlockedProtectedData", "Corrupt fallback defaults cannot auto-save")

@@ -68,6 +68,34 @@
       "effects": [
         {"type": "multiply_healing", "floatValue": 1.5}
       ]
+    },
+    {
+      "id": "basic_slash",
+      "displayName": "Basic Slash",
+      "role": "active",
+      "tags": ["ATTACK", "PHYSICAL", "HIT"],
+      "requiredAnyTags": [],
+      "requiredAllTags": [],
+      "forbiddenTags": [],
+      "linkCost": 0,
+      "baseProjectileCount": 1,
+      "basePierceCount": 0,
+      "baseDamageMultiplier": 1.0,
+      "effects": []
+    },
+    {
+      "id": "basic_heal",
+      "displayName": "Basic Heal",
+      "role": "active",
+      "tags": ["HEAL"],
+      "requiredAnyTags": [],
+      "requiredAllTags": [],
+      "forbiddenTags": [],
+      "linkCost": 0,
+      "baseProjectileCount": 1,
+      "basePierceCount": 0,
+      "baseDamageMultiplier": 1.0,
+      "effects": []
     }
   ]
 }

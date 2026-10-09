@@ -36,7 +36,8 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         'units/cat_archer.tres', 'units/cat_healer.tres', 'units/cat_warrior.tres',
         'units/mutant_mouse.tres', 'stages/stage_01.tres', 'stages/stage_02.tres',
         'stages/stage_03.tres', 'stages/catalog.tres',
-        'skills/basic_arrow.tres', 'skills/multiple_projectiles.tres',
+        'skills/basic_arrow.tres', 'skills/basic_slash.tres', 'skills/basic_heal.tres',
+        'skills/multiple_projectiles.tres',
         'skills/piercing_shot.tres', 'skills/fire_infusion.tres',
         'skills/healing_amplification.tres', 'skills/catalog.tres',
         'player/defaults.tres'
@@ -48,6 +49,8 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
     defaults = (output / 'player/defaults.tres').read_text()
     assert 'CharacterId = "starter_archer_a"' in defaults
     assert 'CharacterId = "starter_archer_b"' in defaults
+    assert 'CharacterId = "starter_warrior_a"' in defaults
+    assert 'CharacterId = "starter_healer_a"' in defaults
     assert 'UnlockedPoints = 5' in defaults and 'OwnedSkillIds = Array[String]([' in defaults
     for index, cap in enumerate((3, 4, 5), start=1):
         stage = (output / f'stages/stage_0{index}.tres').read_text()
@@ -84,7 +87,6 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         ('negative stage cap', 'stages', lambda d: d['stages'][0].update(skillPointCap=-1), '.skillPointCap'),
         ('zero squad max', 'stages', lambda d: d['stages'][0].update(maxSquadUnits=0), '.maxSquadUnits'),
         ('large squad max', 'stages', lambda d: d['stages'][0].update(maxSquadUnits=11), '.maxSquadUnits'),
-        ('no selectable cat slot', 'stages', lambda d: d['stages'][0].update(maxSquadUnits=2), '.maxSquadUnits'),
         ('skill schema', 'skills', lambda d: d.update(schemaVersion=2), 'schemaVersion'),
         ('skill duplicate', 'skills', lambda d: d['skills'].append(copy.deepcopy(d['skills'][0])), '.id'),
         ('skill role', 'skills', lambda d: d['skills'][0].update(role='spell'), '.role'),

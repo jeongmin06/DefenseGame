@@ -26,6 +26,11 @@ window/size/window_width_override=1280
 window/size/window_height_override=720
 window/stretch/mode="canvas_items"
 
+[defense_game]
+
+server/base_url="http://127.0.0.1:5080"
+player/development_user_id="local-development-user"
+
 [physics]
 
 common/physics_ticks_per_second=60

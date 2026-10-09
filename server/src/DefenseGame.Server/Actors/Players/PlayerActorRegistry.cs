@@ -4,7 +4,10 @@ using DefenseGame.Server.Services;
 
 namespace DefenseGame.Server.Actors.Players;
 
-public sealed class PlayerActorRegistry(IStageProgressService service, ActorThreadScheduler scheduler)
+public sealed class PlayerActorRegistry(
+    IStageProgressService progressService,
+    IStageSquadService squadService,
+    ActorThreadScheduler scheduler)
 {
     private readonly ConcurrentDictionary<string, Lazy<PlayerActor>> _players = new(StringComparer.Ordinal);
 
@@ -13,6 +16,6 @@ public sealed class PlayerActorRegistry(IStageProgressService service, ActorThre
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
         var normalizedId = userId.Trim();
         return _players.GetOrAdd(normalizedId, id => new Lazy<PlayerActor>(
-            () => new PlayerActor(id, service, scheduler.CreateChannel()))).Value;
+            () => new PlayerActor(id, progressService, squadService, scheduler.CreateChannel()))).Value;
     }
 }

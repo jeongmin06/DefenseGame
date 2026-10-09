@@ -1,6 +1,6 @@
 # DefenseGame 서버
 
-.NET 9 ASP.NET Core HTTP 서버다. 진행도와 스테이지 클리어 계약은 기존과 동일하다.
+.NET 9 ASP.NET Core HTTP 서버다. 진행도, 스테이지 클리어와 스테이지별 편성을 사용자 단위 Actor로 처리한다.
 
 ## 실행과 테스트
 
@@ -12,12 +12,12 @@ dotnet test server/DefenseGame.sln -m:1 -nr:false
 ## Actor 처리 경로
 
 ```text
-GET /v1/progress/{userId} 또는 POST /v1/stage-clear
+GET /v1/progress/{userId}, POST /v1/stage-clear 또는 GET/PUT /v1/squads
   → PlayerActorRegistry (공백 제거한 userId, 대소문자 구분)
   → PlayerActor
   → ActorChannel 메일박스
   → ActorThreadScheduler / ActorThread
-  → StageProgressService
+  → StageProgressService / StageSquadService
   → JsonFileProgressStore
 ```
 
@@ -38,7 +38,7 @@ Worker 수는 `Actors:WorkerCount` 설정(환경 변수 `Actors__WorkerCount`)�
 
 ## 검증과 제약
 
-24개 자동 테스트가 진행도 규칙, JSON 재로드, HTTP 계약, 동시 첫 클리어 1회 보상,
+32개 자동 테스트가 진행도 규칙, 편성 순서·보유 검증·revision 충돌, JSON 재로드, HTTP 계약, 동시 첫 클리어 1회 보상,
 정규화된 사용자별 Actor 단일성, 실행 순서, 사용자 간 독립성, 예외·취소,
 종료와 여러 호스트의 런타임 격리를 검증한다.
 

@@ -16,14 +16,11 @@ public partial class StageSquadValidator : RefCounted
     {
         var result = new StageSquadValidationResult
         {
-            SelectableCatCapacity = allocation.MaxSquadUnits - allocation.LegacyRosterUnitCount
+            SelectableCatCapacity = allocation.MaxSquadUnits
         };
         if (allocation.MaxSquadUnits is < 1 or > HardMaxSquadUnits)
             Add(result, StageSquadError.InvalidMaxSquadUnits, "",
                 $"Stage squad limit must be between 1 and {HardMaxSquadUnits}.");
-        if (result.SelectableCatCapacity < 1)
-            Add(result, StageSquadError.NoSelectableCapacity, "",
-                "Stage squad limit must leave room for at least one selectable cat after legacy units.");
         if (allocation.CharacterIds.Count == 0)
             Add(result, StageSquadError.EmptySquad, "", "Select at least one cat.");
         if (allocation.CharacterIds.Count > Math.Max(0, result.SelectableCatCapacity))
@@ -54,7 +51,7 @@ public partial class StageSquadValidator : RefCounted
                     $"Character '{characterId}' references missing or changed unit '{profile.UnitId}'.");
                 continue;
             }
-            if (profile.Unit.Role != UnitRole.Ranged)
+            if (profile.Unit.Role is not (UnitRole.Ranged or UnitRole.Melee or UnitRole.Support))
             {
                 Add(result, StageSquadError.UnsupportedRole, characterId,
                     $"Character '{characterId}' has unsupported selectable role '{profile.Unit.Role}'.");

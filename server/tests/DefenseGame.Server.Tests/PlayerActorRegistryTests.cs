@@ -3,6 +3,7 @@ using DefenseGame.Server.Actors.Runtime;
 using DefenseGame.Server.Contracts;
 using DefenseGame.Server.Services;
 using Microsoft.Extensions.Configuration;
+using DefenseGame.Server.Tests.TestDoubles;
 
 namespace DefenseGame.Server.Tests;
 
@@ -12,7 +13,7 @@ public sealed class PlayerActorRegistryTests
     public async Task ConcurrentLookups_ReturnOneActorPerNormalizedUser()
     {
         using var scheduler = new ActorThreadScheduler();
-        var registry = new PlayerActorRegistry(new ControlledService(), scheduler);
+        var registry = new PlayerActorRegistry(new ControlledService(), CreateSquadService(), scheduler);
         var actors = await Task.WhenAll(Enumerable.Range(0, 100).Select(index =>
             Task.Run(() => registry.Get(index % 2 == 0 ? " user " : "user"))));
         Assert.All(actors, actor => Assert.Same(actors[0], actor));
@@ -29,7 +30,7 @@ public sealed class PlayerActorRegistryTests
         try
         {
             var service = new ControlledService();
-            var registry = new PlayerActorRegistry(service, scheduler);
+            var registry = new PlayerActorRegistry(service, CreateSquadService(), scheduler);
             var clear = registry.Get("first").HandleStageClearAsync(new StageClearRequest("first", 1, true), default);
             await service.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             var samePlayerQuery = registry.Get(" first ").GetProgressAsync(default);
@@ -45,6 +46,12 @@ public sealed class PlayerActorRegistryTests
         {
             await pool.StopAsync(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
         }
+    }
+
+    private static IStageSquadService CreateSquadService()
+    {
+        var clock = new FakeClock(DateTimeOffset.Parse("2026-10-09T00:00:00Z"));
+        return new StageSquadService(new InMemoryProgressStore(() => clock.UtcNow), clock);
     }
 
     private sealed class ControlledService : IStageProgressService
