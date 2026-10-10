@@ -5,8 +5,8 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 ## 실행
 
 1. Godot 4 .NET 안정 버전과 .NET SDK를 설치한다.
-2. `project.godot`을 Import 한다.
-3. 저장소 루트에서 `dotnet run --project server/src/DefenseGame.Server`로 편성 저장 서버를 실행한다.
+2. 저장소 루트에서 `./scripts/run-dev.sh`를 실행해 데이터 생성, 서버·클라이언트 빌드, 로컬 서버 시작과 Godot 에디터 열기를 한 번에 수행한다.
+3. 수동 실행 시에는 `project.godot`을 Import하고 `dotnet run --project server/src/DefenseGame.Server`로 편성 저장 서버를 별도로 실행한다.
 4. 프로젝트 실행 버튼을 누르고 총 몬스터 수가 다른 세 스테이지 중 하나를 선택한다.
 5. 서버에서 최근 편성을 불러온 뒤 궁수·전사·힐러를 선택하고 확정한다.
 6. HUD의 ARCHER/WARRIOR/HEALER 버튼으로 편성한 고양이를 배치한다. 궁수와 힐러는 빈 Ground, 전사는 빈 Ground 또는 EnemyPath에 배치한다. 모두 배치하면 0.8초 뒤 첫 웨이브가 시작된다.

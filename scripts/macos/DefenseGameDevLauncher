@@ -1,0 +1,29 @@
+#!/bin/zsh
+
+set -eu
+
+APP_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPOSITORY_PATH_FILE="$APP_ROOT/Resources/repository-path"
+
+if [[ ! -f "$REPOSITORY_PATH_FILE" ]]; then
+  osascript -e 'display alert "DefenseGame Dev" message "저장소 경로 정보가 없습니다. 설치 스크립트를 다시 실행하세요." as critical'
+  exit 1
+fi
+
+REPOSITORY_PATH="$(<"$REPOSITORY_PATH_FILE")"
+RUNNER="$REPOSITORY_PATH/scripts/run-dev.sh"
+
+if [[ ! -x "$RUNNER" ]]; then
+  osascript -e 'display alert "DefenseGame Dev" message "실행 스크립트를 찾을 수 없습니다. 저장소를 이동했다면 설치 스크립트를 다시 실행하세요." as critical'
+  exit 1
+fi
+
+osascript - "$RUNNER" <<'APPLESCRIPT'
+on run argv
+  set runnerPath to item 1 of argv
+  tell application "Terminal"
+    activate
+    do script "exec " & quoted form of runnerPath
+  end tell
+end run
+APPLESCRIPT

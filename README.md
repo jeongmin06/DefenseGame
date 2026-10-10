@@ -20,6 +20,24 @@
 
 ## Godot 실행
 
+가장 간단한 개발 실행 방법은 저장소 루트에서 아래 명령을 사용하는 것이다.
+
+```bash
+./scripts/run-dev.sh
+```
+
+이 명령은 밸런스 Resource 생성, 서버와 Godot C# 빌드, 서버 헬스 체크를 차례로 수행한 뒤 Godot 에디터를 연다. 에디터를 닫으면 실행기가 시작한 서버도 종료한다. 에디터 없이 메인 씬을 바로 실행하려면 `./scripts/run-dev.sh --play`를 사용한다.
+
+macOS Finder 또는 Spotlight에서 실행하려면 한 번만 아래 앱 설치 명령을 실행한다.
+
+```bash
+./scripts/install-macos-dev-app.sh
+```
+
+이후 `~/Applications/DefenseGame Dev.app`을 실행하면 Terminal에서 같은 통합 실행 절차가 시작된다. 저장소를 이동했다면 설치 명령을 다시 실행한다.
+
+수동으로 실행할 때는 다음 순서를 사용한다.
+
 1. `dotnet run --project server/src/DefenseGame.Server`로 로컬 서버를 실행한다.
 2. Godot 4 .NET 안정 버전에서 `godot-client/project.godot`을 연다.
 3. 프로젝트를 실행하면 스테이지 선택 화면이 시작된다.

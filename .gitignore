@@ -38,6 +38,7 @@ bin/
 obj/
 
 # Generated
+.dev/
 *.pidb
 *.booproj
 *.svd
