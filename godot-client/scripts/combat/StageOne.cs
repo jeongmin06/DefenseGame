@@ -14,6 +14,7 @@ public partial class StageOne : Node2D
     public SkillLoadout? Loadout { get; private set; }
     public RangedAttackSettings ArcherAttackSettings { get; private set; } = new();
     public int RemainingArchers => _remainingArchers;
+    public float SecondsUntilFirstWave => _firstWaveCountdown;
     public string NextArcherCharacterId => _archerPlacementIndex < _archerQueue.Count
         ? _archerQueue[_archerPlacementIndex].CharacterId : "";
     public string[] PlacedArcherCharacterIds => _placedArcherCharacterIds.ToArray();
@@ -33,8 +34,10 @@ public partial class StageOne : Node2D
     private int _remainingWarriors;
     private int _remainingHealers;
     private float _firstWaveDelay;
+    private float _firstWaveCountdown;
     private float _waveGap;
-    private bool _battleStarted;
+    private bool _combatTimelineStarted;
+    private int _lastDisplayedCountdownSecond = -1;
     private DeploymentGrid.PlacementType _selectedType;
 
     private int _waveIndex = -1;
@@ -84,8 +87,23 @@ public partial class StageOne : Node2D
         _hud.UpdateStage(Definition.DisplayName, Definition.Id);
         BuildEnemyPath();
         _spawnTimer.Timeout += SpawnEnemy;
+        _combatTimelineStarted = true;
+        _firstWaveCountdown = _firstWaveDelay;
+        ScheduleNextWave(_firstWaveDelay);
         UpdateHud();
         UpdatePlacementHud();
+    }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        if (!_combatTimelineStarted || _battleEnded || _waveIndex >= 0) return;
+
+        _firstWaveCountdown = Mathf.Max(0.0f, _firstWaveCountdown - (float)delta);
+        int displayedSecond = Mathf.CeilToInt(_firstWaveCountdown);
+        if (displayedSecond == _lastDisplayedCountdownSecond) return;
+
+        _lastDisplayedCountdownSecond = displayedSecond;
+        UpdateHud();
     }
 
     public void RestartStage() => GetTree().ReloadCurrentScene();
@@ -113,7 +131,7 @@ public partial class StageOne : Node2D
 
     public bool SelectPlacementType(DeploymentGrid.PlacementType type)
     {
-        if (_battleStarted || _battleEnded) return false;
+        if (_battleEnded) return false;
         if (RemainingFor(type) <= 0) return false;
         _selectedType = type;
         _grid.SetPlacementType(type);
@@ -135,7 +153,7 @@ public partial class StageOne : Node2D
     private void OnCellSelected(Vector2I cell)
     {
         int remaining = RemainingFor(_selectedType);
-        if (_battleStarted || _battleEnded || remaining <= 0 || !_grid.TryOccupy(cell, _selectedType)) return;
+        if (_battleEnded || remaining <= 0 || !_grid.TryOccupy(cell, _selectedType)) return;
         if (_selectedType == DeploymentGrid.PlacementType.Ranged)
         {
             ArcherDeployment? deployment = _archerPlacementIndex < _archerQueue.Count
@@ -146,6 +164,7 @@ public partial class StageOne : Node2D
             Tower tower = unit.Scene.Instantiate<Tower>();
             AddChild(tower);
             tower.SetupRanged(unit, deployment.Settings, deployment.CharacterId);
+            tower.SetBattleActive(_combatTimelineStarted);
             _placedArcherCharacterIds.Add(tower.CharacterId);
             tower.GlobalPosition = _grid.CellToGlobal(cell);
             tower.Defeated += _ => _grid.ReleaseCell(cell);
@@ -160,6 +179,7 @@ public partial class StageOne : Node2D
             AddChild(warrior);
             warrior.GlobalPosition = _grid.CellToGlobal(cell);
             warrior.Setup(deployment.Unit, _grid, cell, deployment.CharacterId, deployment.Loadout);
+            warrior.SetBattleActive(_combatTimelineStarted);
             _placedWarriorCharacterIds.Add(warrior.CharacterId);
             warrior.Defeated += _ => _grid.ReleaseCell(cell);
         }
@@ -172,21 +192,12 @@ public partial class StageOne : Node2D
             Healer healer = deployment.Unit.Scene.Instantiate<Healer>();
             AddChild(healer);
             healer.Setup(deployment.Unit, deployment.CharacterId, deployment.Loadout);
+            healer.SetBattleActive(_combatTimelineStarted);
             _placedHealerCharacterIds.Add(healer.CharacterId);
             healer.GlobalPosition = _grid.CellToGlobal(cell);
             healer.Defeated += _ => _grid.ReleaseCell(cell);
         }
-        if (_remainingArchers + _remainingWarriors + _remainingHealers == 0)
-        {
-            _battleStarted = true;
-            _grid.SetPlacementEnabled(false);
-            foreach (Node node in GetTree().GetNodesInGroup("warriors"))
-                if (node is Warrior warrior) warrior.SetBattleActive(true);
-            foreach (Node node in GetTree().GetNodesInGroup("healers"))
-                if (node is Healer healer) healer.SetBattleActive(true);
-            ScheduleNextWave(_firstWaveDelay);
-        }
-        else if (remaining == 1)
+        if (remaining == 1)
         {
             SelectPlacementType(_remainingArchers > 0 ? DeploymentGrid.PlacementType.Ranged
                 : _remainingWarriors > 0 ? DeploymentGrid.PlacementType.Melee : DeploymentGrid.PlacementType.Support);
@@ -196,12 +207,13 @@ public partial class StageOne : Node2D
 
     private void StartNextWave()
     {
-        if (_battleEnded || !_battleStarted)
+        if (_battleEnded || !_combatTimelineStarted)
         {
             return;
         }
 
         _waveIndex++;
+        _firstWaveCountdown = 0.0f;
         if (_waveIndex >= _waves.Length)
         {
             _allWavesSpawned = true;
@@ -359,7 +371,8 @@ public partial class StageOne : Node2D
             _activeEnemies,
             _defeatedEnemies,
             _escapedEnemies,
-            _baseHealth);
+            _baseHealth,
+            _waveIndex < 0 ? Mathf.CeilToInt(_firstWaveCountdown) : -1);
     }
 
     private void BuildDeploymentQueues()

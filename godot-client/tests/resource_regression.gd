@@ -15,6 +15,7 @@ func _initialize(): run.call_deferred()
 func run():
     var definition = load("res://data/stages/stage_01.tres")
     check(definition.Id == "stage_01" and definition.Roster.size() == 3 and definition.Waves.size() == 3, "Typed stage resources")
+    check(definition.FirstWaveDelay == 10.0, "First wave preparation time")
     var catalog = load("res://data/stages/catalog.tres")
     check(catalog.Stages.size() == 3, "Stage catalog size")
     check(definition.SkillBudget != null and definition.SkillBudget.HasStageCap and definition.SkillBudget.StageCap == 3, "Stage skill budget")

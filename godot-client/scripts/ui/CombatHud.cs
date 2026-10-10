@@ -68,7 +68,7 @@ public partial class CombatHud : CanvasLayer
             DeploymentGrid.PlacementType.Support => "HEALER",
             _ => "ARCHER"
         };
-        _placementLabel.Text = archers + warriors + healers == 0 ? "BATTLE START"
+        _placementLabel.Text = archers + warriors + healers == 0 ? "ALL UNITS DEPLOYED"
             : selected == DeploymentGrid.PlacementType.Melee ? $"{name} // GROUND OR PATH"
             : selected == DeploymentGrid.PlacementType.Ranged && !string.IsNullOrEmpty(nextArcher)
                 ? $"{name} // {nextArcher} // SELECT GROUND"
@@ -81,9 +81,12 @@ public partial class CombatHud : CanvasLayer
         int alive,
         int defeated,
         int escaped,
-        int baseHealth)
+        int baseHealth,
+        int secondsUntilFirstWave = -1)
     {
-        _waveLabel.Text = $"WAVE {waveNumber:D2} / {totalWaves:D2}";
+        _waveLabel.Text = waveNumber == 0 && secondsUntilFirstWave >= 0
+            ? $"FIRST WAVE {secondsUntilFirstWave:D2}"
+            : $"WAVE {waveNumber:D2} / {totalWaves:D2}";
         _enemyLabel.Text = $"ENEMIES  {alive:D2}";
         _scoreLabel.Text = $"DEFEATED  {defeated:D2}   ESCAPED  {escaped:D2}";
         _baseLabel.Text = $"GATE  {baseHealth:D2}";

@@ -28,6 +28,7 @@ public partial class DeploymentGrid : Node2D
     }
 
     private bool _placementEnabled = true;
+    public bool PlacementEnabled => _placementEnabled;
     private Vector2I _hovered = new(-1, -1);
 
     public bool ContainsCell(Vector2I cell) => cell.X >= 0 && cell.X < Columns && cell.Y >= 0 && cell.Y < Rows;

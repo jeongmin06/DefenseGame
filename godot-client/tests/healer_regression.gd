@@ -38,7 +38,7 @@ func run():
     check(h.MaxHealth == 18 and h.CurrentHealth == 18, "Healer HP")
     check(get_nodes_in_group("allies").size() == 3, "Shared allies group")
     await ticks(90)
-    check(get_nodes_in_group("enemies").is_empty(), "Three units do not start waves")
+    check(get_nodes_in_group("enemies").is_empty(), "First wave waits for its countdown")
     check(h.FindHealingTarget() == null, "Full HP excluded")
     ah.TakeDamage(10.0)
     bh.TakeDamage(10.0)
@@ -83,16 +83,17 @@ func run():
     grid.SelectCell(Vector2i(9,3))
     grid.SelectCell(Vector2i(6,2))
     await ticks(90)
-    check(get_nodes_in_group("enemies").is_empty(), "Wait for final healer")
+    check(get_nodes_in_group("enemies").is_empty(), "Countdown does not depend on final healer")
     check(grid.SelectedProfile == 2, "Auto support selection")
     grid.SelectCell(Vector2i(5,2))
     h = get_nodes_in_group("healers")[0]
     check(h.CurrentHealth == 18, "Restart health")
-    check(not grid.SelectCell(Vector2i(7,7)), "Battle placement lock")
+    check(grid.PlacementEnabled, "Deployment stays open after all units are placed")
     for i in range(7200):
         if current_scene.get_node("HUD/ResultPanel").visible: break
         await physics_frame
     check(current_scene.get_node("HUD/ResultPanel").visible, "Battle finished")
+    check(not grid.PlacementEnabled, "Battle result locks deployment")
     print("HEALER BATTLE: ",current_scene.get_node("HUD/ResultPanel/ResultDetail").text)
     a = get_nodes_in_group("towers")[0]
     a.get_node("UnitHealth").TakeDamage(5.0)

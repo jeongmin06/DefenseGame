@@ -7,7 +7,7 @@
       "maxSquadUnits": 10,
       "skillPointCap": 3,
       "baseHealth": 5,
-      "firstWaveDelay": 0.8,
+      "firstWaveDelay": 10,
       "waveGap": 2,
       "grid": {
         "columns": 16,
@@ -106,7 +106,7 @@
       "maxSquadUnits": 10,
       "skillPointCap": 4,
       "baseHealth": 5,
-      "firstWaveDelay": 0.8,
+      "firstWaveDelay": 10,
       "waveGap": 2,
       "grid": {
         "columns": 16,
@@ -175,7 +175,7 @@
       "maxSquadUnits": 10,
       "skillPointCap": 5,
       "baseHealth": 5,
-      "firstWaveDelay": 0.8,
+      "firstWaveDelay": 10,
       "waveGap": 2,
       "grid": {
         "columns": 16,
