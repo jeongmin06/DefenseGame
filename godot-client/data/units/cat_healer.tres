@@ -1,12 +1,40 @@
-[gd_resource type="Resource" load_steps=5 format=3]
+[gd_resource type="Resource" load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/UnitDefinition.cs" id="script"]
+[ext_resource type="Script" path="res://scripts/data/UnitVisualDefinition.cs" id="UnitVisualDefinition"]
+[ext_resource type="Script" path="res://scripts/data/UnitAnimationDefinition.cs" id="UnitAnimationDefinition"]
 [ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
 [ext_resource type="PackedScene" path="res://scenes/healer.tscn" id="scene"]
+[ext_resource type="Texture2D" path="res://assets/sprites/cat_healer_cast_sheet.png" id="sprite_sheet"]
 
 [sub_resource type="Resource" id="description"]
 script = ExtResource("LocalizedText")
 Values = Dictionary[String, String]({"en": "Deploy on grass tiles to heal the lowest-health ally in range.", "ko": "잔디 타일에 배치해 사거리 안에서 체력이 가장 낮은 아군을 치유합니다."})
+
+[sub_resource type="Resource" id="visual_idle"]
+script = ExtResource("UnitAnimationDefinition")
+StartFrame = 0
+FrameCount = 1
+FramesPerSecond = 1
+Loop = true
+
+[sub_resource type="Resource" id="visual_action"]
+script = ExtResource("UnitAnimationDefinition")
+StartFrame = 0
+FrameCount = 8
+FramesPerSecond = 12
+Loop = false
+
+[sub_resource type="Resource" id="visual"]
+script = ExtResource("UnitVisualDefinition")
+SpriteSheet = ExtResource("sprite_sheet")
+FrameSize = Vector2i(443, 443)
+SpritePosition = Vector2(0, -47)
+SpriteScale = Vector2(0.23, 0.23)
+SourceFacesLeft = false
+UseChromaKey = true
+Idle = SubResource("visual_idle")
+Action = SubResource("visual_action")
 
 [resource]
 script = ExtResource("script")
@@ -14,10 +42,12 @@ Id = "cat_healer"
 DisplayName = "고양이 치유사"
 Description = SubResource("description")
 Role = 2
+Behavior = 2
 Placement = 0
 DeploymentCost = 11
 SkillTags = Array[String](["HEAL"])
 Scene = ExtResource("scene")
+Visual = SubResource("visual")
 MaxHealth = 18
 ActionPower = 4
 ActionInterval = 1

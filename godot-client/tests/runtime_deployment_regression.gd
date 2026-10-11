@@ -62,12 +62,14 @@ func run():
     check(stage.RemainingArchers == 1 and get_nodes_in_group("towers").size() == 1, "Runtime archer deployment consumes one unit")
     check(stage.PlacedArcherCharacterIds == PackedStringArray(["starter_archer_b"]), "Drag deploys the exact character ID")
     check(hud.IsDeploymentCardDisabled("starter_archer_b"), "Placed character card is disabled")
-    check(stage.DeploymentPoints >= 19.9 and stage.DeploymentPoints < 20.1, "Successful archer deployment spends its cost once")
+    var scout_def = load("res://data/units/cat_archer_scout.tres")
+    check(is_equal_approx(stage.DeploymentPoints, 30.0 - scout_def.DeploymentCost), "Successful archer deployment spends its data-defined cost once")
 
+    var warrior_def = load("res://data/units/cat_warrior.tres")
     check(stage.SelectPlacementType(1), "Warrior remains selectable after the wave starts")
     check(grid.SelectCell(Vector2i(1, 3)), "Warrior can be deployed during combat")
     check(get_nodes_in_group("warriors").size() == 1, "Runtime warrior is created")
-    check(stage.DeploymentPoints >= 7.9 and stage.DeploymentPoints < 8.1, "Warrior deployment spends its configured cost")
+    check(is_equal_approx(stage.DeploymentPoints, 30.0 - scout_def.DeploymentCost - warrior_def.DeploymentCost), "Warrior deployment spends its configured cost")
 
     check(not stage.SelectPlacementType(2), "Unaffordable healer cannot be selected")
     check(hud.IsDeploymentCardDisabled("starter_healer_a"), "Unaffordable character card is disabled")

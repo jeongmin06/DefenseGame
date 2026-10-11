@@ -31,7 +31,6 @@ public partial class Enemy : PathFollow2D
     {
         _sprite = GetNode<DirectionalAnimatedSprite>("Sprite");
         _healthBar = GetNode<ProgressBar>("HealthBar");
-        _sprite.Play("move");
     }
 
     public override void _PhysicsProcess(double delta)
@@ -74,6 +73,8 @@ public partial class Enemy : PathFollow2D
 
     public void Setup(UnitDefinition definition, float healthOverride = 0, float speedOverride = 0)
     {
+        UnitVisualConfigurator.Apply(_sprite, definition.Visual);
+        _sprite.Play(UnitVisualConfigurator.MoveAnimation);
         AttackDamage = definition.ActionPower;
         AttackInterval = definition.ActionInterval;
         _maxHealth = healthOverride > 0 ? healthOverride : definition.MaxHealth;

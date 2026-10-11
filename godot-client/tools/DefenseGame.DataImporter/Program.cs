@@ -1,3 +1,4 @@
+using System.Buffers.Binary;
 using System.Globalization;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
@@ -76,6 +77,14 @@ sealed class Pipeline(string project)
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
     static readonly string[] Roles = ["ranged", "melee", "support", "enemy"];
+    static readonly string[] Behaviors = ["ranged_projectile", "melee_blocker", "single_target_healer", "path_enemy_melee"];
+    static readonly Dictionary<string, (string Role, string ScenePath)> BehaviorDefinitions = new(StringComparer.Ordinal)
+    {
+        ["ranged_projectile"] = ("ranged", "res://scenes/tower.tscn"),
+        ["melee_blocker"] = ("melee", "res://scenes/warrior.tscn"),
+        ["single_target_healer"] = ("support", "res://scenes/healer.tscn"),
+        ["path_enemy_melee"] = ("enemy", "res://scenes/enemy.tscn")
+    };
     static readonly string[] Placements = ["ground", "ground_or_path", "none"];
     static readonly string[] SkillRoles = ["active", "support"];
     static readonly string[] SkillTags = ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT", "FIRE", "HEAL"];
@@ -98,6 +107,12 @@ sealed class Pipeline(string project)
             throw new InvalidDataException($"{path}.{key}: expected finite {(positive ? "positive" : "nonnegative")} {(integer ? "integer" : "number")}");
         return n;
     }
+    static bool Bool(JsonObject o, string key, string path)
+    {
+        if (o[key] is not JsonValue v || !v.TryGetValue<bool>(out var result))
+            throw new InvalidDataException($"{path}.{key}: expected boolean");
+        return result;
+    }
     static void Fields(JsonObject o, string path, params string[] allowed)
     {
         foreach (var (key, _) in o) if (!allowed.Contains(key)) Fail(path + "." + key, "unknown or inappropriate field");
@@ -119,6 +134,23 @@ sealed class Pipeline(string project)
         if (!Regex.IsMatch(value, "^res://[a-zA-Z0-9_][a-zA-Z0-9_/-]*\\.tscn$") || value[6..].Contains("//"))
             Fail(path + "." + key, "expected safe res:// scene path");
         if (!File.Exists(Path.Combine(project, value[6..]))) Fail(path + "." + key, "scene does not exist");
+    }
+    (int Width, int Height) TexturePath(JsonObject o, string key, string path)
+    {
+        string value = Str(o, key, path);
+        if (!Regex.IsMatch(value, "^res://[a-zA-Z0-9_][a-zA-Z0-9_/-]*\\.png$") || value[6..].Contains("//"))
+            Fail(path + "." + key, "expected safe res:// PNG path");
+        string file = Path.Combine(project, value[6..]);
+        if (!File.Exists(file)) Fail(path + "." + key, "PNG does not exist");
+        byte[] header = new byte[24];
+        using (var stream = File.OpenRead(file))
+            if (stream.Read(header, 0, header.Length) != header.Length) Fail(path + "." + key, "invalid PNG header");
+        ReadOnlySpan<byte> signature = [137, 80, 78, 71, 13, 10, 26, 10];
+        if (!header.AsSpan(0, 8).SequenceEqual(signature)) Fail(path + "." + key, "invalid PNG signature");
+        int width = BinaryPrimitives.ReadInt32BigEndian(header.AsSpan(16, 4));
+        int height = BinaryPrimitives.ReadInt32BigEndian(header.AsSpan(20, 4));
+        if (width <= 0 || height <= 0) Fail(path + "." + key, "invalid PNG dimensions");
+        return (width, height);
     }
     static double[] Pair(JsonNode? node, string path, bool integer)
     {
@@ -195,13 +227,14 @@ sealed class Pipeline(string project)
             if (!values.ContainsKey(required)) Fail(path + "." + required, "required locale is missing");
         return values;
     }
-    static JsonArray Document(string file, string key)
+    static JsonArray Document(string file, string key, int expectedVersion = 1)
     {
         JsonObject o;
         try { o = Obj(JsonNode.Parse(File.ReadAllText(file)), file); }
         catch (JsonException ex) { throw new InvalidDataException($"{file}{ex.Path}: {ex.Message}"); }
         Fields(o, file, "schemaVersion", key);
-        if (Num(o, "schemaVersion", file, integer: true) != 1) Fail(file + ".schemaVersion", "only version 1 is supported");
+        if (Num(o, "schemaVersion", file, integer: true) != expectedVersion)
+            Fail(file + ".schemaVersion", $"only version {expectedVersion} is supported");
         var a = Arr(o[key], file + "." + key);
         if (a.Count == 0) Fail(file + "." + key, "cannot be empty");
         return a;
@@ -215,17 +248,64 @@ sealed class Pipeline(string project)
         if (Num(o, "schemaVersion", file, integer: true) != 1) Fail(file + ".schemaVersion", "only version 1 is supported");
         return o;
     }
+    void ValidateVisual(JsonObject visual, string path, string role, int actionFrame)
+    {
+        Fields(visual, path, "spriteSheetPath", "frameSize", "position", "scale", "sourceFacesLeft", "useChromaKey", "idle", "move", "action");
+        var textureSize = TexturePath(visual, "spriteSheetPath", path);
+        double[] frameSize = Pair(visual["frameSize"], path + ".frameSize", true);
+        if (frameSize[0] <= 0 || frameSize[1] <= 0) Fail(path + ".frameSize", "frame dimensions must be positive");
+        Pair(visual["position"], path + ".position", false);
+        double[] scale = Pair(visual["scale"], path + ".scale", false);
+        if (scale[0] <= 0 || scale[1] <= 0) Fail(path + ".scale", "scale components must be positive");
+        Bool(visual, "sourceFacesLeft", path);
+        Bool(visual, "useChromaKey", path);
+        int columns = textureSize.Width / (int)frameSize[0];
+        int rows = textureSize.Height / (int)frameSize[1];
+        if (textureSize.Width % (int)frameSize[0] != 0 || textureSize.Height % (int)frameSize[1] != 0)
+            Fail(path + ".frameSize", "frame size must divide the PNG dimensions exactly");
+        int totalFrames = columns * rows;
+
+        JsonObject? idle = ValidateAnimation(visual, "idle", path, totalFrames);
+        JsonObject? move = ValidateAnimation(visual, "move", path, totalFrames);
+        JsonObject? action = ValidateAnimation(visual, "action", path, totalFrames);
+        if (role == "enemy")
+        {
+            if (move is null) Fail(path + ".move", "enemy visual requires a move animation");
+            if (idle is not null || action is not null) Fail(path, "enemy visual only supports move animation");
+        }
+        else
+        {
+            if (idle is null || action is null) Fail(path, "allied visual requires idle and action animations");
+            if (move is not null) Fail(path + ".move", "allied visual does not support move animation");
+            int actionCount = (int)Num(action, "frameCount", path + ".action", integer: true, positive: true);
+            if (actionFrame >= actionCount) Fail(path.Replace(".visual", ".actionFrame"), "must be inside visual.action frame range");
+        }
+    }
+    static JsonObject? ValidateAnimation(JsonObject visual, string key, string path, int totalFrames)
+    {
+        if (!visual.ContainsKey(key)) return null;
+        var animation = Obj(visual[key], path + "." + key);
+        Fields(animation, path + "." + key, "startFrame", "frameCount", "fps", "loop");
+        int start = (int)Num(animation, "startFrame", path + "." + key, integer: true);
+        int count = (int)Num(animation, "frameCount", path + "." + key, integer: true, positive: true);
+        Num(animation, "fps", path + "." + key, positive: true);
+        Bool(animation, "loop", path + "." + key);
+        if ((long)start + count > totalFrames) Fail(path + "." + key, "animation frames exceed the sprite sheet");
+        return animation;
+    }
     public SortedDictionary<string, string> Generate(string input)
     {
-        var sourceUnits = Document(Path.Combine(input, "units.json"), "units");
+        var sourceUnits = Document(Path.Combine(input, "units.json"), "units", 2);
         for (int i = 0; i < sourceUnits.Count; i++)
         {
             string p = $"units[{i}]";
             var o = Obj(sourceUnits[i], p);
-            string id = Id(o, p), role = Str(o, "role", p);
+            string id = Id(o, p), role = Str(o, "role", p), behavior = Str(o, "behavior", p);
             if (!units.TryAdd(id, o)) Fail(p + ".id", "duplicate ID");
             if (!Roles.Contains(role)) Fail(p + ".role", "unknown role");
-            string[] common = ["id", "displayName", "description", "role", "skillTags", "scenePath", "placement", "deploymentCost", "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit"];
+            if (!BehaviorDefinitions.TryGetValue(behavior, out var behaviorDefinition)) Fail(p + ".behavior", "unknown behavior");
+            if (behaviorDefinition.Role != role) Fail(p + ".behavior", "behavior does not match role");
+            string[] common = ["id", "displayName", "description", "role", "behavior", "visual", "skillTags", "placement", "deploymentCost", "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit"];
             string[] extra = role switch
             {
                 "ranged" => ["rangePixels", "projectileScenePath", "projectileSpeed", "projectileHitDistance", "projectileSpawnOffset"],
@@ -235,7 +315,7 @@ sealed class Pipeline(string project)
             };
             Fields(o, p, [.. common, .. extra]);
             Tags(o["skillTags"], p + ".skillTags");
-            Str(o, "displayName", p); Localized(o["description"], p + ".description"); ScenePath(o, "scenePath", p);
+            Str(o, "displayName", p); Localized(o["description"], p + ".description");
             string expected = role == "enemy" ? "none" : role == "melee" ? "ground_or_path" : "ground";
             if (Str(o, "placement", p) != expected) Fail(p + ".placement", "invalid placement for role");
             int deploymentCost = (int)Num(o, "deploymentCost", p, integer: true);
@@ -244,7 +324,8 @@ sealed class Pipeline(string project)
             Num(o, "maxHealth", p, positive: true); Num(o, "actionPower", p);
             Num(o, "actionInterval", p, positive: true);
             double frame = Num(o, "actionFrame", p, integer: true);
-            if (role == "enemy" ? frame != 0 : frame > 7) Fail(p + ".actionFrame", "current scenes support frames 0..7; enemy uses 0");
+            ValidateVisual(Obj(o["visual"], p + ".visual"), p + ".visual", role, (int)frame);
+            if (role == "enemy" && frame != 0) Fail(p + ".actionFrame", "enemy uses frame zero");
             double limit = Num(o, "targetLimit", p, integer: true);
             if (role != "melee" && limit != 1) Fail(p + ".targetLimit", "current role supports exactly one target");
             if (role is "ranged" or "support") Num(o, "rangePixels", p, positive: true);
@@ -473,15 +554,18 @@ sealed class Pipeline(string project)
         }
         var roster = Arr(s["roster"], p + ".roster");
         var roles = new HashSet<string>();
+        var rosterUnitIds = new HashSet<string>(StringComparer.Ordinal);
         long total = 0, ground = 0, melee = 0;
         for (int i = 0; i < roster.Count; i++)
         {
             string rp = $"{p}.roster[{i}]"; var r = Obj(roster[i], rp);
             Fields(r, rp, "unitId", "count");
             string id = Str(r, "unitId", rp);
+            if (!rosterUnitIds.Add(id)) Fail(rp + ".unitId", "duplicate unit reference");
             if (!units.TryGetValue(id, out var unit)) { Fail(rp + ".unitId", "unknown unit reference"); return; }
             string role = S(unit, "role");
-            if (role == "enemy" || !roles.Add(role)) Fail(rp + ".unitId", "HUD requires one definition per allied role");
+            if (role == "enemy") Fail(rp + ".unitId", "roster requires an allied unit");
+            roles.Add(role);
             if (Num(unit, "deploymentCost", rp + ".unitId", integer: true, positive: true) > maxDeploymentPoints)
                 Fail(rp + ".unitId", "unit deployment cost exceeds stage maximum points");
             int count = (int)Num(r, "count", rp, integer: true, positive: true);
@@ -523,22 +607,51 @@ sealed class Pipeline(string project)
         builder.AppendLine($"\n[sub_resource type=\"Resource\" id=\"{id}\"]\nscript = {Ext("LocalizedText")}");
         builder.AppendLine("Values = " + LocalizedValuesText(values));
     }
+    static void RenderAnimation(StringBuilder builder, string id, JsonObject? animation)
+    {
+        if (animation is null) return;
+        builder.AppendLine($"\n[sub_resource type=\"Resource\" id=\"{id}\"]\nscript = {Ext("UnitAnimationDefinition")}");
+        builder.AppendLine("StartFrame = " + N(animation["startFrame"]));
+        builder.AppendLine("FrameCount = " + N(animation["frameCount"]));
+        builder.AppendLine("FramesPerSecond = " + N(animation["fps"]));
+        builder.AppendLine("Loop = " + (animation["loop"]!.GetValue<bool>() ? "true" : "false"));
+    }
     static string RenderUnit(JsonObject u)
     {
         bool ranged = S(u, "role") == "ranged";
-        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={(ranged ? 6 : 5)} format=3]\n\n");
+        var visual = u["visual"]!.AsObject();
+        string behavior = S(u, "behavior");
+        int animationCount = new[] { "idle", "move", "action" }.Count(visual.ContainsKey);
+        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={8 + animationCount + (ranged ? 1 : 0)} format=3]\n\n");
         b.Append(Script("UnitDefinition", "script"));
+        b.Append(Script("UnitVisualDefinition", "UnitVisualDefinition"));
+        b.Append(Script("UnitAnimationDefinition", "UnitAnimationDefinition"));
         b.Append(Script("LocalizedText", "LocalizedText"));
-        b.AppendLine($"[ext_resource type=\"PackedScene\" path={Q(S(u, "scenePath"))} id=\"scene\"]");
+        b.AppendLine($"[ext_resource type=\"PackedScene\" path={Q(BehaviorDefinitions[behavior].ScenePath)} id=\"scene\"]");
+        b.AppendLine($"[ext_resource type=\"Texture2D\" path={Q(S(visual, "spriteSheetPath"))} id=\"sprite_sheet\"]");
         if (ranged) b.AppendLine($"[ext_resource type=\"PackedScene\" path={Q(S(u, "projectileScenePath"))} id=\"projectile\"]");
         RenderLocalizedText(b, "description", u["description"]!.AsObject());
+        foreach (string name in new[] { "idle", "move", "action" })
+            RenderAnimation(b, "visual_" + name, visual[name] as JsonObject);
+        b.AppendLine($"\n[sub_resource type=\"Resource\" id=\"visual\"]\nscript = {Ext("UnitVisualDefinition")}");
+        b.AppendLine("SpriteSheet = " + Ext("sprite_sheet"));
+        b.AppendLine("FrameSize = " + Vec(visual["frameSize"], true));
+        b.AppendLine("SpritePosition = " + Vec(visual["position"]));
+        b.AppendLine("SpriteScale = " + Vec(visual["scale"]));
+        b.AppendLine("SourceFacesLeft = " + (visual["sourceFacesLeft"]!.GetValue<bool>() ? "true" : "false"));
+        b.AppendLine("UseChromaKey = " + (visual["useChromaKey"]!.GetValue<bool>() ? "true" : "false"));
+        foreach (string name in new[] { "idle", "move", "action" })
+            if (visual.ContainsKey(name)) b.AppendLine(char.ToUpperInvariant(name[0]) + name[1..] + " = " + Sub("visual_" + name));
         b.AppendLine("\n[resource]\nscript = " + Ext("script"));
         b.AppendLine("Id = " + Q(S(u, "id"))); b.AppendLine("DisplayName = " + Q(S(u, "displayName")));
         b.AppendLine("Description = " + Sub("description"));
-        b.AppendLine("Role = " + Array.IndexOf(Roles, S(u, "role"))); b.AppendLine("Placement = " + Array.IndexOf(Placements, S(u, "placement")));
+        b.AppendLine("Role = " + Array.IndexOf(Roles, S(u, "role")));
+        b.AppendLine("Behavior = " + Array.IndexOf(Behaviors, behavior));
+        b.AppendLine("Placement = " + Array.IndexOf(Placements, S(u, "placement")));
         b.AppendLine("DeploymentCost = " + N(u["deploymentCost"]));
         b.AppendLine("SkillTags = " + StringsText(u["skillTags"]));
         b.AppendLine("Scene = " + Ext("scene"));
+        b.AppendLine("Visual = " + Sub("visual"));
         foreach (string key in new[] { "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit", "rangePixels", "rangeCells", "blockCount", "projectileSpeed", "projectileHitDistance", "moveSpeed" })
             if (u.ContainsKey(key)) b.AppendLine(char.ToUpperInvariant(key[0]) + key[1..] + " = " + N(u[key]));
         if (u.ContainsKey("attackCellOffsets")) b.AppendLine("AttackCellOffsets = " + PointsText(u["attackCellOffsets"]));

@@ -1,13 +1,23 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "units": [
     {
       "id": "cat_archer",
       "displayName": "고양이 궁수",
       "description": {"ko": "잔디 타일에 배치해 멀리 있는 적을 화살로 공격합니다.", "en": "Deploy on grass tiles to attack distant enemies with arrows."},
       "role": "ranged",
+      "behavior": "ranged_projectile",
+      "visual": {
+        "spriteSheetPath": "res://assets/sprites/cat_archer_attack_sheet.png",
+        "frameSize": [443, 443],
+        "position": [0, -47],
+        "scale": [0.23, 0.23],
+        "sourceFacesLeft": false,
+        "useChromaKey": true,
+        "idle": {"startFrame": 0, "frameCount": 1, "fps": 1, "loop": true},
+        "action": {"startFrame": 0, "frameCount": 8, "fps": 12, "loop": false}
+      },
       "skillTags": ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"],
-      "scenePath": "res://scenes/tower.tscn",
       "placement": "ground",
       "deploymentCost": 10,
       "maxHealth": 20,
@@ -29,8 +39,18 @@
       "displayName": "고양이 전사",
       "description": {"ko": "잔디와 경로에 배치할 수 있으며 적 한 마리의 이동을 저지합니다.", "en": "Deploy on grass or path tiles and block one enemy from moving."},
       "role": "melee",
+      "behavior": "melee_blocker",
+      "visual": {
+        "spriteSheetPath": "res://assets/sprites/cat_warrior_attack_sheet.png",
+        "frameSize": [443, 443],
+        "position": [0, -47],
+        "scale": [0.23, 0.23],
+        "sourceFacesLeft": false,
+        "useChromaKey": true,
+        "idle": {"startFrame": 0, "frameCount": 1, "fps": 1, "loop": true},
+        "action": {"startFrame": 0, "frameCount": 8, "fps": 12, "loop": false}
+      },
       "skillTags": ["ATTACK", "PHYSICAL", "HIT"],
-      "scenePath": "res://scenes/warrior.tscn",
       "placement": "ground_or_path",
       "deploymentCost": 12,
       "maxHealth": 30,
@@ -47,8 +67,18 @@
       "displayName": "고양이 치유사",
       "description": {"ko": "잔디 타일에 배치해 사거리 안에서 체력이 가장 낮은 아군을 치유합니다.", "en": "Deploy on grass tiles to heal the lowest-health ally in range."},
       "role": "support",
+      "behavior": "single_target_healer",
+      "visual": {
+        "spriteSheetPath": "res://assets/sprites/cat_healer_cast_sheet.png",
+        "frameSize": [443, 443],
+        "position": [0, -47],
+        "scale": [0.23, 0.23],
+        "sourceFacesLeft": false,
+        "useChromaKey": true,
+        "idle": {"startFrame": 0, "frameCount": 1, "fps": 1, "loop": true},
+        "action": {"startFrame": 0, "frameCount": 8, "fps": 12, "loop": false}
+      },
       "skillTags": ["HEAL"],
-      "scenePath": "res://scenes/healer.tscn",
       "placement": "ground",
       "deploymentCost": 11,
       "maxHealth": 18,
@@ -63,8 +93,17 @@
       "displayName": "돌연변이 생쥐",
       "description": {"ko": "연구실에서 탈출해 번식한 유전자 조작 생쥐입니다.", "en": "A genetically modified mouse that escaped the laboratory and multiplied."},
       "role": "enemy",
+      "behavior": "path_enemy_melee",
+      "visual": {
+        "spriteSheetPath": "res://assets/sprites/enemy_mutant_mouse_walk_sheet.png",
+        "frameSize": [443, 443],
+        "position": [0, -4],
+        "scale": [0.2, 0.2],
+        "sourceFacesLeft": false,
+        "useChromaKey": true,
+        "move": {"startFrame": 0, "frameCount": 8, "fps": 11, "loop": true}
+      },
       "skillTags": [],
-      "scenePath": "res://scenes/enemy.tscn",
       "placement": "none",
       "deploymentCost": 0,
       "maxHealth": 12,
@@ -73,6 +112,36 @@
       "actionFrame": 0,
       "targetLimit": 1,
       "moveSpeed": 72
+    },
+    {
+      "id": "cat_archer_scout",
+      "displayName": "고양이 정찰궁수",
+      "description": {"ko": "기동성을 중시하는 정찰 궁수입니다. 현재는 기본 궁수 외형을 임시로 공유합니다.", "en": "A mobile scout archer. It temporarily shares the base archer artwork."},
+      "role": "ranged",
+      "behavior": "ranged_projectile",
+      "visual": {
+        "spriteSheetPath": "res://assets/sprites/cat_archer_attack_sheet.png",
+        "frameSize": [443, 443],
+        "position": [0, -45],
+        "scale": [0.22, 0.22],
+        "sourceFacesLeft": false,
+        "useChromaKey": true,
+        "idle": {"startFrame": 0, "frameCount": 1, "fps": 1, "loop": true},
+        "action": {"startFrame": 0, "frameCount": 8, "fps": 12, "loop": false}
+      },
+      "skillTags": ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"],
+      "placement": "ground",
+      "deploymentCost": 9,
+      "maxHealth": 18,
+      "actionPower": 3,
+      "actionInterval": 0.48,
+      "actionFrame": 5,
+      "targetLimit": 1,
+      "rangePixels": 210,
+      "projectileScenePath": "res://scenes/arrow_projectile.tscn",
+      "projectileSpeed": 660,
+      "projectileHitDistance": 10,
+      "projectileSpawnOffset": [28, -28]
     }
   ]
 }

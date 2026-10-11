@@ -69,7 +69,11 @@
       "roster": [
         {
           "unitId": "cat_archer",
-          "count": 2
+          "count": 1
+        },
+        {
+          "unitId": "cat_archer_scout",
+          "count": 1
         },
         {
           "unitId": "cat_warrior",
@@ -142,7 +146,11 @@
       "roster": [
         {
           "unitId": "cat_archer",
-          "count": 2
+          "count": 1
+        },
+        {
+          "unitId": "cat_archer_scout",
+          "count": 1
         },
         {
           "unitId": "cat_warrior",
@@ -215,7 +223,11 @@
       "roster": [
         {
           "unitId": "cat_archer",
-          "count": 2
+          "count": 1
+        },
+        {
+          "unitId": "cat_archer_scout",
+          "count": 1
         },
         {
           "unitId": "cat_warrior",

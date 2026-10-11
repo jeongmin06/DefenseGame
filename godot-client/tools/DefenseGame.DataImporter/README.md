@@ -11,12 +11,12 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 
 ## 입력 계약
 
-네 문서 모두 `schemaVersion: 1`을 사용한다. `units.json`은 `units` 배열, `stages.json`은 `stages` 배열, `skills.json`은 `skills` 배열을 포함한다. `player_defaults.json`은 `playerSkillProgress`, `catProfiles`, `catSkillPresets`를 포함한다. 알 수 없는 필드를 거부한다. JSON의 순서와 관계없이 출력 파일명과 Resource 참조 순서는 일정하며 숫자는 invariant culture, 줄바꿈은 LF, 인코딩은 BOM 없는 UTF-8이다. 편성·경로·웨이브·스킬 배열 순서는 의미가 있으므로 보존한다.
+`units.json`은 `schemaVersion: 2`, 나머지 세 문서는 `schemaVersion: 1`을 사용한다. `units.json`은 `units` 배열, `stages.json`은 `stages` 배열, `skills.json`은 `skills` 배열을 포함한다. `player_defaults.json`은 `playerSkillProgress`, `catProfiles`, `catSkillPresets`를 포함한다. 알 수 없는 필드를 거부한다. JSON의 순서와 관계없이 출력 파일명과 Resource 참조 순서는 일정하며 숫자는 invariant culture, 줄바꿈은 LF, 인코딩은 BOM 없는 UTF-8이다. 편성·경로·웨이브·스킬 배열 순서는 의미가 있으므로 보존한다.
 
 유닛 공통 필드:
 
 - `id`: 소문자로 시작하는 소문자·숫자·밑줄 ID, 문서 내 중복 불가
-- `displayName`, `role`, `scenePath`, `placement`, `skillTags`
+- `displayName`, `role`, `behavior`, `visual`, `placement`, `skillTags`
 - `deploymentCost`: 아군은 양의 정수, 적은 0
 - `maxHealth`, `actionPower`, `actionInterval`, `actionFrame`, `targetLimit`
 
@@ -28,6 +28,10 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 | melee | ground_or_path | rangeCells, blockCount, 선택 attackCellOffsets |
 | support | ground | rangePixels |
 | enemy | none | moveSpeed |
+
+`behavior`는 임의 씬 경로가 아니라 검증된 공용 행동 타입을 선택한다. 현재 값은 `ranged_projectile`, `melee_blocker`, `single_target_healer`, `path_enemy_melee`이며 각각 역할과 `tower.tscn`, `warrior.tscn`, `healer.tscn`, `enemy.tscn`에 고정 매핑된다. 같은 행동 타입의 캐릭터는 씬을 복제하지 않고 새 유닛 JSON과 스프라이트 시트만 추가한다.
+
+`visual`은 `spriteSheetPath`, `frameSize`, `position`, `scale`, `sourceFacesLeft`, `useChromaKey`와 애니메이션 범위를 가진다. 아군은 `idle`과 `action`, 적은 `move`가 필수다. 각 애니메이션은 `startFrame`, `frameCount`, `fps`, `loop`를 사용한다. 변환기는 PNG 헤더의 실제 크기, 프레임 크기의 정확한 나눗셈, 애니메이션 범위와 `actionFrame`을 검사한다.
 
 벡터는 `[x, y]`, 셀 집합은 `[[x, y], ...]`로 표현한다. `attackCellOffsets` 생략 또는 빈 배열은 맨해튼 반경 `rangeCells`를 사용한다. 전사 `targetLimit=0`은 범위 내 전체 타격이다. 궁수·힐러·적은 현재 단일 대상 알고리즘이므로 반드시 1이어야 한다. 아군의 적용 프레임은 현재 8프레임 씬에 맞게 0~7, 별도 공격 애니메이션이 없는 적은 0이다.
 
@@ -46,9 +50,9 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 
 `initialDeploymentPoints`는 0 이상의 정수이며 `maxDeploymentPoints`를 넘을 수 없다. 최대 포인트는 양의 정수, 초당 회복량은 양수다. 현재 스테이지 기본값은 초기 20, 최대 30, 초당 3이며 유닛 배치 비용은 궁수 10, 전사 12, 치유사 11이다.
 
-체력·주기·사거리·속도·시간·격자 크기는 유한한 양수, 피해·치유량과 저지 수는 0 이상이다. 좌표는 정수 셀의 경우 절대값 10,000 이내, 격자는 최대 백만 셀로 제한해 잘못된 입력의 과도한 할당·순회를 막는다. 안전한 `res://...tscn` 경로와 파일 존재 여부를 확인한다.
+체력·주기·사거리·속도·시간·격자 크기는 유한한 양수, 피해·치유량과 저지 수는 0 이상이다. 좌표는 정수 셀의 경우 절대값 10,000 이내, 격자는 최대 백만 셀로 제한해 잘못된 입력의 과도한 할당·순회를 막는다. 안전한 `res://...tscn` 투사체 경로와 `res://...png` 스프라이트 경로, 파일 존재 여부를 확인한다.
 
-현재 HUD가 지원하는 ranged/melee/support 각 한 정의를 편성에 정확히 한 번 포함해야 한다. 편성 수는 자유롭게 바꿀 수 있다. 새 역할, 여러 동일 역할 정의의 선택 UI, 애니메이션 이름 변경, 사용자 지정 씬 루트 타입 검증은 별도 코드 변경/실행 검증이 필요하다. 변환기는 씬을 실행하지 않으므로 Godot 로드 검증을 함께 실행한다.
+현재 편성은 ranged/melee/support 역할을 모두 포함해야 하며, 같은 역할의 서로 다른 유닛을 함께 넣을 수 있다. 같은 `unitId`를 중복 기재하는 대신 `count`를 사용한다. 새 행동 타입과 새 역할은 코드 변경이 필요하지만, 기존 행동 타입의 캐릭터는 JSON·PNG 추가만으로 등록할 수 있다. 변환기는 씬을 실행하지 않으므로 Godot 로드 검증을 함께 실행한다.
 
 스킬 공통 필드:
 
@@ -74,7 +78,7 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 - `catProfiles`: 고유한 `characterId`, 표시명, 아군 `unitId`; 캐릭터 ID와 유닛 정의 ID는 별개다.
 - `catSkillPresets`: 프로필마다 정확히 하나이며 `characterId`, 소유한 액티브 하나, 중복 없는 보조 최대 5개, 보조 수와 같은 `allocatedPoints`, UTC `updatedAtUtc`를 가진다.
 
-가져오기 단계에서 스킬 참조·소유·역할·비용·태그 호환성과 초기 프리셋 총 포인트를 검증한다. 현재 기본값은 레벨/해금 포인트 5, 기존 다섯 스킬 소유, `starter_archer_a`와 `starter_archer_b` 두 캐릭터다. 둘 다 `cat_archer` 유닛 정의를 사용한다. 결과는 `data/player/defaults.tres`다.
+가져오기 단계에서 스킬 참조·소유·역할·비용·태그 호환성과 초기 프리셋 총 포인트를 검증한다. 현재 기본값은 레벨/해금 포인트 5, 기존 스킬 소유, `starter_archer_a`와 `starter_archer_b` 두 캐릭터다. 두 번째 궁수는 데이터 등록 경로 검증을 위해 `cat_archer_scout` 유닛 정의를 사용한다. 결과는 `data/player/defaults.tres`다.
 
 ## 생성과 실패 처리
 

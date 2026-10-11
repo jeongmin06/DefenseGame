@@ -54,8 +54,8 @@ func run() -> void:
     check(defaults.CatProfiles.size() == 4 and defaults.InitialPresets.size() == 4, "Initial cats and presets")
     check(defaults.CatProfiles[0].CharacterId == "starter_archer_a", "Stable first character ID")
     check(defaults.CatProfiles[1].CharacterId == "starter_archer_b", "Stable second character ID")
-    check(defaults.CatProfiles[0].UnitId == "cat_archer" and defaults.CatProfiles[1].UnitId == "cat_archer", "Character and unit IDs stay separate")
-    check(defaults.CatProfiles[0].Unit == defaults.CatProfiles[1].Unit, "Both starter characters may share one unit definition")
+    check(defaults.CatProfiles[0].UnitId == "cat_archer" and defaults.CatProfiles[1].UnitId == "cat_archer_scout", "Character and unit IDs stay separate")
+    check(defaults.CatProfiles[0].Unit.Behavior == defaults.CatProfiles[1].Unit.Behavior and defaults.CatProfiles[0].Unit.Scene == defaults.CatProfiles[1].Unit.Scene, "Both starter characters share one ranged behavior scene")
 
     var expected_caps = [3, 4, 5]
     for index in range(3):

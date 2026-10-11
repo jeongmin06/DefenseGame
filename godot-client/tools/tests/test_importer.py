@@ -33,7 +33,7 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
     assert run().returncode == 0
     baseline = snapshot(output)
     assert set(baseline) == {
-        'units/cat_archer.tres', 'units/cat_healer.tres', 'units/cat_warrior.tres',
+        'units/cat_archer.tres', 'units/cat_archer_scout.tres', 'units/cat_healer.tres', 'units/cat_warrior.tres',
         'units/mutant_mouse.tres', 'stages/stage_01.tres', 'stages/stage_02.tres',
         'stages/stage_03.tres', 'stages/catalog.tres',
         'skills/basic_arrow.tres', 'skills/basic_slash.tres', 'skills/basic_heal.tres',
@@ -49,21 +49,34 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
     defaults = (output / 'player/defaults.tres').read_text()
     assert 'CharacterId = "starter_archer_a"' in defaults
     assert 'CharacterId = "starter_archer_b"' in defaults
+    assert 'unit_cat_archer_scout' in defaults
     assert 'CharacterId = "starter_warrior_a"' in defaults
     assert 'CharacterId = "starter_healer_a"' in defaults
     assert 'UnlockedPoints = 5' in defaults and 'OwnedSkillIds = Array[String]([' in defaults
     assert 'Dictionary[String, String]({"en":' in defaults and '"ko":' in defaults
+    archer = (output / 'units/cat_archer.tres').read_text()
+    scout = (output / 'units/cat_archer_scout.tres').read_text()
+    assert 'path="res://scenes/tower.tscn"' in archer and 'path="res://scenes/tower.tscn"' in scout
+    assert 'Behavior = 0' in scout and 'SpriteScale = Vector2(0.22, 0.22)' in scout
+    assert 'FrameCount = 8' in scout and 'Action = SubResource("visual_action")' in scout
     for index, cap in enumerate((3, 4, 5), start=1):
         stage = (output / f'stages/stage_0{index}.tres').read_text()
         assert f'StageCap = {cap}' in stage and 'HasStageCap = true' in stage and 'MaxSquadUnits = 10' in stage
     assert run().returncode == 0 and snapshot(output) == baseline
     assert run('--check').returncode == 0 and snapshot(output) == baseline
     cases = [
-        ('schema', 'units', lambda d: d.update(schemaVersion=2), 'schemaVersion'),
+        ('schema', 'units', lambda d: d.update(schemaVersion=3), 'schemaVersion'),
         ('duplicate', 'units', lambda d: d['units'].append(copy.deepcopy(d['units'][0])), '.id'),
         ('bad id', 'units', lambda d: d['units'][0].update(id='../bad'), '.id'),
-        ('scene missing', 'units', lambda d: d['units'][0].update(scenePath='res://scenes/missing.tscn'), '.scenePath'),
-        ('path traversal', 'units', lambda d: d['units'][0].update(scenePath='res://../README.tscn'), '.scenePath'),
+        ('unknown behavior', 'units', lambda d: d['units'][0].update(behavior='custom_script'), '.behavior'),
+        ('behavior role mismatch', 'units', lambda d: d['units'][0].update(behavior='melee_blocker'), '.behavior'),
+        ('sprite missing', 'units', lambda d: d['units'][0]['visual'].update(spriteSheetPath='res://assets/sprites/missing.png'), '.spriteSheetPath'),
+        ('sprite path traversal', 'units', lambda d: d['units'][0]['visual'].update(spriteSheetPath='res://../bad.png'), '.spriteSheetPath'),
+        ('frame size', 'units', lambda d: d['units'][0]['visual'].update(frameSize=[442,443]), '.frameSize'),
+        ('frame range', 'units', lambda d: d['units'][0]['visual']['action'].update(frameCount=9), '.action'),
+        ('missing action', 'units', lambda d: d['units'][0]['visual'].pop('action'), '.visual'),
+        ('invalid scale', 'units', lambda d: d['units'][0]['visual'].update(scale=[0,0.2]), '.scale'),
+        ('invalid visual bool', 'units', lambda d: d['units'][0]['visual'].update(useChromaKey=1), '.useChromaKey'),
         ('zero HP', 'units', lambda d: d['units'][0].update(maxHealth=0), '.maxHealth'),
         ('underflow', 'units', lambda d: d['units'][0].update(maxHealth=1e-100), '.maxHealth'),
         ('negative power', 'units', lambda d: d['units'][0].update(actionPower=-1), '.actionPower'),

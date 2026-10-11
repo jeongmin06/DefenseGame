@@ -185,7 +185,7 @@ public partial class StageOne : Node2D
         string characterId = deployment.Profile.CharacterId;
         UnitDefinition unit = deployment.Profile.Unit;
         _deploymentPoints -= unit.DeploymentCost;
-        if (unit.Role == UnitRole.Ranged)
+        if (unit.Behavior == UnitBehavior.RangedProjectile)
         {
             Tower tower = unit.Scene.Instantiate<Tower>();
             AddChild(tower);
@@ -195,7 +195,7 @@ public partial class StageOne : Node2D
             tower.GlobalPosition = _grid.CellToGlobal(cell);
             tower.Defeated += _ => _grid.ReleaseCell(cell);
         }
-        else if (unit.Role == UnitRole.Melee)
+        else if (unit.Behavior == UnitBehavior.MeleeBlocker)
         {
             Warrior warrior = unit.Scene.Instantiate<Warrior>();
             AddChild(warrior);
@@ -205,7 +205,7 @@ public partial class StageOne : Node2D
             _placedWarriorCharacterIds.Add(warrior.CharacterId);
             warrior.Defeated += _ => _grid.ReleaseCell(cell);
         }
-        else
+        else if (unit.Behavior == UnitBehavior.SingleTargetHealer)
         {
             Healer healer = unit.Scene.Instantiate<Healer>();
             AddChild(healer);
@@ -214,6 +214,12 @@ public partial class StageOne : Node2D
             _placedHealerCharacterIds.Add(healer.CharacterId);
             healer.GlobalPosition = _grid.CellToGlobal(cell);
             healer.Defeated += _ => _grid.ReleaseCell(cell);
+        }
+        else
+        {
+            _deploymentPoints += unit.DeploymentCost;
+            _grid.ReleaseCell(cell);
+            return false;
         }
         _availableDeployments.Remove(characterId);
         SelectNextAffordableCharacter();
@@ -293,6 +299,8 @@ public partial class StageOne : Node2D
         }
 
         WaveSpec wave = _waves[_waveIndex];
+        if (wave.Enemy.Behavior != UnitBehavior.PathEnemyMelee)
+            throw new InvalidOperationException($"Unsupported enemy behavior '{wave.Enemy.Behavior}'.");
         Enemy enemy = wave.Enemy.Scene.Instantiate<Enemy>();
         _enemyPath.AddChild(enemy);
         enemy.Setup(wave.Enemy, wave.Health, wave.Speed);
@@ -440,13 +448,13 @@ public partial class StageOne : Node2D
         {
             if (!profiles.TryGetValue(characterId, out CatProfile? profile) || profile.Unit is null) continue;
             loadouts.TryGetValue(characterId, out SkillLoadout? loadout);
-            switch (profile.Unit.Role)
+            switch (profile.Unit.Behavior)
             {
-                case UnitRole.Ranged:
+                case UnitBehavior.RangedProjectile:
                     _deploymentOrder.Add(new UnitDeployment(profile, loadout, composer.Compose(loadout)));
                     break;
-                case UnitRole.Melee:
-                case UnitRole.Support:
+                case UnitBehavior.MeleeBlocker:
+                case UnitBehavior.SingleTargetHealer:
                     _deploymentOrder.Add(new UnitDeployment(profile, loadout, null));
                     break;
             }

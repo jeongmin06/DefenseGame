@@ -50,7 +50,7 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 
 ## 데이터와 공통 컴포넌트
 
-밸런스 원본은 `balance-json/units.json`, `balance-json/stages.json`이다. JSON 수정 후 아래 변환기를 실행하고 생성된 `data/**/*.tres`도 함께 커밋한다. 런타임에서는 JSON을 읽지 않는다. 변환기는 각 스테이지와 `data/stages/catalog.tres`를 생성하며 선택 화면은 카탈로그 순서대로 버튼을 만든다. 전투 씬을 직접 실행할 때만 `stage_01.tres`를 기본값으로 사용한다.
+밸런스 원본은 `balance-json/units.json`, `balance-json/stages.json`이다. JSON 수정 후 아래 변환기를 실행하고 생성된 `data/**/*.tres`도 함께 커밋한다. 런타임에서는 JSON을 읽지 않는다. 유닛 JSON의 `behavior`는 공용 전투 씬을 선택하고 `visual`은 스프라이트 시트·프레임·위치·배율·애니메이션 범위를 정의한다. 기존 행동 타입의 캐릭터는 새 JSON 항목과 PNG만 추가하면 된다. 변환기는 각 스테이지와 `data/stages/catalog.tres`를 생성하며 선택 화면은 카탈로그 순서대로 버튼을 만든다. 전투 씬을 직접 실행할 때만 `stage_01.tres`를 기본값으로 사용한다.
 
 ```bash
 dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godot-client/balance-json --output godot-client/data

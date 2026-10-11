@@ -1,4 +1,4 @@
-[gd_resource type="Resource" load_steps=22 format=3]
+[gd_resource type="Resource" load_steps=23 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/PlayerSkillDefaults.cs" id="PlayerSkillDefaults"]
 [ext_resource type="Script" path="res://scripts/data/PlayerSkillProgress.cs" id="PlayerSkillProgress"]
@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://scripts/data/CatSkillPreset.cs" id="CatSkillPreset"]
 [ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
 [ext_resource type="Resource" path="res://data/units/cat_archer.tres" id="unit_cat_archer"]
+[ext_resource type="Resource" path="res://data/units/cat_archer_scout.tres" id="unit_cat_archer_scout"]
 [ext_resource type="Resource" path="res://data/units/cat_healer.tres" id="unit_cat_healer"]
 [ext_resource type="Resource" path="res://data/units/cat_warrior.tres" id="unit_cat_warrior"]
 
@@ -44,8 +45,8 @@ script = ExtResource("CatProfile")
 CharacterId = "starter_archer_b"
 DisplayName = "초급 궁수 B"
 Description = SubResource("profile_description_1")
-UnitId = "cat_archer"
-Unit = ExtResource("unit_cat_archer")
+UnitId = "cat_archer_scout"
+Unit = ExtResource("unit_cat_archer_scout")
 
 [sub_resource type="Resource" id="profile_2"]
 script = ExtResource("CatProfile")

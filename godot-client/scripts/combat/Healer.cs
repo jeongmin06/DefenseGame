@@ -30,7 +30,6 @@ public partial class Healer : Node2D
         _sprite = GetNode<DirectionalAnimatedSprite>("AnimatedSprite");
         _sprite.FrameChanged += OnFrameChanged;
         _sprite.AnimationFinished += ResetAnimation;
-        _sprite.Play("idle");
     }
 
     public void Setup(UnitDefinition definition)
@@ -41,6 +40,8 @@ public partial class Healer : Node2D
     public void Setup(UnitDefinition definition, string characterId, SkillLoadout? loadout)
     {
         CharacterId = characterId;
+        UnitVisualConfigurator.Apply(_sprite, definition.Visual);
+        _sprite.Play(UnitVisualConfigurator.IdleAnimation);
         UnitSkillEffectSettings effects = new UnitSkillEffectComposer().Compose(loadout);
         _health.Setup(definition.MaxHealth);
         HealRange = definition.RangePixels;
@@ -98,9 +99,9 @@ public partial class Healer : Node2D
         _casting = true;
         _applied = false;
         _cooldown = Mathf.Max(0.01f, HealInterval);
-        _sprite.SpeedScale = (float)(_sprite.SpriteFrames.GetFrameCount("cast")
-            / _sprite.SpriteFrames.GetAnimationSpeed("cast") / _cooldown);
-        _sprite.Play("cast");
+        _sprite.SpeedScale = (float)(_sprite.SpriteFrames.GetFrameCount(UnitVisualConfigurator.ActionAnimation)
+            / _sprite.SpriteFrames.GetAnimationSpeed(UnitVisualConfigurator.ActionAnimation) / _cooldown);
+        _sprite.Play(UnitVisualConfigurator.ActionAnimation);
     }
 
     private void OnFrameChanged()
@@ -118,6 +119,6 @@ public partial class Healer : Node2D
         _casting = false;
         _applied = false;
         _sprite.SpeedScale = 1;
-        _sprite.Play("idle");
+        _sprite.Play(UnitVisualConfigurator.IdleAnimation);
     }
 }

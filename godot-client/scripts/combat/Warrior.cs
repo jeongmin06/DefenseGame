@@ -52,7 +52,6 @@ public partial class Warrior : Node2D
         _sprite = GetNode<DirectionalAnimatedSprite>("AnimatedSprite");
         _sprite.FrameChanged += OnFrameChanged;
         _sprite.AnimationFinished += ResetAnimation;
-        _sprite.Play("idle");
     }
 
     public void Setup(UnitDefinition definition, DeploymentGrid grid, Vector2I cell)
@@ -63,6 +62,8 @@ public partial class Warrior : Node2D
     public void Setup(UnitDefinition definition, DeploymentGrid grid, Vector2I cell, string characterId, SkillLoadout? loadout)
     {
         CharacterId = characterId;
+        UnitVisualConfigurator.Apply(_sprite, definition.Visual);
+        _sprite.Play(UnitVisualConfigurator.IdleAnimation);
         UnitSkillEffectSettings effects = new UnitSkillEffectComposer().Compose(loadout);
         _health.Setup(definition.MaxHealth);
         Damage = definition.ActionPower * effects.DamageMultiplier + effects.AddedHitDamage;
@@ -126,9 +127,9 @@ public partial class Warrior : Node2D
         _attacking = true;
         _hitApplied = false;
         _cooldown = Mathf.Max(0.01f, AttackInterval);
-        _sprite.SpeedScale = (float)(_sprite.SpriteFrames.GetFrameCount("attack")
-            / _sprite.SpriteFrames.GetAnimationSpeed("attack") / _cooldown);
-        _sprite.Play("attack");
+        _sprite.SpeedScale = (float)(_sprite.SpriteFrames.GetFrameCount(UnitVisualConfigurator.ActionAnimation)
+            / _sprite.SpriteFrames.GetAnimationSpeed(UnitVisualConfigurator.ActionAnimation) / _cooldown);
+        _sprite.Play(UnitVisualConfigurator.ActionAnimation);
     }
 
     private void OnFrameChanged()
@@ -145,7 +146,7 @@ public partial class Warrior : Node2D
         _attacking = false;
         _hitApplied = false;
         _sprite.SpeedScale = 1;
-        _sprite.Play("idle");
+        _sprite.Play(UnitVisualConfigurator.IdleAnimation);
     }
 
     internal void ForgetBlocked(Enemy enemy) => _blocked.Remove(enemy);

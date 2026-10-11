@@ -50,7 +50,6 @@ public partial class Tower : Node2D
         _sprite = GetNode<DirectionalAnimatedSprite>("AnimatedSprite");
         _sprite.FrameChanged += OnSpriteFrameChanged;
         _sprite.AnimationFinished += OnSpriteAnimationFinished;
-        _sprite.Play("idle");
         QueueRedraw();
     }
 
@@ -67,6 +66,8 @@ public partial class Tower : Node2D
     public void SetupRanged(UnitDefinition definition, RangedAttackSettings settings, string characterId)
     {
         CharacterId = characterId;
+        UnitVisualConfigurator.Apply(_sprite, definition.Visual);
+        _sprite.Play(UnitVisualConfigurator.IdleAnimation);
         _health.Setup(definition.MaxHealth);
         AttackRange = definition.RangePixels;
         AttackDamage = definition.ActionPower;
@@ -162,16 +163,17 @@ public partial class Tower : Node2D
         _facingLeft = target.GlobalPosition.X < GlobalPosition.X;
         _sprite.SetFacingLeft(_facingLeft);
 
-        int frameCount = _sprite.SpriteFrames.GetFrameCount("attack");
-        double framesPerSecond = _sprite.SpriteFrames.GetAnimationSpeed("attack");
+        int frameCount = _sprite.SpriteFrames.GetFrameCount(UnitVisualConfigurator.ActionAnimation);
+        double framesPerSecond = _sprite.SpriteFrames.GetAnimationSpeed(UnitVisualConfigurator.ActionAnimation);
         double baseDuration = frameCount / framesPerSecond;
         _sprite.SpeedScale = (float)(baseDuration / Mathf.Max(0.01f, AttackInterval));
-        _sprite.Play("attack");
+        _sprite.Play(UnitVisualConfigurator.ActionAnimation);
     }
 
     private void OnSpriteFrameChanged()
     {
-        if (!_battleActive || !IsAlive || _sprite.Animation != "attack" || _sprite.Frame < _releaseFrame || _projectileReleased)
+        if (!_battleActive || !IsAlive || _sprite.Animation != UnitVisualConfigurator.ActionAnimation
+            || _sprite.Frame < _releaseFrame || _projectileReleased)
         {
             return;
         }
@@ -191,7 +193,7 @@ public partial class Tower : Node2D
 
     private void OnSpriteAnimationFinished()
     {
-        if (_sprite.Animation == "attack")
+        if (_sprite.Animation == UnitVisualConfigurator.ActionAnimation)
         {
             ResetToIdle();
         }
@@ -203,7 +205,7 @@ public partial class Tower : Node2D
         _projectileReleased = false;
         _pendingTarget = null;
         _sprite.SpeedScale = 1.0f;
-        _sprite.Play("idle");
+        _sprite.Play(UnitVisualConfigurator.IdleAnimation);
     }
 
     public override void _Draw()

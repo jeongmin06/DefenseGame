@@ -1,12 +1,40 @@
-[gd_resource type="Resource" load_steps=5 format=3]
+[gd_resource type="Resource" load_steps=10 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/UnitDefinition.cs" id="script"]
+[ext_resource type="Script" path="res://scripts/data/UnitVisualDefinition.cs" id="UnitVisualDefinition"]
+[ext_resource type="Script" path="res://scripts/data/UnitAnimationDefinition.cs" id="UnitAnimationDefinition"]
 [ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
 [ext_resource type="PackedScene" path="res://scenes/warrior.tscn" id="scene"]
+[ext_resource type="Texture2D" path="res://assets/sprites/cat_warrior_attack_sheet.png" id="sprite_sheet"]
 
 [sub_resource type="Resource" id="description"]
 script = ExtResource("LocalizedText")
 Values = Dictionary[String, String]({"en": "Deploy on grass or path tiles and block one enemy from moving.", "ko": "잔디와 경로에 배치할 수 있으며 적 한 마리의 이동을 저지합니다."})
+
+[sub_resource type="Resource" id="visual_idle"]
+script = ExtResource("UnitAnimationDefinition")
+StartFrame = 0
+FrameCount = 1
+FramesPerSecond = 1
+Loop = true
+
+[sub_resource type="Resource" id="visual_action"]
+script = ExtResource("UnitAnimationDefinition")
+StartFrame = 0
+FrameCount = 8
+FramesPerSecond = 12
+Loop = false
+
+[sub_resource type="Resource" id="visual"]
+script = ExtResource("UnitVisualDefinition")
+SpriteSheet = ExtResource("sprite_sheet")
+FrameSize = Vector2i(443, 443)
+SpritePosition = Vector2(0, -47)
+SpriteScale = Vector2(0.23, 0.23)
+SourceFacesLeft = false
+UseChromaKey = true
+Idle = SubResource("visual_idle")
+Action = SubResource("visual_action")
 
 [resource]
 script = ExtResource("script")
@@ -14,10 +42,12 @@ Id = "cat_warrior"
 DisplayName = "고양이 전사"
 Description = SubResource("description")
 Role = 1
+Behavior = 1
 Placement = 1
 DeploymentCost = 12
 SkillTags = Array[String](["ATTACK", "PHYSICAL", "HIT"])
 Scene = ExtResource("scene")
+Visual = SubResource("visual")
 MaxHealth = 30
 ActionPower = 6
 ActionInterval = 0.8

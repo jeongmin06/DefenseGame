@@ -19,7 +19,7 @@ func wait_until(predicate: Callable, max_frames := 300) -> bool:
 func _initialize(): run.call_deferred()
 func run():
     var definition = load("res://data/stages/stage_01.tres")
-    check(definition.Id == "stage_01" and definition.Roster.size() == 3 and definition.Waves.size() == 3, "Typed stage resources")
+    check(definition.Id == "stage_01" and definition.Roster.size() == 4 and definition.Waves.size() == 3, "Typed stage resources")
     check(definition.FirstWaveDelay == 10.0, "First wave preparation time")
     check(definition.InitialDeploymentPoints == 20 and definition.MaxDeploymentPoints == 30, "Stage deployment point bounds")
     check(definition.DeploymentPointRegenPerSecond == 3.0, "Stage deployment point regeneration")
@@ -48,6 +48,7 @@ func run():
     check(defaults.Progress.PlayerLevel == 5 and defaults.Progress.UnlockedPoints == 5, "Player skill defaults")
     check(defaults.CatProfiles.size() == 4 and defaults.InitialPresets.size() == 4, "Cat profile defaults")
     check("다중 화살" in defaults.CatProfiles[0].Description.Resolve("ko"), "Character description reaches generated resource")
+    check(defaults.CatProfiles[1].UnitId == "cat_archer_scout", "Second archer uses an independently registered unit")
     var expected_totals = [21, 30, 42]
     for stage_index in range(catalog.Stages.size()):
         var total := 0
@@ -74,9 +75,14 @@ func run():
     var archer = get_nodes_in_group("towers")[0]
     var archer_def = load("res://data/units/cat_archer.tres")
     check(archer_def.DeploymentCost == 10, "Unit deployment cost reaches generated resource")
+    check(archer_def.Behavior == 0 and archer_def.Visual != null, "Ranged behavior and visual definition")
+    check(archer_def.Visual.FrameSize == Vector2i(443, 443) and archer_def.Visual.Action.FrameCount == 8, "Visual frame metadata")
     check(archer_def.SkillTags == ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"], "Unit skill compatibility tags")
     check(archer.AttackDamage == expected_power and archer.AttackDamage == archer_def.ActionPower, "JSON power reaches runtime")
     check(archer.MaxHealth == archer_def.MaxHealth, "Archer health")
+    var archer_sprite = archer.get_node("AnimatedSprite")
+    check(archer_sprite.sprite_frames.get_frame_count(&"action") == 8, "Runtime action frames are built from unit data")
+    check(archer_sprite.position == archer_def.Visual.SpritePosition and archer_sprite.scale == archer_def.Visual.SpriteScale, "Runtime sprite transform uses unit data")
     var ranged = archer.get_node("RangedAttack")
     check(ranged.ProjectileScene != null and ranged.ProjectileSpeed == archer_def.ProjectileSpeed, "Projectile settings")
     archer.TakeDamage(3.0)
@@ -94,6 +100,7 @@ func run():
     var enemy = mouse.Scene.instantiate()
     current_scene.get_node("EnemyPath").add_child(enemy)
     enemy.Setup(mouse, 0.0, 0.0)
+    check(mouse.Behavior == 3 and enemy.get_node("Sprite").sprite_frames.get_frame_count(&"move") == 8, "Enemy movement visual uses unit data")
     check(enemy.get_node("HealthBar").max_value == mouse.MaxHealth, "Default wave health")
     check(enemy.AttackDamage == mouse.ActionPower and enemy.AttackInterval == mouse.ActionInterval, "Enemy action")
     await physics_frame
@@ -104,7 +111,7 @@ func run():
     check(enemy.get_node("HealthBar").max_value == 17, "Wave override")
     enemy.queue_free()
     # Every generated unit scene must instantiate with the expected C# script.
-    for id in ["cat_archer", "cat_warrior", "cat_healer", "mutant_mouse"]:
+    for id in ["cat_archer", "cat_archer_scout", "cat_warrior", "cat_healer", "mutant_mouse"]:
         var unit = load("res://data/units/" + id + ".tres")
         check(unit.Id == id and unit.Scene != null, "Unit resource reference")
     print("RESOURCE QA failures=", failures)

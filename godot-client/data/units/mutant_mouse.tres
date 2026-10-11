@@ -1,12 +1,32 @@
-[gd_resource type="Resource" load_steps=5 format=3]
+[gd_resource type="Resource" load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/UnitDefinition.cs" id="script"]
+[ext_resource type="Script" path="res://scripts/data/UnitVisualDefinition.cs" id="UnitVisualDefinition"]
+[ext_resource type="Script" path="res://scripts/data/UnitAnimationDefinition.cs" id="UnitAnimationDefinition"]
 [ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
 [ext_resource type="PackedScene" path="res://scenes/enemy.tscn" id="scene"]
+[ext_resource type="Texture2D" path="res://assets/sprites/enemy_mutant_mouse_walk_sheet.png" id="sprite_sheet"]
 
 [sub_resource type="Resource" id="description"]
 script = ExtResource("LocalizedText")
 Values = Dictionary[String, String]({"en": "A genetically modified mouse that escaped the laboratory and multiplied.", "ko": "연구실에서 탈출해 번식한 유전자 조작 생쥐입니다."})
+
+[sub_resource type="Resource" id="visual_move"]
+script = ExtResource("UnitAnimationDefinition")
+StartFrame = 0
+FrameCount = 8
+FramesPerSecond = 11
+Loop = true
+
+[sub_resource type="Resource" id="visual"]
+script = ExtResource("UnitVisualDefinition")
+SpriteSheet = ExtResource("sprite_sheet")
+FrameSize = Vector2i(443, 443)
+SpritePosition = Vector2(0, -4)
+SpriteScale = Vector2(0.2, 0.2)
+SourceFacesLeft = false
+UseChromaKey = true
+Move = SubResource("visual_move")
 
 [resource]
 script = ExtResource("script")
@@ -14,10 +34,12 @@ Id = "mutant_mouse"
 DisplayName = "돌연변이 생쥐"
 Description = SubResource("description")
 Role = 3
+Behavior = 3
 Placement = 2
 DeploymentCost = 0
 SkillTags = Array[String]([])
 Scene = ExtResource("scene")
+Visual = SubResource("visual")
 MaxHealth = 12
 ActionPower = 3
 ActionInterval = 1
