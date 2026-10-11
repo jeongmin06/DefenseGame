@@ -1,14 +1,19 @@
-[gd_resource type="Resource" load_steps=18 format=3]
+[gd_resource type="Resource" load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/StageDefinition.cs" id="StageDefinition"]
 [ext_resource type="Script" path="res://scripts/data/StageSkillBudget.cs" id="StageSkillBudget"]
 [ext_resource type="Script" path="res://scripts/data/GridDefinition.cs" id="GridDefinition"]
 [ext_resource type="Script" path="res://scripts/data/RosterEntry.cs" id="RosterEntry"]
 [ext_resource type="Script" path="res://scripts/data/WaveDefinition.cs" id="WaveDefinition"]
+[ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
 [ext_resource type="Resource" path="res://data/units/cat_archer.tres" id="unit_cat_archer"]
 [ext_resource type="Resource" path="res://data/units/cat_healer.tres" id="unit_cat_healer"]
 [ext_resource type="Resource" path="res://data/units/cat_warrior.tres" id="unit_cat_warrior"]
 [ext_resource type="Resource" path="res://data/units/mutant_mouse.tres" id="unit_mutant_mouse"]
+
+[sub_resource type="Resource" id="description"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "The first grassland defense line. Stop a standard-sized mutant mouse swarm.", "ko": "초원 외곽의 첫 방어선입니다. 기본 규모의 생쥐 무리를 막아내세요."})
 
 [sub_resource type="Resource" id="skill_budget"]
 script = ExtResource("StageSkillBudget")
@@ -66,6 +71,7 @@ SpeedOverride = 92
 script = ExtResource("StageDefinition")
 Id = "stage_01"
 DisplayName = "초원 방어선 1"
+Description = SubResource("description")
 MaxSquadUnits = 10
 BaseHealth = 5
 FirstWaveDelay = 10

@@ -4,6 +4,7 @@
     {
       "id": "stage_01",
       "displayName": "초원 방어선 1",
+      "description": {"ko": "초원 외곽의 첫 방어선입니다. 기본 규모의 생쥐 무리를 막아내세요.", "en": "The first grassland defense line. Stop a standard-sized mutant mouse swarm."},
       "maxSquadUnits": 10,
       "skillPointCap": 3,
       "baseHealth": 5,
@@ -103,6 +104,7 @@
     {
       "id": "stage_02",
       "displayName": "초원 방어선 2",
+      "description": {"ko": "더 많은 생쥐가 같은 경로로 몰려옵니다. 편성과 스킬 포인트를 조정하세요.", "en": "More mutant mice advance along the same route. Adjust your squad and skill points."},
       "maxSquadUnits": 10,
       "skillPointCap": 4,
       "baseHealth": 5,
@@ -172,6 +174,7 @@
     {
       "id": "stage_03",
       "displayName": "초원 방어선 3",
+      "description": {"ko": "초원 구역의 마지막 방어전입니다. 가장 큰 생쥐 무리를 상대합니다.", "en": "The final grassland defense. Face the largest mutant mouse swarm."},
       "maxSquadUnits": 10,
       "skillPointCap": 5,
       "baseHealth": 5,

@@ -10,11 +10,14 @@ public partial class StageSelect : Node2D
     public int StageCount => Catalog?.Stages.Count ?? 0;
 
     private VBoxContainer _stageList = null!;
+    private Label _stageDescription = null!;
 
     public override void _Ready()
     {
         _stageList = GetNode<VBoxContainer>("UI/StagePanel/StageList");
+        _stageDescription = GetNode<Label>("UI/MapHint");
         BuildStageButtons();
+        ShowStageDescription(0);
         QueueRedraw();
     }
 
@@ -52,6 +55,14 @@ public partial class StageSelect : Node2D
         GetTree().ChangeSceneToFile("res://scenes/squad_formation.tscn");
     }
 
+    public void ShowStageDescription(int index)
+    {
+        if (Catalog is null || index < 0 || index >= Catalog.Stages.Count) return;
+        StageDefinition stage = Catalog.Stages[index];
+        _stageDescription.Text = $"{stage.DisplayName}\n\n{UiLocalization.Description(stage.Description)}"
+            + $"\n\n{stage.Waves.Count} 웨이브  ·  적 {GetEnemyCount(index)}마리";
+    }
+
     private void BuildStageButtons()
     {
         for (int i = 0; i < Catalog.Stages.Count; i++)
@@ -63,7 +74,8 @@ public partial class StageSelect : Node2D
                 Name = $"StageButton{i + 1}",
                 Text = $"{i + 1:00}   {stage.DisplayName}\n       {stage.Waves.Count} 웨이브   //   적 {GetEnemyCount(i)}마리",
                 CustomMinimumSize = new Vector2(560, 84),
-                Alignment = HorizontalAlignment.Left
+                Alignment = HorizontalAlignment.Left,
+                TooltipText = UiLocalization.Description(stage.Description)
             };
             button.AddThemeFontSizeOverride("font_size", 20);
             button.AddThemeColorOverride("font_color", new Color("fff0c2"));
@@ -72,6 +84,8 @@ public partial class StageSelect : Node2D
             button.AddThemeStyleboxOverride("hover", CardStyle("8d4429", "ffd166"));
             button.AddThemeStyleboxOverride("focus", CardStyle("8d4429", "fff0c2"));
             button.Pressed += () => SelectStage(index);
+            button.MouseEntered += () => ShowStageDescription(index);
+            button.FocusEntered += () => ShowStageDescription(index);
             _stageList.AddChild(button);
         }
 

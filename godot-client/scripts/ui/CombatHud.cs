@@ -10,6 +10,7 @@ namespace DefenseGame.Client.UI;
 public partial class CombatHud : CanvasLayer
 {
     [Signal] public delegate void CharacterSelectedEventHandler(string characterId);
+    [Signal] public delegate void CharacterDroppedEventHandler(string characterId, Vector2 globalPosition);
     [Signal] public delegate void RetryRequestedEventHandler();
     [Signal] public delegate void StageListRequestedEventHandler();
     private readonly Dictionary<string, Button> _deploymentCards = new(StringComparer.Ordinal);
@@ -26,9 +27,16 @@ public partial class CombatHud : CanvasLayer
     private Button _restartButton = null!;
     private Button _stageListButton = null!;
     private Label _title = null!;
+    private PanelContainer _dragPreview = null!;
+    private Label _dragPreviewLabel = null!;
+    private string _dragCandidateId = "";
+    private string _draggedCharacterId = "";
+    private Vector2 _dragStart;
 
     public int DeploymentCardCount => _deploymentCards.Count;
     public string[] DeploymentCardCharacterIds => _deploymentCards.Keys.ToArray();
+    public bool IsDraggingCharacter => !string.IsNullOrEmpty(_draggedCharacterId);
+    public string DraggedCharacterId => _draggedCharacterId;
 
     public override void _Ready()
     {
@@ -46,6 +54,27 @@ public partial class CombatHud : CanvasLayer
         _restartButton.Pressed += () => EmitSignal(SignalName.RetryRequested);
         _stageListButton = GetNode<Button>("ResultPanel/StageListButton");
         _stageListButton.Pressed += () => EmitSignal(SignalName.StageListRequested);
+        CreateDragPreview();
+    }
+
+    public override void _Input(InputEvent input)
+    {
+        if (input is InputEventMouseMotion motion && !string.IsNullOrEmpty(_dragCandidateId))
+        {
+            if (!IsDraggingCharacter && motion.GlobalPosition.DistanceTo(_dragStart) >= 12.0f)
+                BeginCharacterDrag(_dragCandidateId, motion.GlobalPosition);
+            if (IsDraggingCharacter) MoveDragPreview(motion.GlobalPosition);
+        }
+        else if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } released)
+        {
+            if (CompleteCharacterDrag(released.GlobalPosition)) GetViewport().SetInputAsHandled();
+            else CancelCharacterDrag();
+        }
+        else if (input is InputEventKey { Keycode: Key.Escape, Pressed: true } && IsDraggingCharacter)
+        {
+            CancelCharacterDrag();
+            GetViewport().SetInputAsHandled();
+        }
     }
 
     public void UpdateStage(string displayName, string id)
@@ -73,6 +102,8 @@ public partial class CombatHud : CanvasLayer
             button.AddThemeStyleboxOverride("normal", CardStyle("3b4938", "8f6d38"));
             button.AddThemeStyleboxOverride("hover", CardStyle("536344", "f1bb55"));
             button.AddThemeStyleboxOverride("focus", CardStyle("536344", "fff0c2"));
+            button.TooltipText = UiLocalization.Description(profile.Description);
+            button.ButtonDown += () => PrepareCharacterDrag(characterId);
             button.Pressed += () => EmitSignal(SignalName.CharacterSelected, characterId);
             _profiles.Add(characterId, profile);
             _deploymentCards.Add(characterId, button);
@@ -93,6 +124,8 @@ public partial class CombatHud : CanvasLayer
                 ? $"{(selected ? "▶ " : "  ")}{profile.DisplayName}\n  {KoreanUiText.Role(profile.Unit!.Role)} · {characterId}"
                 : $"✓ {profile.DisplayName}\n  배치 완료";
             button.Modulate = selected ? Colors.White : available ? new Color("d6dfca") : new Color("788275");
+            if (!available && (_dragCandidateId == characterId || _draggedCharacterId == characterId))
+                CancelCharacterDrag();
         }
     }
 
@@ -131,6 +164,7 @@ public partial class CombatHud : CanvasLayer
 
     public void ShowResult(bool victory, int defeated, int escaped)
     {
+        CancelCharacterDrag();
         _placementLabel.Text = "전투 종료";
         foreach (Button button in _deploymentCards.Values) button.Disabled = true;
         _resultPanel.Visible = true;
@@ -147,6 +181,63 @@ public partial class CombatHud : CanvasLayer
         _deploymentCards.TryGetValue(characterId, out Button? button) ? button.Text : "";
 
     public bool AreAllDeploymentCardsDisabled() => _deploymentCards.Values.All(button => button.Disabled);
+
+    public bool BeginCharacterDrag(string characterId, Vector2 globalPosition)
+    {
+        if (!_deploymentCards.TryGetValue(characterId, out Button? button) || button.Disabled
+            || !_profiles.TryGetValue(characterId, out CatProfile? profile) || profile.Unit is null)
+            return false;
+        _dragCandidateId = characterId;
+        _draggedCharacterId = characterId;
+        _dragPreviewLabel.Text = $"{profile.DisplayName}\n{KoreanUiText.Role(profile.Unit.Role)}";
+        _dragPreview.Visible = true;
+        MoveDragPreview(globalPosition);
+        EmitSignal(SignalName.CharacterSelected, characterId);
+        return true;
+    }
+
+    public void CancelCharacterDrag()
+    {
+        _dragCandidateId = "";
+        _draggedCharacterId = "";
+        if (_dragPreview is not null) _dragPreview.Visible = false;
+    }
+
+    public bool CompleteCharacterDrag(Vector2 globalPosition)
+    {
+        if (!IsDraggingCharacter) return false;
+        string characterId = _draggedCharacterId;
+        EmitSignal(SignalName.CharacterDropped, characterId, globalPosition);
+        CancelCharacterDrag();
+        return true;
+    }
+
+    private void PrepareCharacterDrag(string characterId)
+    {
+        _dragCandidateId = characterId;
+        _dragStart = GetViewport().GetMousePosition();
+    }
+
+    private void MoveDragPreview(Vector2 globalPosition) =>
+        _dragPreview.Position = globalPosition + new Vector2(18, -66);
+
+    private void CreateDragPreview()
+    {
+        _dragPreview = new PanelContainer
+        {
+            Name = "DragPreview",
+            Visible = false,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            ZIndex = 100,
+            CustomMinimumSize = new Vector2(180, 52)
+        };
+        _dragPreview.AddThemeStyleboxOverride("panel", CardStyle("3b4938", "f1bb55"));
+        _dragPreviewLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+        _dragPreviewLabel.AddThemeFontSizeOverride("font_size", 15);
+        _dragPreviewLabel.AddThemeColorOverride("font_color", new Color("fff0c2"));
+        _dragPreview.AddChild(_dragPreviewLabel);
+        AddChild(_dragPreview);
+    }
 
     private static StyleBoxFlat CardStyle(string background, string border) => new()
     {

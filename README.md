@@ -43,9 +43,9 @@ macOS Finder 또는 Spotlight에서 실행하려면 한 번만 아래 앱 설치
 3. 프로젝트를 실행하면 스테이지 선택 화면이 시작된다.
 4. 총 몬스터 수가 다른 세 스테이지 중 하나를 선택하고 서버에 저장된 최근 편성을 불러온다.
 5. 궁수·전사·힐러를 선택하고 편성을 확정하면 서버에 저장한 뒤 스킬 준비로 이동한다.
-6. 스테이지 진입 후 10초 카운트다운이 시작되며, 첫 웨이브 전과 전투 중 원하는 시점에 편성한 고양이를 배치할 수 있다.
-7. 전투 종료 후 `RETRY STAGE` 또는 `STAGE LIST`를 선택할 수 있다.
+6. 스테이지 진입 후 10초 카운트다운이 시작되며, 첫 웨이브 전과 전투 중 하단 고양이 카드를 클릭하거나 타일로 끌어 배치할 수 있다.
+7. 전투 종료 후 `다시 도전` 또는 `스테이지 목록`을 선택할 수 있다.
 
 ## 밸런스 데이터
 
-`godot-client/balance-json`의 JSON을 편집하고 독립 .NET 변환기로 `godot-client/data`의 Godot Resource를 생성한다. 런타임은 `.tres`만 읽는다. 변환·검증 명령은 [클라이언트 README](godot-client/README.md#데이터와-공통-컴포넌트)를 참고한다.
+`godot-client/balance-json`의 JSON을 편집하고 독립 .NET 변환기로 `godot-client/data`의 Godot Resource를 생성한다. 런타임은 `.tres`만 읽는다. 콘텐츠 설명은 `description.ko`, `description.en`으로 관리한다. 변환·검증 명령은 [클라이언트 README](godot-client/README.md#데이터와-공통-컴포넌트)를 참고한다.

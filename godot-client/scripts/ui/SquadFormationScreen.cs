@@ -245,7 +245,8 @@ public partial class SquadFormationScreen : Node2D
             {
                 Name = $"Owned_{id}",
                 Text = $"{(selected ? "[X]" : "[ ]")}  {profile.DisplayName}  //  {KoreanUiText.Role(profile.Unit?.Role ?? UnitRole.Ranged)} · {id}",
-                CustomMinimumSize = new Vector2(450, 52), Alignment = HorizontalAlignment.Left
+                CustomMinimumSize = new Vector2(450, 52), Alignment = HorizontalAlignment.Left,
+                TooltipText = UiLocalization.Description(profile.Description)
             };
             button.Pressed += () => ToggleCharacter(id);
             Style(button, selected ? "536344" : "3b4938", selected ? "ffd166" : "8f6d38");

@@ -1,14 +1,19 @@
-[gd_resource type="Resource" load_steps=18 format=3]
+[gd_resource type="Resource" load_steps=20 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/StageDefinition.cs" id="StageDefinition"]
 [ext_resource type="Script" path="res://scripts/data/StageSkillBudget.cs" id="StageSkillBudget"]
 [ext_resource type="Script" path="res://scripts/data/GridDefinition.cs" id="GridDefinition"]
 [ext_resource type="Script" path="res://scripts/data/RosterEntry.cs" id="RosterEntry"]
 [ext_resource type="Script" path="res://scripts/data/WaveDefinition.cs" id="WaveDefinition"]
+[ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
 [ext_resource type="Resource" path="res://data/units/cat_archer.tres" id="unit_cat_archer"]
 [ext_resource type="Resource" path="res://data/units/cat_healer.tres" id="unit_cat_healer"]
 [ext_resource type="Resource" path="res://data/units/cat_warrior.tres" id="unit_cat_warrior"]
 [ext_resource type="Resource" path="res://data/units/mutant_mouse.tres" id="unit_mutant_mouse"]
+
+[sub_resource type="Resource" id="description"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "More mutant mice advance along the same route. Adjust your squad and skill points.", "ko": "더 많은 생쥐가 같은 경로로 몰려옵니다. 편성과 스킬 포인트를 조정하세요."})
 
 [sub_resource type="Resource" id="skill_budget"]
 script = ExtResource("StageSkillBudget")
@@ -66,6 +71,7 @@ SpeedOverride = 92
 script = ExtResource("StageDefinition")
 Id = "stage_02"
 DisplayName = "초원 방어선 2"
+Description = SubResource("description")
 MaxSquadUnits = 10
 BaseHealth = 5
 FirstWaveDelay = 10

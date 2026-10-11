@@ -1,13 +1,19 @@
-[gd_resource type="Resource" load_steps=4 format=3]
+[gd_resource type="Resource" load_steps=6 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/UnitDefinition.cs" id="script"]
+[ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
 [ext_resource type="PackedScene" path="res://scenes/tower.tscn" id="scene"]
 [ext_resource type="PackedScene" path="res://scenes/arrow_projectile.tscn" id="projectile"]
+
+[sub_resource type="Resource" id="description"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "Deploy on grass tiles to attack distant enemies with arrows.", "ko": "잔디 타일에 배치해 멀리 있는 적을 화살로 공격합니다."})
 
 [resource]
 script = ExtResource("script")
 Id = "cat_archer"
 DisplayName = "고양이 궁수"
+Description = SubResource("description")
 Role = 0
 Placement = 0
 SkillTags = Array[String](["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"])

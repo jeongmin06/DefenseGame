@@ -31,6 +31,12 @@ func run():
     check(selector.GetEnemyCount(0) == 21, "Stage 1 enemy count")
     check(selector.GetEnemyCount(1) == 30, "Stage 2 enemy count")
     check(selector.GetEnemyCount(2) == 42, "Stage 3 enemy count")
+    check("첫 방어선" in selector.get_node("UI/MapHint").text, "Korean stage description is visible")
+    ProjectSettings.set_setting("defense_game/ui/locale", "en")
+    selector.ShowStageDescription(0)
+    check("first grassland" in selector.get_node("UI/MapHint").text.to_lower(), "English stage description is visible")
+    ProjectSettings.set_setting("defense_game/ui/locale", "ko")
+    selector.ShowStageDescription(0)
 
     selector.SelectStage(1)
     await ticks(5)

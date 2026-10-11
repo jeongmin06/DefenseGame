@@ -1,12 +1,18 @@
-[gd_resource type="Resource" load_steps=3 format=3]
+[gd_resource type="Resource" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/SkillDefinition.cs" id="SkillDefinition"]
 [ext_resource type="Script" path="res://scripts/data/SkillEffectDefinition.cs" id="SkillEffectDefinition"]
+[ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
+
+[sub_resource type="Resource" id="description"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "A basic active skill that strikes an enemy within one tile.", "ko": "검으로 한 칸 안의 적을 공격하는 기본 액티브 스킬입니다."})
 
 [resource]
 script = ExtResource("SkillDefinition")
 Id = "basic_slash"
 DisplayName = "기본 참격"
+Description = SubResource("description")
 Role = 0
 Tags = Array[String](["ATTACK", "PHYSICAL", "HIT"])
 RequiredAnyTags = Array[String]([])

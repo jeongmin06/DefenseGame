@@ -1,9 +1,10 @@
-[gd_resource type="Resource" load_steps=17 format=3]
+[gd_resource type="Resource" load_steps=22 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/PlayerSkillDefaults.cs" id="PlayerSkillDefaults"]
 [ext_resource type="Script" path="res://scripts/data/PlayerSkillProgress.cs" id="PlayerSkillProgress"]
 [ext_resource type="Script" path="res://scripts/data/CatProfile.cs" id="CatProfile"]
 [ext_resource type="Script" path="res://scripts/data/CatSkillPreset.cs" id="CatSkillPreset"]
+[ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
 [ext_resource type="Resource" path="res://data/units/cat_archer.tres" id="unit_cat_archer"]
 [ext_resource type="Resource" path="res://data/units/cat_healer.tres" id="unit_cat_healer"]
 [ext_resource type="Resource" path="res://data/units/cat_warrior.tres" id="unit_cat_warrior"]
@@ -14,10 +15,27 @@ PlayerLevel = 5
 UnlockedPoints = 5
 OwnedSkillIds = Array[String](["basic_arrow", "basic_slash", "basic_heal", "multiple_projectiles", "piercing_shot", "fire_infusion", "healing_amplification"])
 
+[sub_resource type="Resource" id="profile_description_0"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "A novice archer trained in multiple projectiles and piercing shots.", "ko": "다중 화살과 관통 사격을 익힌 초급 궁수입니다."})
+
+[sub_resource type="Resource" id="profile_description_1"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "A novice archer who uses fire-infused arrows.", "ko": "화염이 깃든 화살을 사용하는 초급 궁수입니다."})
+
+[sub_resource type="Resource" id="profile_description_2"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "A novice warrior who blocks one enemy on the path.", "ko": "경로에서 적 한 마리를 막아내는 초급 전사입니다."})
+
+[sub_resource type="Resource" id="profile_description_3"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "A novice healer focused on restoring one injured ally.", "ko": "부상당한 아군 한 명을 집중 치유하는 초급 치유사입니다."})
+
 [sub_resource type="Resource" id="profile_0"]
 script = ExtResource("CatProfile")
 CharacterId = "starter_archer_a"
 DisplayName = "초급 궁수 A"
+Description = SubResource("profile_description_0")
 UnitId = "cat_archer"
 Unit = ExtResource("unit_cat_archer")
 
@@ -25,6 +43,7 @@ Unit = ExtResource("unit_cat_archer")
 script = ExtResource("CatProfile")
 CharacterId = "starter_archer_b"
 DisplayName = "초급 궁수 B"
+Description = SubResource("profile_description_1")
 UnitId = "cat_archer"
 Unit = ExtResource("unit_cat_archer")
 
@@ -32,6 +51,7 @@ Unit = ExtResource("unit_cat_archer")
 script = ExtResource("CatProfile")
 CharacterId = "starter_warrior_a"
 DisplayName = "초급 전사 A"
+Description = SubResource("profile_description_2")
 UnitId = "cat_warrior"
 Unit = ExtResource("unit_cat_warrior")
 
@@ -39,6 +59,7 @@ Unit = ExtResource("unit_cat_warrior")
 script = ExtResource("CatProfile")
 CharacterId = "starter_healer_a"
 DisplayName = "초급 치유사 A"
+Description = SubResource("profile_description_3")
 UnitId = "cat_healer"
 Unit = ExtResource("unit_cat_healer")
 

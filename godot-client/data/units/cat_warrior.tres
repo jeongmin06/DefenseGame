@@ -1,12 +1,18 @@
-[gd_resource type="Resource" load_steps=3 format=3]
+[gd_resource type="Resource" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/UnitDefinition.cs" id="script"]
+[ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
 [ext_resource type="PackedScene" path="res://scenes/warrior.tscn" id="scene"]
+
+[sub_resource type="Resource" id="description"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "Deploy on grass or path tiles and block one enemy from moving.", "ko": "잔디와 경로에 배치할 수 있으며 적 한 마리의 이동을 저지합니다."})
 
 [resource]
 script = ExtResource("script")
 Id = "cat_warrior"
 DisplayName = "고양이 전사"
+Description = SubResource("description")
 Role = 1
 Placement = 1
 SkillTags = Array[String](["ATTACK", "PHYSICAL", "HIT"])

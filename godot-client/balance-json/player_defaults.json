@@ -17,21 +17,25 @@
     {
       "characterId": "starter_archer_a",
       "displayName": "초급 궁수 A",
+      "description": {"ko": "다중 화살과 관통 사격을 익힌 초급 궁수입니다.", "en": "A novice archer trained in multiple projectiles and piercing shots."},
       "unitId": "cat_archer"
     },
     {
       "characterId": "starter_archer_b",
       "displayName": "초급 궁수 B",
+      "description": {"ko": "화염이 깃든 화살을 사용하는 초급 궁수입니다.", "en": "A novice archer who uses fire-infused arrows."},
       "unitId": "cat_archer"
     },
     {
       "characterId": "starter_warrior_a",
       "displayName": "초급 전사 A",
+      "description": {"ko": "경로에서 적 한 마리를 막아내는 초급 전사입니다.", "en": "A novice warrior who blocks one enemy on the path."},
       "unitId": "cat_warrior"
     },
     {
       "characterId": "starter_healer_a",
       "displayName": "초급 치유사 A",
+      "description": {"ko": "부상당한 아군 한 명을 집중 치유하는 초급 치유사입니다.", "en": "A novice healer focused on restoring one injured ally."},
       "unitId": "cat_healer"
     }
   ],

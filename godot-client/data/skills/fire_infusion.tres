@@ -1,7 +1,12 @@
-[gd_resource type="Resource" load_steps=5 format=3]
+[gd_resource type="Resource" load_steps=7 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/SkillDefinition.cs" id="SkillDefinition"]
 [ext_resource type="Script" path="res://scripts/data/SkillEffectDefinition.cs" id="SkillEffectDefinition"]
+[ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
+
+[sub_resource type="Resource" id="description"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "Adds fire damage to hits and grants the FIRE tag.", "ko": "적중 피해에 화염 피해를 추가하고 화염 태그를 부여합니다."})
 
 [sub_resource type="Resource" id="effect_0"]
 script = ExtResource("SkillEffectDefinition")
@@ -17,6 +22,7 @@ TagValue = "FIRE"
 script = ExtResource("SkillDefinition")
 Id = "fire_infusion"
 DisplayName = "화염 주입"
+Description = SubResource("description")
 Role = 1
 Tags = Array[String]([])
 RequiredAnyTags = Array[String](["HIT"])

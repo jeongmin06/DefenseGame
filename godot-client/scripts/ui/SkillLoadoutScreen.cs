@@ -298,7 +298,8 @@ public partial class SkillLoadoutScreen : Node2D
             var button = new Button
             {
                 Name = $"Active_{id}", Text = CurrentPreset?.ActiveSkillId == id ? "선택됨" : "선택",
-                CustomMinimumSize = new Vector2(130, 42), Disabled = !_progress.OwnedSkillIds.Contains(id)
+                CustomMinimumSize = new Vector2(130, 42), Disabled = !_progress.OwnedSkillIds.Contains(id),
+                TooltipText = UiLocalization.Description(skill.Description)
             };
             button.AddThemeFontSizeOverride("font_size", 14);
             button.AddThemeColorOverride("font_color", new Color("fff0c2"));
@@ -322,12 +323,13 @@ public partial class SkillLoadoutScreen : Node2D
             if (support.Role != SkillRole.Support) continue;
             bool selected = preset.SupportSkillIds.Contains(support.Id);
             bool repair = selected && HasSupportIssue(support.Id);
+            string description = UiLocalization.Description(support.Description);
             var button = new Button
             {
                 Name = $"Support_{support.Id}",
-                Text = $"{(selected ? "[X]" : "[ ]")}  {support.DisplayName}   //   {CompatibilityText(support)}{(repair ? "   //   수정 필요" : "")}",
-                CustomMinimumSize = new Vector2(900, 48), Alignment = HorizontalAlignment.Left,
-                TooltipText = CompatibilityText(support)
+                Text = $"{(selected ? "[X]" : "[ ]")}  {support.DisplayName}   //   {CompatibilityText(support)}{(repair ? "   //   수정 필요" : "")}\n     {description}",
+                CustomMinimumSize = new Vector2(900, 64), Alignment = HorizontalAlignment.Left,
+                TooltipText = description
             };
             button.AddThemeFontSizeOverride("font_size", 16);
             button.AddThemeColorOverride("font_color", new Color(repair ? "ff8e78" : "fff0c2"));
@@ -380,6 +382,7 @@ public partial class SkillLoadoutScreen : Node2D
         string activeName = _skillsById.TryGetValue(activeId, out SkillDefinition? active) ? active.DisplayName : activeId;
         bool activeRepair = HasActiveIssue();
         _activeLabel.Text = $"액티브  //  {(string.IsNullOrEmpty(activeName) ? "누락" : activeName)}\n{(active is null ? activeId : KoreanUiText.Tags(active.Tags, "  ·  "))}{(activeRepair ? "   //   수정 필요" : "")}";
+        _activeLabel.TooltipText = active is null ? "" : UiLocalization.Description(active.Description);
         _activeLabel.Modulate = new Color(activeRepair ? "ff8e78" : "fff0c2");
 
         StageSkillBudget? budget = StageSelectionState.SelectedStage?.SkillBudget;

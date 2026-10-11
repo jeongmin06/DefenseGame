@@ -1,12 +1,18 @@
-[gd_resource type="Resource" load_steps=3 format=3]
+[gd_resource type="Resource" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/UnitDefinition.cs" id="script"]
+[ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
 [ext_resource type="PackedScene" path="res://scenes/healer.tscn" id="scene"]
+
+[sub_resource type="Resource" id="description"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "Deploy on grass tiles to heal the lowest-health ally in range.", "ko": "잔디 타일에 배치해 사거리 안에서 체력이 가장 낮은 아군을 치유합니다."})
 
 [resource]
 script = ExtResource("script")
 Id = "cat_healer"
 DisplayName = "고양이 치유사"
+Description = SubResource("description")
 Role = 2
 Placement = 0
 SkillTags = Array[String](["HEAL"])

@@ -4,6 +4,7 @@
     {
       "id": "basic_arrow",
       "displayName": "기본 화살",
+      "description": {"ko": "활로 적 한 명을 공격하는 기본 액티브 스킬입니다.", "en": "A basic active skill that attacks one enemy with a bow."},
       "role": "active",
       "tags": ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"],
       "requiredAnyTags": [],
@@ -18,6 +19,7 @@
     {
       "id": "multiple_projectiles",
       "displayName": "다중 투사체",
+      "description": {"ko": "화살을 두 발 추가하지만 각 투사체의 피해가 감소합니다.", "en": "Adds two arrows but reduces the damage of each projectile."},
       "role": "support",
       "tags": [],
       "requiredAnyTags": ["PROJECTILE"],
@@ -32,6 +34,7 @@
     {
       "id": "piercing_shot",
       "displayName": "관통 사격",
+      "description": {"ko": "투사체가 적 한 마리를 추가로 관통합니다.", "en": "Projectiles pierce one additional enemy."},
       "role": "support",
       "tags": [],
       "requiredAnyTags": ["PROJECTILE"],
@@ -45,6 +48,7 @@
     {
       "id": "fire_infusion",
       "displayName": "화염 주입",
+      "description": {"ko": "적중 피해에 화염 피해를 추가하고 화염 태그를 부여합니다.", "en": "Adds fire damage to hits and grants the FIRE tag."},
       "role": "support",
       "tags": [],
       "requiredAnyTags": ["HIT"],
@@ -59,6 +63,7 @@
     {
       "id": "healing_amplification",
       "displayName": "치유 증폭",
+      "description": {"ko": "치유량을 50% 증가시킵니다.", "en": "Increases healing by 50%."},
       "role": "support",
       "tags": [],
       "requiredAnyTags": ["HEAL"],
@@ -72,6 +77,7 @@
     {
       "id": "basic_slash",
       "displayName": "기본 참격",
+      "description": {"ko": "검으로 한 칸 안의 적을 공격하는 기본 액티브 스킬입니다.", "en": "A basic active skill that strikes an enemy within one tile."},
       "role": "active",
       "tags": ["ATTACK", "PHYSICAL", "HIT"],
       "requiredAnyTags": [],
@@ -86,6 +92,7 @@
     {
       "id": "basic_heal",
       "displayName": "기본 치유",
+      "description": {"ko": "사거리 안에서 체력이 가장 낮은 아군 한 명을 치유합니다.", "en": "Heals the lowest-health ally in range."},
       "role": "active",
       "tags": ["HEAL"],
       "requiredAnyTags": [],

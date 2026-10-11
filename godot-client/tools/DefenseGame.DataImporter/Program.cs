@@ -179,6 +179,22 @@ sealed class Pipeline(string project)
         }
         return result;
     }
+    static JsonObject Localized(JsonNode? node, string path)
+    {
+        var values = Obj(node, path);
+        if (values.Count == 0) Fail(path, "cannot be empty");
+        foreach (var (locale, value) in values)
+        {
+            if (!Regex.IsMatch(locale, "^[a-z]{2,3}(-[a-z0-9]{2,8})*$"))
+                Fail(path + "." + locale, "invalid locale code");
+            if (value is not JsonValue text || !text.TryGetValue<string>(out string? parsed)
+                || string.IsNullOrWhiteSpace(parsed))
+                Fail(path + "." + locale, "expected nonempty string");
+        }
+        foreach (string required in new[] { "ko", "en" })
+            if (!values.ContainsKey(required)) Fail(path + "." + required, "required locale is missing");
+        return values;
+    }
     static JsonArray Document(string file, string key)
     {
         JsonObject o;
@@ -209,7 +225,7 @@ sealed class Pipeline(string project)
             string id = Id(o, p), role = Str(o, "role", p);
             if (!units.TryAdd(id, o)) Fail(p + ".id", "duplicate ID");
             if (!Roles.Contains(role)) Fail(p + ".role", "unknown role");
-            string[] common = ["id", "displayName", "role", "skillTags", "scenePath", "placement", "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit"];
+            string[] common = ["id", "displayName", "description", "role", "skillTags", "scenePath", "placement", "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit"];
             string[] extra = role switch
             {
                 "ranged" => ["rangePixels", "projectileScenePath", "projectileSpeed", "projectileHitDistance", "projectileSpawnOffset"],
@@ -219,7 +235,7 @@ sealed class Pipeline(string project)
             };
             Fields(o, p, [.. common, .. extra]);
             Tags(o["skillTags"], p + ".skillTags");
-            Str(o, "displayName", p); ScenePath(o, "scenePath", p);
+            Str(o, "displayName", p); Localized(o["description"], p + ".description"); ScenePath(o, "scenePath", p);
             string expected = role == "enemy" ? "none" : role == "melee" ? "ground_or_path" : "ground";
             if (Str(o, "placement", p) != expected) Fail(p + ".placement", "invalid placement for role");
             Num(o, "maxHealth", p, positive: true); Num(o, "actionPower", p);
@@ -265,11 +281,12 @@ sealed class Pipeline(string project)
     {
         string role = Str(skill, "role", path);
         if (!SkillRoles.Contains(role)) Fail(path + ".role", "unknown skill role");
-        string[] common = ["id", "displayName", "role", "tags", "requiredAnyTags", "requiredAllTags", "forbiddenTags", "linkCost", "effects"];
+        string[] common = ["id", "displayName", "description", "role", "tags", "requiredAnyTags", "requiredAllTags", "forbiddenTags", "linkCost", "effects"];
         string[] activeFields = ["baseProjectileCount", "basePierceCount", "baseDamageMultiplier"];
         Fields(skill, path, role == "active" ? [.. common, .. activeFields] : common);
         if (!ids.Add(Id(skill, path))) Fail(path + ".id", "duplicate ID");
         Str(skill, "displayName", path);
+        Localized(skill["description"], path + ".description");
         string[] tags = Tags(skill["tags"], path + ".tags");
         string[] requiredAny = Tags(skill["requiredAnyTags"], path + ".requiredAnyTags");
         string[] requiredAll = Tags(skill["requiredAllTags"], path + ".requiredAllTags");
@@ -342,10 +359,11 @@ sealed class Pipeline(string project)
         {
             string path = $"catProfiles[{i}]";
             var profile = Obj(profiles[i], path);
-            Fields(profile, path, "characterId", "displayName", "unitId");
+            Fields(profile, path, "characterId", "displayName", "description", "unitId");
             string characterId = ValidateId(Str(profile, "characterId", path), path + ".characterId");
             if (!profileIds.Add(characterId)) Fail(path + ".characterId", "duplicate character ID");
             Str(profile, "displayName", path);
+            Localized(profile["description"], path + ".description");
             string unitId = ValidateId(Str(profile, "unitId", path), path + ".unitId");
             if (!units.TryGetValue(unitId, out JsonObject? unit) || S(unit, "role") == "enemy")
                 Fail(path + ".unitId", "expected allied unit reference");
@@ -406,9 +424,9 @@ sealed class Pipeline(string project)
     }
     void ValidateStage(JsonObject s, string p, HashSet<string> ids)
     {
-        Fields(s, p, "id", "displayName", "maxSquadUnits", "skillPointCap", "baseHealth", "firstWaveDelay", "waveGap", "grid", "pathCorners", "blockedCells", "roster", "waves");
+        Fields(s, p, "id", "displayName", "description", "maxSquadUnits", "skillPointCap", "baseHealth", "firstWaveDelay", "waveGap", "grid", "pathCorners", "blockedCells", "roster", "waves");
         if (!ids.Add(Id(s, p))) Fail(p + ".id", "duplicate ID");
-        Str(s, "displayName", p); Num(s, "baseHealth", p, integer: true, positive: true);
+        Str(s, "displayName", p); Localized(s["description"], p + ".description"); Num(s, "baseHealth", p, integer: true, positive: true);
         int maxSquadUnits = s.ContainsKey("maxSquadUnits")
             ? (int)Num(s, "maxSquadUnits", p, integer: true, positive: true) : 10;
         if (maxSquadUnits > 10) Fail(p + ".maxSquadUnits", "maximum squad size is 10");
@@ -485,18 +503,28 @@ sealed class Pipeline(string project)
     static string Vec(JsonNode? n, bool integer = false) => $"Vector2{(integer ? "i" : "")}({N(n![0])}, {N(n[1])})";
     static string PointsText(JsonNode? n) => "Array[Vector2i]([" + string.Join(", ", n!.AsArray().Select(v => Vec(v, true))) + "])";
     static string StringsText(JsonNode? n) => "Array[String]([" + string.Join(", ", n!.AsArray().Select(v => Q(v!.GetValue<string>()))) + "])";
+    static string LocalizedValuesText(JsonObject values) => "Dictionary[String, String]({" + string.Join(", ",
+        values.OrderBy(pair => pair.Key, StringComparer.Ordinal).Select(pair => Q(pair.Key) + ": " + Q(pair.Value!.GetValue<string>()))) + "})";
     static string Script(string name, string id) => $"[ext_resource type=\"Script\" path=\"res://scripts/data/{name}.cs\" id=\"{id}\"]\n";
     static string Ext(string id) => $"ExtResource(\"{id}\")";
     static string Sub(string id) => $"SubResource(\"{id}\")";
+    static void RenderLocalizedText(StringBuilder builder, string id, JsonObject values)
+    {
+        builder.AppendLine($"\n[sub_resource type=\"Resource\" id=\"{id}\"]\nscript = {Ext("LocalizedText")}");
+        builder.AppendLine("Values = " + LocalizedValuesText(values));
+    }
     static string RenderUnit(JsonObject u)
     {
         bool ranged = S(u, "role") == "ranged";
-        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={(ranged ? 4 : 3)} format=3]\n\n");
+        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={(ranged ? 6 : 5)} format=3]\n\n");
         b.Append(Script("UnitDefinition", "script"));
+        b.Append(Script("LocalizedText", "LocalizedText"));
         b.AppendLine($"[ext_resource type=\"PackedScene\" path={Q(S(u, "scenePath"))} id=\"scene\"]");
         if (ranged) b.AppendLine($"[ext_resource type=\"PackedScene\" path={Q(S(u, "projectileScenePath"))} id=\"projectile\"]");
+        RenderLocalizedText(b, "description", u["description"]!.AsObject());
         b.AppendLine("\n[resource]\nscript = " + Ext("script"));
         b.AppendLine("Id = " + Q(S(u, "id"))); b.AppendLine("DisplayName = " + Q(S(u, "displayName")));
+        b.AppendLine("Description = " + Sub("description"));
         b.AppendLine("Role = " + Array.IndexOf(Roles, S(u, "role"))); b.AppendLine("Placement = " + Array.IndexOf(Placements, S(u, "placement")));
         b.AppendLine("SkillTags = " + StringsText(u["skillTags"]));
         b.AppendLine("Scene = " + Ext("scene"));
@@ -510,9 +538,11 @@ sealed class Pipeline(string project)
     {
         var roster = s["roster"]!.AsArray(); var waves = s["waves"]!.AsArray();
         var refs = roster.Select(r => S(r!.AsObject(), "unitId")).Concat(waves.Select(w => S(w!.AsObject(), "enemyId"))).Distinct().Order(StringComparer.Ordinal).ToArray();
-        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={8 + refs.Length + roster.Count + waves.Count} format=3]\n\n");
+        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={10 + refs.Length + roster.Count + waves.Count} format=3]\n\n");
         foreach (string name in new[] { "StageDefinition", "StageSkillBudget", "GridDefinition", "RosterEntry", "WaveDefinition" }) b.Append(Script(name, name));
+        b.Append(Script("LocalizedText", "LocalizedText"));
         foreach (string id in refs) b.AppendLine($"[ext_resource type=\"Resource\" path=\"res://data/units/{id}.tres\" id=\"unit_{id}\"]");
+        RenderLocalizedText(b, "description", s["description"]!.AsObject());
         b.AppendLine("\n[sub_resource type=\"Resource\" id=\"skill_budget\"]\nscript = " + Ext("StageSkillBudget"));
         b.AppendLine("StageId = " + Q(S(s, "id")));
         b.AppendLine("HasStageCap = " + (s.ContainsKey("skillPointCap") ? "true" : "false"));
@@ -534,6 +564,7 @@ sealed class Pipeline(string project)
         }
         b.AppendLine("\n[resource]\nscript = " + Ext("StageDefinition"));
         b.AppendLine("Id = " + Q(S(s, "id")) + "\nDisplayName = " + Q(S(s, "displayName")));
+        b.AppendLine("Description = " + Sub("description"));
         b.AppendLine("MaxSquadUnits = " + (s.ContainsKey("maxSquadUnits") ? N(s["maxSquadUnits"]) : "10"));
         foreach (string key in new[] { "baseHealth", "firstWaveDelay", "waveGap" }) b.AppendLine(char.ToUpperInvariant(key[0]) + key[1..] + " = " + N(s[key]));
         b.AppendLine("SkillBudget = " + Sub("skill_budget"));
@@ -560,9 +591,11 @@ sealed class Pipeline(string project)
     static string RenderSkill(JsonObject skill)
     {
         var effects = skill["effects"]!.AsArray();
-        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={3 + effects.Count} format=3]\n\n");
+        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={5 + effects.Count} format=3]\n\n");
         b.Append(Script("SkillDefinition", "SkillDefinition"));
         b.Append(Script("SkillEffectDefinition", "SkillEffectDefinition"));
+        b.Append(Script("LocalizedText", "LocalizedText"));
+        RenderLocalizedText(b, "description", skill["description"]!.AsObject());
         for (int i = 0; i < effects.Count; i++)
         {
             var effect = effects[i]!.AsObject();
@@ -574,6 +607,7 @@ sealed class Pipeline(string project)
         }
         b.AppendLine("\n[resource]\nscript = " + Ext("SkillDefinition"));
         b.AppendLine("Id = " + Q(S(skill, "id")) + "\nDisplayName = " + Q(S(skill, "displayName")));
+        b.AppendLine("Description = " + Sub("description"));
         b.AppendLine("Role = " + Array.IndexOf(SkillRoles, S(skill, "role")));
         foreach (string key in new[] { "tags", "requiredAnyTags", "requiredAllTags", "forbiddenTags" })
             b.AppendLine(char.ToUpperInvariant(key[0]) + key[1..] + " = " + StringsText(skill[key]));
@@ -605,9 +639,10 @@ sealed class Pipeline(string project)
         var presets = root["catSkillPresets"]!.AsArray();
         var unitIds = profiles.Select(profile => S(profile!.AsObject(), "unitId"))
             .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={6 + unitIds.Length + profiles.Count + presets.Count} format=3]\n\n");
+        var b = new StringBuilder($"[gd_resource type=\"Resource\" load_steps={7 + unitIds.Length + profiles.Count * 2 + presets.Count} format=3]\n\n");
         foreach (string name in new[] { "PlayerSkillDefaults", "PlayerSkillProgress", "CatProfile", "CatSkillPreset" })
             b.Append(Script(name, name));
+        b.Append(Script("LocalizedText", "LocalizedText"));
         foreach (string unitId in unitIds)
             b.AppendLine($"[ext_resource type=\"Resource\" path=\"res://data/units/{unitId}.tres\" id=\"unit_{unitId}\"]");
 
@@ -617,11 +652,15 @@ sealed class Pipeline(string project)
         b.AppendLine("OwnedSkillIds = " + StringsText(progress["ownedSkillIds"]));
 
         for (int i = 0; i < profiles.Count; i++)
+            RenderLocalizedText(b, $"profile_description_{i}", profiles[i]!["description"]!.AsObject());
+
+        for (int i = 0; i < profiles.Count; i++)
         {
             var profile = profiles[i]!.AsObject();
             b.AppendLine($"\n[sub_resource type=\"Resource\" id=\"profile_{i}\"]\nscript = {Ext("CatProfile")}");
             b.AppendLine("CharacterId = " + Q(S(profile, "characterId")));
             b.AppendLine("DisplayName = " + Q(S(profile, "displayName")));
+            b.AppendLine("Description = " + Sub($"profile_description_{i}"));
             b.AppendLine("UnitId = " + Q(S(profile, "unitId")));
             b.AppendLine("Unit = " + Ext("unit_" + S(profile, "unitId")));
         }

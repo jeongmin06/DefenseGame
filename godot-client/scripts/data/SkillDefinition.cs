@@ -14,6 +14,7 @@ public partial class SkillDefinition : Resource
 {
     [Export] public string Id { get; set; } = "";
     [Export] public string DisplayName { get; set; } = "";
+    [Export] public LocalizedText Description { get; set; } = null!;
     [Export] public SkillRole Role { get; set; }
     [Export] public Godot.Collections.Array<string> Tags { get; set; } = new();
     [Export] public Godot.Collections.Array<string> RequiredAnyTags { get; set; } = new();

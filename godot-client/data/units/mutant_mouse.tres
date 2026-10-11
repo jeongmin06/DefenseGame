@@ -1,12 +1,18 @@
-[gd_resource type="Resource" load_steps=3 format=3]
+[gd_resource type="Resource" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/UnitDefinition.cs" id="script"]
+[ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
 [ext_resource type="PackedScene" path="res://scenes/enemy.tscn" id="scene"]
+
+[sub_resource type="Resource" id="description"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "A genetically modified mouse that escaped the laboratory and multiplied.", "ko": "연구실에서 탈출해 번식한 유전자 조작 생쥐입니다."})
 
 [resource]
 script = ExtResource("script")
 Id = "mutant_mouse"
 DisplayName = "돌연변이 생쥐"
+Description = SubResource("description")
 Role = 3
 Placement = 2
 SkillTags = Array[String]([])

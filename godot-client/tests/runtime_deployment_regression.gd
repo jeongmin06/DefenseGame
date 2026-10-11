@@ -48,10 +48,15 @@ func run():
     check(wave_started, "First wave starts without any deployed unit")
     check("웨이브 01" in wave_label.text, "HUD changes to active wave status")
 
-    check(stage.SelectPlacementType(0), "Archer remains selectable after the wave starts")
-    check(grid.SelectCell(Vector2i(4, 2)), "Archer can be deployed during combat")
+    check(hud.BeginCharacterDrag("starter_archer_b", Vector2(100, 600)), "Available character card can begin a drag")
+    check(stage.SelectedDeploymentCharacterId == "starter_archer_b" and hud.IsDraggingCharacter, "Drag selects the exact character")
+    check(hud.CompleteCharacterDrag(grid.CellToGlobal(Vector2i(1, 3))), "HUD completes the invalid drag request")
+    check(stage.RemainingArchers == 2 and not hud.IsDeploymentCardDisabled("starter_archer_b"), "Invalid drop preserves character inventory")
+    check(hud.BeginCharacterDrag("starter_archer_b", Vector2(100, 600)), "Character card can be dragged again after rejection")
+    check(hud.CompleteCharacterDrag(grid.CellToGlobal(Vector2i(4, 2))), "HUD completes the valid drag request")
     check(stage.RemainingArchers == 1 and get_nodes_in_group("towers").size() == 1, "Runtime archer deployment consumes one unit")
-    check(hud.IsDeploymentCardDisabled("starter_archer_a"), "Placed character card is disabled")
+    check(stage.PlacedArcherCharacterIds == PackedStringArray(["starter_archer_b"]), "Drag deploys the exact character ID")
+    check(hud.IsDeploymentCardDisabled("starter_archer_b"), "Placed character card is disabled")
 
     check(stage.SelectPlacementType(1), "Warrior remains selectable after the wave starts")
     check(grid.SelectCell(Vector2i(1, 3)), "Warrior can be deployed during combat")

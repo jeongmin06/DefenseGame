@@ -1,12 +1,18 @@
-[gd_resource type="Resource" load_steps=3 format=3]
+[gd_resource type="Resource" load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/data/SkillDefinition.cs" id="SkillDefinition"]
 [ext_resource type="Script" path="res://scripts/data/SkillEffectDefinition.cs" id="SkillEffectDefinition"]
+[ext_resource type="Script" path="res://scripts/data/LocalizedText.cs" id="LocalizedText"]
+
+[sub_resource type="Resource" id="description"]
+script = ExtResource("LocalizedText")
+Values = Dictionary[String, String]({"en": "Heals the lowest-health ally in range.", "ko": "사거리 안에서 체력이 가장 낮은 아군 한 명을 치유합니다."})
 
 [resource]
 script = ExtResource("SkillDefinition")
 Id = "basic_heal"
 DisplayName = "기본 치유"
+Description = SubResource("description")
 Role = 0
 Tags = Array[String](["HEAL"])
 RequiredAnyTags = Array[String]([])

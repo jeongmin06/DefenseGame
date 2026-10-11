@@ -4,6 +4,7 @@
     {
       "id": "cat_archer",
       "displayName": "고양이 궁수",
+      "description": {"ko": "잔디 타일에 배치해 멀리 있는 적을 화살로 공격합니다.", "en": "Deploy on grass tiles to attack distant enemies with arrows."},
       "role": "ranged",
       "skillTags": ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"],
       "scenePath": "res://scenes/tower.tscn",
@@ -25,6 +26,7 @@
     {
       "id": "cat_warrior",
       "displayName": "고양이 전사",
+      "description": {"ko": "잔디와 경로에 배치할 수 있으며 적 한 마리의 이동을 저지합니다.", "en": "Deploy on grass or path tiles and block one enemy from moving."},
       "role": "melee",
       "skillTags": ["ATTACK", "PHYSICAL", "HIT"],
       "scenePath": "res://scenes/warrior.tscn",
@@ -41,6 +43,7 @@
     {
       "id": "cat_healer",
       "displayName": "고양이 치유사",
+      "description": {"ko": "잔디 타일에 배치해 사거리 안에서 체력이 가장 낮은 아군을 치유합니다.", "en": "Deploy on grass tiles to heal the lowest-health ally in range."},
       "role": "support",
       "skillTags": ["HEAL"],
       "scenePath": "res://scenes/healer.tscn",
@@ -55,6 +58,7 @@
     {
       "id": "mutant_mouse",
       "displayName": "돌연변이 생쥐",
+      "description": {"ko": "연구실에서 탈출해 번식한 유전자 조작 생쥐입니다.", "en": "A genetically modified mouse that escaped the laboratory and multiplied."},
       "role": "enemy",
       "skillTags": [],
       "scenePath": "res://scenes/enemy.tscn",

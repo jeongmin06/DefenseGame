@@ -16,6 +16,8 @@ func run():
     var definition = load("res://data/stages/stage_01.tres")
     check(definition.Id == "stage_01" and definition.Roster.size() == 3 and definition.Waves.size() == 3, "Typed stage resources")
     check(definition.FirstWaveDelay == 10.0, "First wave preparation time")
+    check("첫 방어선" in definition.Description.Resolve("ko-KR"), "Regional Korean locale uses Korean stage description")
+    check("first grassland" in definition.Description.Resolve("en-US").to_lower(), "Regional English locale uses English stage description")
     var catalog = load("res://data/stages/catalog.tres")
     check(catalog.Stages.size() == 3, "Stage catalog size")
     check(definition.SkillBudget != null and definition.SkillBudget.HasStageCap and definition.SkillBudget.StageCap == 3, "Stage skill budget")
@@ -23,6 +25,8 @@ func run():
     check(skill_catalog != null and skill_catalog.Skills.size() == 7, "Skill catalog size")
     var basic_arrow = load("res://data/skills/basic_arrow.tres")
     check(basic_arrow.Id == "basic_arrow" and basic_arrow.Role == 0, "Active skill resource")
+    check("활로 적" in basic_arrow.Description.Resolve("ja"), "Unknown locale falls back to Korean description")
+    check("basic active skill" in basic_arrow.Description.Resolve("en").to_lower(), "Skill English description is available")
     check(basic_arrow.Tags == ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"], "Active skill tags")
     check(basic_arrow.BaseProjectileCount == 1 and basic_arrow.BasePierceCount == 0 and basic_arrow.BaseDamageMultiplier == 1.0, "Active skill base values")
     var multiple = load("res://data/skills/multiple_projectiles.tres")
@@ -36,6 +40,7 @@ func run():
     var defaults = load("res://data/player/defaults.tres")
     check(defaults.Progress.PlayerLevel == 5 and defaults.Progress.UnlockedPoints == 5, "Player skill defaults")
     check(defaults.CatProfiles.size() == 4 and defaults.InitialPresets.size() == 4, "Cat profile defaults")
+    check("다중 화살" in defaults.CatProfiles[0].Description.Resolve("ko"), "Character description reaches generated resource")
     var expected_totals = [21, 30, 42]
     for stage_index in range(catalog.Stages.size()):
         var total := 0

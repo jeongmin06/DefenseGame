@@ -52,6 +52,7 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
     assert 'CharacterId = "starter_warrior_a"' in defaults
     assert 'CharacterId = "starter_healer_a"' in defaults
     assert 'UnlockedPoints = 5' in defaults and 'OwnedSkillIds = Array[String]([' in defaults
+    assert 'Dictionary[String, String]({"en":' in defaults and '"ko":' in defaults
     for index, cap in enumerate((3, 4, 5), start=1):
         stage = (output / f'stages/stage_0{index}.tres').read_text()
         assert f'StageCap = {cap}' in stage and 'HasStageCap = true' in stage and 'MaxSquadUnits = 10' in stage
@@ -67,6 +68,7 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         ('underflow', 'units', lambda d: d['units'][0].update(maxHealth=1e-100), '.maxHealth'),
         ('negative power', 'units', lambda d: d['units'][0].update(actionPower=-1), '.actionPower'),
         ('role field', 'units', lambda d: d['units'][2].update(projectileSpeed=10), '.projectileSpeed'),
+        ('unit description locale', 'units', lambda d: d['units'][0]['description'].pop('en'), '.description.en'),
         ('missing field', 'units', lambda d: d['units'][0].pop('projectileSpeed'), '.projectileSpeed'),
         ('frame', 'units', lambda d: d['units'][0].update(actionFrame=8), '.actionFrame'),
         ('target support', 'units', lambda d: d['units'][2].update(targetLimit=0), '.targetLimit'),
@@ -83,6 +85,7 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         ('enemy reference', 'stages', lambda d: d['stages'][0]['waves'][0].update(enemyId='cat_healer'), '.enemyId'),
         ('override', 'stages', lambda d: d['stages'][0]['waves'][0].update(speedOverride=-1), '.speedOverride'),
         ('unknown field', 'stages', lambda d: d['stages'][0].update(typo=1), '.typo'),
+        ('stage description locale', 'stages', lambda d: d['stages'][0]['description'].update(KO='invalid'), '.description.KO'),
         ('duplicate stage', 'stages', lambda d: d['stages'].append(copy.deepcopy(d['stages'][0])), '.id'),
         ('negative stage cap', 'stages', lambda d: d['stages'][0].update(skillPointCap=-1), '.skillPointCap'),
         ('zero squad max', 'stages', lambda d: d['stages'][0].update(maxSquadUnits=0), '.maxSquadUnits'),
@@ -90,6 +93,7 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         ('skill schema', 'skills', lambda d: d.update(schemaVersion=2), 'schemaVersion'),
         ('skill duplicate', 'skills', lambda d: d['skills'].append(copy.deepcopy(d['skills'][0])), '.id'),
         ('skill role', 'skills', lambda d: d['skills'][0].update(role='spell'), '.role'),
+        ('skill empty description', 'skills', lambda d: d['skills'][0]['description'].update(ko=''), '.description.ko'),
         ('skill unknown tag', 'skills', lambda d: d['skills'][0]['tags'].__setitem__(0, 'UNKNOWN'), '.tags[0]'),
         ('skill duplicate tag', 'skills', lambda d: d['skills'][0]['tags'].append('ATTACK'), '.tags[5]'),
         ('skill missing tags', 'skills', lambda d: d['skills'][0].pop('tags'), '.tags'),
@@ -110,6 +114,7 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         ('owned duplicate', 'player', lambda d: d['playerSkillProgress']['ownedSkillIds'].append('basic_arrow'), 'duplicate ID'),
         ('owned missing', 'player', lambda d: d['playerSkillProgress']['ownedSkillIds'].__setitem__(0, 'missing_skill'), 'unknown skill reference'),
         ('profile duplicate', 'player', lambda d: d['catProfiles'].append(copy.deepcopy(d['catProfiles'][0])), 'duplicate character ID'),
+        ('profile missing description', 'player', lambda d: d['catProfiles'][0].pop('description'), '.description'),
         ('profile unit', 'player', lambda d: d['catProfiles'][0].update(unitId='missing_unit'), 'allied unit reference'),
         ('preset duplicate', 'player', lambda d: d['catSkillPresets'].append(copy.deepcopy(d['catSkillPresets'][0])), 'duplicate preset'),
         ('preset character', 'player', lambda d: d['catSkillPresets'][0].update(characterId='missing_cat'), 'unknown character reference'),

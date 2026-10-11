@@ -77,6 +77,8 @@ public partial class StageOne : Node2D
         _grid.Configure(Definition);
         _grid.CellSelected += OnCellSelected;
         _hud.CharacterSelected += characterId => SelectDeploymentCharacter(characterId);
+        _hud.CharacterDropped += (characterId, globalPosition) =>
+            TryDeployCharacterAtGlobalPosition(characterId, globalPosition);
         _hud.RetryRequested += RestartStage;
         _hud.StageListRequested += ReturnToStageList;
         _hud.UpdateStage(Definition.DisplayName, Definition.Id);
@@ -145,6 +147,12 @@ public partial class StageOne : Node2D
         _grid.SetPlacementType(_selectedType);
         UpdatePlacementHud();
         return true;
+    }
+
+    public bool TryDeployCharacterAtGlobalPosition(string characterId, Vector2 globalPosition)
+    {
+        if (!SelectDeploymentCharacter(characterId)) return false;
+        return _grid.SelectCell(_grid.GlobalToCell(globalPosition));
     }
 
     private int RemainingFor(DeploymentGrid.PlacementType type) => _availableDeployments.Values.Count(deployment =>
