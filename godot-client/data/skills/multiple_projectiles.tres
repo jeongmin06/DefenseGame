@@ -16,7 +16,7 @@ FloatValue = 0.7
 [resource]
 script = ExtResource("SkillDefinition")
 Id = "multiple_projectiles"
-DisplayName = "Multiple Projectiles"
+DisplayName = "다중 투사체"
 Role = 1
 Tags = Array[String]([])
 RequiredAnyTags = Array[String](["PROJECTILE"])

@@ -17,28 +17,28 @@ OwnedSkillIds = Array[String](["basic_arrow", "basic_slash", "basic_heal", "mult
 [sub_resource type="Resource" id="profile_0"]
 script = ExtResource("CatProfile")
 CharacterId = "starter_archer_a"
-DisplayName = "Starter Archer A"
+DisplayName = "초급 궁수 A"
 UnitId = "cat_archer"
 Unit = ExtResource("unit_cat_archer")
 
 [sub_resource type="Resource" id="profile_1"]
 script = ExtResource("CatProfile")
 CharacterId = "starter_archer_b"
-DisplayName = "Starter Archer B"
+DisplayName = "초급 궁수 B"
 UnitId = "cat_archer"
 Unit = ExtResource("unit_cat_archer")
 
 [sub_resource type="Resource" id="profile_2"]
 script = ExtResource("CatProfile")
 CharacterId = "starter_warrior_a"
-DisplayName = "Starter Warrior A"
+DisplayName = "초급 전사 A"
 UnitId = "cat_warrior"
 Unit = ExtResource("unit_cat_warrior")
 
 [sub_resource type="Resource" id="profile_3"]
 script = ExtResource("CatProfile")
 CharacterId = "starter_healer_a"
-DisplayName = "Starter Healer A"
+DisplayName = "초급 치유사 A"
 UnitId = "cat_healer"
 Unit = ExtResource("unit_cat_healer")
 

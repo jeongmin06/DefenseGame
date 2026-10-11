@@ -61,7 +61,7 @@ public partial class StageSelect : Node2D
             var button = new Button
             {
                 Name = $"StageButton{i + 1}",
-                Text = $"{i + 1:00}   {stage.DisplayName.ToUpperInvariant()}\n       {stage.Waves.Count} WAVES   //   {GetEnemyCount(i)} ENEMIES",
+                Text = $"{i + 1:00}   {stage.DisplayName}\n       {stage.Waves.Count} 웨이브   //   적 {GetEnemyCount(i)}마리",
                 CustomMinimumSize = new Vector2(560, 84),
                 Alignment = HorizontalAlignment.Left
             };

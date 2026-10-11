@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("SkillDefinition")
 Id = "basic_heal"
-DisplayName = "Basic Heal"
+DisplayName = "기본 치유"
 Role = 0
 Tags = Array[String](["HEAL"])
 RequiredAnyTags = Array[String]([])

@@ -28,7 +28,7 @@ offset_right = 650.0
 offset_bottom = 62.0
 theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
 theme_override_font_sizes/font_size = 17
-text = "FIELD OPERATIONS  //  SQUAD FORMATION"
+text = "작전 준비  //  출전 편성"
 
 [node name="Title" type="Label" parent="UI"]
 offset_left = 94.0
@@ -37,7 +37,7 @@ offset_right = 650.0
 offset_bottom = 112.0
 theme_override_colors/font_color = Color(1, 0.949, 0.78, 1)
 theme_override_font_sizes/font_size = 38
-text = "FORM YOUR SQUAD"
+text = "출전 부대 편성"
 
 [node name="StageLabel" type="Label" parent="UI"]
 offset_left = 750.0
@@ -70,7 +70,7 @@ offset_right = 480.0
 offset_bottom = 92.0
 theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
 theme_override_font_sizes/font_size = 16
-text = "OWNED CATS  //  SELECT"
+text = "보유 고양이  //  선택"
 
 [node name="OwnedList" type="VBoxContainer" parent="UI/MainPanel"]
 offset_left = 28.0
@@ -86,7 +86,7 @@ offset_right = 1050.0
 offset_bottom = 92.0
 theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
 theme_override_font_sizes/font_size = 16
-text = "DEPLOYMENT ORDER  //  REORDER"
+text = "배치 카드 순서  //  순서 변경"
 
 [node name="SelectedList" type="VBoxContainer" parent="UI/MainPanel"]
 offset_left = 570.0
@@ -115,9 +115,9 @@ alignment = 2
 [node name="BackButton" type="Button" parent="UI/MainPanel/Actions"]
 custom_minimum_size = Vector2(200, 50)
 theme_override_font_sizes/font_size = 18
-text = "BACK TO STAGES"
+text = "스테이지로"
 
 [node name="ContinueButton" type="Button" parent="UI/MainPanel/Actions"]
 custom_minimum_size = Vector2(260, 50)
 theme_override_font_sizes/font_size = 18
-text = "PREPARE SKILLS"
+text = "스킬 준비"

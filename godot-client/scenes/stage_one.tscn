@@ -73,38 +73,17 @@ offset_right = 260.0
 offset_bottom = 38.0
 theme_override_colors/font_color = Color(1, 0.82, 0.42, 1)
 theme_override_font_sizes/font_size = 20
-text = "IRON PATH  //  STAGE 01"
-
-[node name="ArcherButton" type="Button" parent="HUD/TopPanel"]
-offset_left = 310.0
-offset_top = 8.0
-offset_right = 445.0
-offset_bottom = 39.0
-text = "ARCHER 2"
-
-[node name="WarriorButton" type="Button" parent="HUD/TopPanel"]
-offset_left = 455.0
-offset_top = 8.0
-offset_right = 595.0
-offset_bottom = 39.0
-text = "WARRIOR 1"
-
-[node name="HealerButton" type="Button" parent="HUD/TopPanel"]
-offset_left = 605.0
-offset_top = 8.0
-offset_right = 735.0
-offset_bottom = 39.0
-text = "HEALER 1"
+text = "초원 방어선 1  //  stage_01"
 
 [node name="PlacementLabel" type="Label" parent="HUD/TopPanel"]
-offset_left = 750.0
+offset_left = 310.0
 offset_top = 10.0
 offset_right = 1060.0
 offset_bottom = 38.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(1, 0.88, 0.56, 1)
 theme_override_font_sizes/font_size = 16
-text = "ARCHER // SELECT A GROUND TILE"
+text = "배치할 고양이를 선택하세요"
 
 [node name="WaveLabel" type="Label" parent="HUD/TopPanel"]
 offset_left = 18.0
@@ -112,7 +91,7 @@ offset_top = 45.0
 offset_right = 180.0
 offset_bottom = 70.0
 theme_override_font_sizes/font_size = 17
-text = "WAVE 00 / 03"
+text = "웨이브 00 / 03"
 
 [node name="EnemyLabel" type="Label" parent="HUD/TopPanel"]
 offset_left = 248.0
@@ -120,7 +99,7 @@ offset_top = 45.0
 offset_right = 420.0
 offset_bottom = 70.0
 theme_override_font_sizes/font_size = 17
-text = "ENEMIES  00"
+text = "전장 적  00"
 
 [node name="ScoreLabel" type="Label" parent="HUD/TopPanel"]
 offset_left = 488.0
@@ -128,7 +107,7 @@ offset_top = 45.0
 offset_right = 800.0
 offset_bottom = 70.0
 theme_override_font_sizes/font_size = 17
-text = "DEFEATED  00   ESCAPED  00"
+text = "처치  00   탈출  00"
 
 [node name="BaseLabel" type="Label" parent="HUD/TopPanel"]
 offset_left = 1070.0
@@ -137,8 +116,36 @@ offset_right = 1205.0
 offset_bottom = 58.0
 theme_override_colors/font_color = Color(0.98, 0.47, 0.35, 1)
 theme_override_font_sizes/font_size = 22
-text = "GATE  05"
+text = "기지  05"
 horizontal_alignment = 2
+
+[node name="DeploymentPanel" type="Panel" parent="HUD"]
+offset_left = 24.0
+offset_top = 594.0
+offset_right = 1256.0
+offset_bottom = 706.0
+theme_override_styles/panel = SubResource("TopPanelStyle")
+
+[node name="Caption" type="Label" parent="HUD/DeploymentPanel"]
+offset_left = 14.0
+offset_top = 7.0
+offset_right = 340.0
+offset_bottom = 28.0
+theme_override_colors/font_color = Color(1, 0.82, 0.42, 1)
+theme_override_font_sizes/font_size = 14
+text = "출전 고양이  //  카드 선택 후 타일 지정"
+
+[node name="CardScroll" type="ScrollContainer" parent="HUD/DeploymentPanel"]
+offset_left = 12.0
+offset_top = 32.0
+offset_right = 1220.0
+offset_bottom = 103.0
+vertical_scroll_mode = 0
+
+[node name="CardList" type="HBoxContainer" parent="HUD/DeploymentPanel/CardScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 10
 
 [node name="ResultPanel" type="Panel" parent="HUD"]
 visible = false
@@ -154,7 +161,7 @@ offset_top = 28.0
 offset_right = 408.0
 offset_bottom = 76.0
 theme_override_font_sizes/font_size = 34
-text = "STAGE CLEAR"
+text = "작전 성공"
 horizontal_alignment = 1
 
 [node name="ResultDetail" type="Label" parent="HUD/ResultPanel"]
@@ -164,7 +171,7 @@ offset_right = 408.0
 offset_bottom = 128.0
 theme_override_colors/font_color = Color(0.82, 0.82, 0.74, 1)
 theme_override_font_sizes/font_size = 18
-text = "Defeated 0  /  Escaped 0"
+text = "처치 0  /  탈출 0"
 horizontal_alignment = 1
 
 [node name="RestartButton" type="Button" parent="HUD/ResultPanel"]
@@ -174,7 +181,7 @@ offset_right = 211.0
 offset_bottom = 208.0
 theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("ButtonStyle")
-text = "RETRY STAGE"
+text = "다시 도전"
 
 [node name="StageListButton" type="Button" parent="HUD/ResultPanel"]
 offset_left = 229.0
@@ -183,4 +190,4 @@ offset_right = 414.0
 offset_bottom = 208.0
 theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("ButtonStyle")
-text = "STAGE LIST"
+text = "스테이지 목록"

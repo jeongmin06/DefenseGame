@@ -45,7 +45,7 @@ func run():
     check(current_scene.Definition.Id == "stage_02", "Selected definition reaches battle")
     check(current_scene.Loadout != null and current_scene.Loadout.TotalLinkCost == 2, "Validated first-cat loadout reaches battle")
     check(current_scene.RemainingArchers == 2, "Selected archer count reaches battle")
-    check("STAGE 02" in current_scene.get_node("HUD/TopPanel/Title").text, "HUD shows selected stage")
+    check("초원 방어선 2" in current_scene.get_node("HUD/TopPanel/Title").text, "HUD shows localized selected stage")
 
     current_scene.RestartStage()
     await ticks(5)

@@ -13,26 +13,22 @@ public partial class StageOne : Node2D
     [Export] public PlayerSkillDefaults Defaults { get; set; } = null!;
     public SkillLoadout? Loadout { get; private set; }
     public RangedAttackSettings ArcherAttackSettings { get; private set; } = new();
-    public int RemainingArchers => _remainingArchers;
+    public int RemainingArchers => RemainingFor(DeploymentGrid.PlacementType.Ranged);
+    public string SelectedDeploymentCharacterId => _selectedCharacterId;
     public float SecondsUntilFirstWave => _firstWaveCountdown;
-    public string NextArcherCharacterId => _archerPlacementIndex < _archerQueue.Count
-        ? _archerQueue[_archerPlacementIndex].CharacterId : "";
+    public string NextArcherCharacterId => _deploymentOrder.FirstOrDefault(deployment =>
+        deployment.Profile.Unit?.Role == UnitRole.Ranged && _availableDeployments.ContainsKey(deployment.Profile.CharacterId))
+        ?.Profile.CharacterId ?? "";
     public string[] PlacedArcherCharacterIds => _placedArcherCharacterIds.ToArray();
     private DeploymentGrid _grid = null!;
     private Vector2I[] _pathCorners = [];
     private WaveSpec[] _waves = [];
-    private readonly List<ArcherDeployment> _archerQueue = new();
-    private readonly List<UnitDeployment> _warriorQueue = new();
-    private readonly List<UnitDeployment> _healerQueue = new();
+    private readonly List<UnitDeployment> _deploymentOrder = new();
+    private readonly Dictionary<string, UnitDeployment> _availableDeployments = new(StringComparer.Ordinal);
     private readonly List<string> _placedArcherCharacterIds = new();
     private readonly List<string> _placedWarriorCharacterIds = new();
     private readonly List<string> _placedHealerCharacterIds = new();
-    private int _archerPlacementIndex;
-    private int _warriorPlacementIndex;
-    private int _healerPlacementIndex;
-    private int _remainingArchers;
-    private int _remainingWarriors;
-    private int _remainingHealers;
+    private string _selectedCharacterId = "";
     private float _firstWaveDelay;
     private float _firstWaveCountdown;
     private float _waveGap;
@@ -61,8 +57,9 @@ public partial class StageOne : Node2D
         if (StageSelectionState.SelectedStage is not null)
             Definition = StageSelectionState.SelectedStage;
         BuildDeploymentQueues();
-        Loadout = _archerQueue.FirstOrDefault()?.Loadout ?? StageSelectionState.SelectedLoadout;
-        ArcherAttackSettings = _archerQueue.FirstOrDefault()?.Settings
+        UnitDeployment? firstArcher = _deploymentOrder.FirstOrDefault(deployment => deployment.Profile.Unit?.Role == UnitRole.Ranged);
+        Loadout = firstArcher?.Loadout ?? StageSelectionState.SelectedLoadout;
+        ArcherAttackSettings = firstArcher?.RangedSettings
             ?? new RangedSkillEffectComposer().Compose(Loadout);
 
         _enemyPath = GetNode<Path2D>("EnemyPath");
@@ -79,12 +76,12 @@ public partial class StageOne : Node2D
         AddChild(_grid);
         _grid.Configure(Definition);
         _grid.CellSelected += OnCellSelected;
-        _hud.ArcherSelected += () => SelectPlacementType(DeploymentGrid.PlacementType.Ranged);
-        _hud.WarriorSelected += () => SelectPlacementType(DeploymentGrid.PlacementType.Melee);
-        _hud.HealerSelected += () => SelectPlacementType(DeploymentGrid.PlacementType.Support);
+        _hud.CharacterSelected += characterId => SelectDeploymentCharacter(characterId);
         _hud.RetryRequested += RestartStage;
         _hud.StageListRequested += ReturnToStageList;
         _hud.UpdateStage(Definition.DisplayName, Definition.Id);
+        _hud.ConfigureDeploymentCards(_deploymentOrder.Select(deployment => deployment.Profile));
+        SelectNextAvailableCharacter();
         BuildEnemyPath();
         _spawnTimer.Timeout += SpawnEnemy;
         _combatTimelineStarted = true;
@@ -132,78 +129,92 @@ public partial class StageOne : Node2D
     public bool SelectPlacementType(DeploymentGrid.PlacementType type)
     {
         if (_battleEnded) return false;
-        if (RemainingFor(type) <= 0) return false;
-        _selectedType = type;
-        _grid.SetPlacementType(type);
+        UnitDeployment? deployment = _deploymentOrder.FirstOrDefault(candidate =>
+            candidate.Profile.Unit is not null && ToPlacementType(candidate.Profile.Unit.Role) == type
+            && _availableDeployments.ContainsKey(candidate.Profile.CharacterId));
+        if (deployment is null) return false;
+        return SelectDeploymentCharacter(deployment.Profile.CharacterId);
+    }
+
+    public bool SelectDeploymentCharacter(string characterId)
+    {
+        if (_battleEnded || !_availableDeployments.TryGetValue(characterId, out UnitDeployment? deployment)
+            || deployment.Profile.Unit is null) return false;
+        _selectedCharacterId = characterId;
+        _selectedType = ToPlacementType(deployment.Profile.Unit.Role);
+        _grid.SetPlacementType(_selectedType);
         UpdatePlacementHud();
         return true;
     }
 
-    private int RemainingFor(DeploymentGrid.PlacementType type) => type switch
-    {
-        DeploymentGrid.PlacementType.Ranged => _remainingArchers,
-        DeploymentGrid.PlacementType.Melee => _remainingWarriors,
-        DeploymentGrid.PlacementType.Support => _remainingHealers,
-        _ => 0
-    };
+    private int RemainingFor(DeploymentGrid.PlacementType type) => _availableDeployments.Values.Count(deployment =>
+        deployment.Profile.Unit is not null && ToPlacementType(deployment.Profile.Unit.Role) == type);
 
-    private void UpdatePlacementHud() => _hud.UpdatePlacement(_remainingArchers, _remainingWarriors,
-        _remainingHealers, _selectedType, NextArcherCharacterId);
+    private void UpdatePlacementHud()
+    {
+        CatProfile? selected = _availableDeployments.TryGetValue(_selectedCharacterId, out UnitDeployment? deployment)
+            ? deployment.Profile : null;
+        _hud.UpdateDeploymentCards(_availableDeployments.Keys, _selectedCharacterId);
+        _hud.UpdatePlacement(selected, _availableDeployments.Count);
+    }
 
     private void OnCellSelected(Vector2I cell)
     {
-        int remaining = RemainingFor(_selectedType);
-        if (_battleEnded || remaining <= 0 || !_grid.TryOccupy(cell, _selectedType)) return;
-        if (_selectedType == DeploymentGrid.PlacementType.Ranged)
+        if (_battleEnded || !_availableDeployments.TryGetValue(_selectedCharacterId, out UnitDeployment? deployment)
+            || deployment.Profile.Unit is null || !_grid.TryOccupy(cell, _selectedType)) return;
+        string characterId = deployment.Profile.CharacterId;
+        UnitDefinition unit = deployment.Profile.Unit;
+        if (unit.Role == UnitRole.Ranged)
         {
-            ArcherDeployment? deployment = _archerPlacementIndex < _archerQueue.Count
-                ? _archerQueue[_archerPlacementIndex++] : null;
-            if (deployment is null) { _grid.ReleaseCell(cell); return; }
-            _remainingArchers--;
-            UnitDefinition unit = deployment.Unit;
             Tower tower = unit.Scene.Instantiate<Tower>();
             AddChild(tower);
-            tower.SetupRanged(unit, deployment.Settings, deployment.CharacterId);
+            tower.SetupRanged(unit, deployment.RangedSettings ?? new RangedAttackSettings(), characterId);
             tower.SetBattleActive(_combatTimelineStarted);
             _placedArcherCharacterIds.Add(tower.CharacterId);
             tower.GlobalPosition = _grid.CellToGlobal(cell);
             tower.Defeated += _ => _grid.ReleaseCell(cell);
         }
-        else if (_selectedType == DeploymentGrid.PlacementType.Melee)
+        else if (unit.Role == UnitRole.Melee)
         {
-            UnitDeployment? deployment = _warriorPlacementIndex < _warriorQueue.Count
-                ? _warriorQueue[_warriorPlacementIndex++] : null;
-            if (deployment is null) { _grid.ReleaseCell(cell); return; }
-            _remainingWarriors--;
-            Warrior warrior = deployment.Unit.Scene.Instantiate<Warrior>();
+            Warrior warrior = unit.Scene.Instantiate<Warrior>();
             AddChild(warrior);
             warrior.GlobalPosition = _grid.CellToGlobal(cell);
-            warrior.Setup(deployment.Unit, _grid, cell, deployment.CharacterId, deployment.Loadout);
+            warrior.Setup(unit, _grid, cell, characterId, deployment.Loadout);
             warrior.SetBattleActive(_combatTimelineStarted);
             _placedWarriorCharacterIds.Add(warrior.CharacterId);
             warrior.Defeated += _ => _grid.ReleaseCell(cell);
         }
         else
         {
-            UnitDeployment? deployment = _healerPlacementIndex < _healerQueue.Count
-                ? _healerQueue[_healerPlacementIndex++] : null;
-            if (deployment is null) { _grid.ReleaseCell(cell); return; }
-            _remainingHealers--;
-            Healer healer = deployment.Unit.Scene.Instantiate<Healer>();
+            Healer healer = unit.Scene.Instantiate<Healer>();
             AddChild(healer);
-            healer.Setup(deployment.Unit, deployment.CharacterId, deployment.Loadout);
+            healer.Setup(unit, characterId, deployment.Loadout);
             healer.SetBattleActive(_combatTimelineStarted);
             _placedHealerCharacterIds.Add(healer.CharacterId);
             healer.GlobalPosition = _grid.CellToGlobal(cell);
             healer.Defeated += _ => _grid.ReleaseCell(cell);
         }
-        if (remaining == 1)
-        {
-            SelectPlacementType(_remainingArchers > 0 ? DeploymentGrid.PlacementType.Ranged
-                : _remainingWarriors > 0 ? DeploymentGrid.PlacementType.Melee : DeploymentGrid.PlacementType.Support);
-        }
+        _availableDeployments.Remove(characterId);
+        SelectNextAvailableCharacter();
         UpdatePlacementHud();
     }
+
+    private void SelectNextAvailableCharacter()
+    {
+        UnitDeployment? next = _deploymentOrder.FirstOrDefault(deployment =>
+            _availableDeployments.ContainsKey(deployment.Profile.CharacterId));
+        _selectedCharacterId = next?.Profile.CharacterId ?? "";
+        if (next?.Profile.Unit is null) return;
+        _selectedType = ToPlacementType(next.Profile.Unit.Role);
+        _grid.SetPlacementType(_selectedType);
+    }
+
+    private static DeploymentGrid.PlacementType ToPlacementType(UnitRole role) => role switch
+    {
+        UnitRole.Melee => DeploymentGrid.PlacementType.Melee,
+        UnitRole.Support => DeploymentGrid.PlacementType.Support,
+        _ => DeploymentGrid.PlacementType.Ranged
+    };
 
     private void StartNextWave()
     {
@@ -392,23 +403,19 @@ public partial class StageOne : Node2D
             switch (profile.Unit.Role)
             {
                 case UnitRole.Ranged:
-                    _archerQueue.Add(new ArcherDeployment(characterId, profile.Unit, loadout, composer.Compose(loadout)));
+                    _deploymentOrder.Add(new UnitDeployment(profile, loadout, composer.Compose(loadout)));
                     break;
                 case UnitRole.Melee:
-                    _warriorQueue.Add(new UnitDeployment(characterId, profile.Unit, loadout));
-                    break;
                 case UnitRole.Support:
-                    _healerQueue.Add(new UnitDeployment(characterId, profile.Unit, loadout));
+                    _deploymentOrder.Add(new UnitDeployment(profile, loadout, null));
                     break;
             }
         }
-        _remainingArchers = _archerQueue.Count;
-        _remainingWarriors = _warriorQueue.Count;
-        _remainingHealers = _healerQueue.Count;
+        foreach (UnitDeployment deployment in _deploymentOrder)
+            _availableDeployments.Add(deployment.Profile.CharacterId, deployment);
     }
 
     private readonly record struct WaveSpec(UnitDefinition Enemy, int Count, float Health, float Speed, double Interval);
-    private sealed record ArcherDeployment(string CharacterId, UnitDefinition Unit, SkillLoadout? Loadout,
-        RangedAttackSettings Settings);
-    private sealed record UnitDeployment(string CharacterId, UnitDefinition Unit, SkillLoadout? Loadout);
+    private sealed record UnitDeployment(CatProfile Profile, SkillLoadout? Loadout,
+        RangedAttackSettings? RangedSettings);
 }

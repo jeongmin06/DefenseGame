@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("script")
 Id = "cat_healer"
-DisplayName = "cat_healer"
+DisplayName = "고양이 치유사"
 Role = 2
 Placement = 0
 SkillTags = Array[String](["HEAL"])

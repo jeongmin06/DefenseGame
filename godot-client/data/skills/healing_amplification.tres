@@ -11,7 +11,7 @@ FloatValue = 1.5
 [resource]
 script = ExtResource("SkillDefinition")
 Id = "healing_amplification"
-DisplayName = "Healing Amplification"
+DisplayName = "치유 증폭"
 Role = 1
 Tags = Array[String]([])
 RequiredAnyTags = Array[String](["HEAL"])

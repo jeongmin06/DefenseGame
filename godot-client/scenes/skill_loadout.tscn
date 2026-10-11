@@ -54,7 +54,7 @@ offset_right = 650.0
 offset_bottom = 50.0
 theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
 theme_override_font_sizes/font_size = 17
-text = "ARSENAL  //  SQUAD SKILL PREPARATION"
+text = "무장 관리  //  부대 스킬 준비"
 
 [node name="Title" type="Label" parent="UI"]
 offset_left = 164.0
@@ -63,7 +63,7 @@ offset_right = 760.0
 offset_bottom = 96.0
 theme_override_colors/font_color = Color(1, 0.949, 0.78, 1)
 theme_override_font_sizes/font_size = 38
-text = "PREPARE CAT SKILLS"
+text = "고양이 스킬 설정"
 
 [node name="StageLabel" type="Label" parent="UI"]
 offset_left = 760.0
@@ -72,7 +72,7 @@ offset_right = 1110.0
 offset_bottom = 92.0
 theme_override_colors/font_color = Color(0.78, 0.85, 0.71, 1)
 theme_override_font_sizes/font_size = 17
-text = "IRON PATH  //  STAGE 01"
+text = "초원 방어선 1  //  stage_01"
 horizontal_alignment = 2
 
 [node name="MainPanel" type="Panel" parent="UI"]
@@ -89,7 +89,7 @@ offset_right = 230.0
 offset_bottom = 44.0
 theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
 theme_override_font_sizes/font_size = 16
-text = "SQUAD CATS  //  CHARACTER ID"
+text = "출전 고양이  //  캐릭터 ID"
 
 [node name="CharacterList" type="HBoxContainer" parent="UI/MainPanel"]
 offset_left = 28.0
@@ -105,7 +105,7 @@ offset_right = 230.0
 offset_bottom = 122.0
 theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
 theme_override_font_sizes/font_size = 16
-text = "ACTIVE SKILL  //  FREE"
+text = "액티브 스킬  //  포인트 없음"
 
 [node name="ActiveCard" type="Panel" parent="UI/MainPanel"]
 offset_left = 28.0
@@ -121,7 +121,7 @@ offset_right = 720.0
 offset_bottom = 64.0
 theme_override_colors/font_color = Color(1, 0.929, 0.714, 1)
 theme_override_font_sizes/font_size = 18
-text = "ACTIVE  //  BASIC ARROW\nATTACK · BOW · PROJECTILE · PHYSICAL · HIT"
+text = "액티브  //  기본 화살\n공격 · 활 · 투사체 · 물리 · 적중"
 vertical_alignment = 1
 
 [node name="ActiveList" type="HBoxContainer" parent="UI/MainPanel/ActiveCard"]
@@ -138,7 +138,7 @@ offset_right = 948.0
 offset_bottom = 234.0
 theme_override_colors/font_color = Color(1, 0.82, 0.42, 1)
 theme_override_font_sizes/font_size = 20
-text = "POINTS   USABLE 3   USED 0   REMAINING 3   //   STAGE CAP 3"
+text = "포인트   사용 가능 3   사용 0   남음 3   //   스테이지 상한 3"
 
 [node name="SupportScroll" type="ScrollContainer" parent="UI/MainPanel"]
 offset_left = 28.0
@@ -159,7 +159,7 @@ offset_right = 948.0
 offset_bottom = 492.0
 theme_override_colors/font_color = Color(0.788, 0.906, 0.682, 1)
 theme_override_font_sizes/font_size = 16
-text = "Choose a cat and edit its active and support skills."
+text = "고양이를 선택하고 액티브 및 보조 스킬을 설정하세요."
 autowrap_mode = 2
 
 [node name="Actions" type="HBoxContainer" parent="UI/MainPanel"]
@@ -174,16 +174,16 @@ alignment = 2
 custom_minimum_size = Vector2(180, 48)
 theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("ActionStyle")
-text = "BACK TO FORMATION"
+text = "편성으로"
 
 [node name="SaveButton" type="Button" parent="UI/MainPanel/Actions"]
 custom_minimum_size = Vector2(220, 48)
 theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("ActionStyle")
-text = "SAVE PRESETS"
+text = "프리셋 저장"
 
 [node name="StartButton" type="Button" parent="UI/MainPanel/Actions"]
 custom_minimum_size = Vector2(250, 48)
 theme_override_font_sizes/font_size = 18
 theme_override_styles/normal = SubResource("ActionStyle")
-text = "ENTER BATTLE"
+text = "전투 시작"

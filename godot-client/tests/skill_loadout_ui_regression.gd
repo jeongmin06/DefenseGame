@@ -40,7 +40,9 @@ func run():
     check(screen.GetSupportIds("starter_archer_a") == PackedStringArray(["multiple_projectiles", "piercing_shot"]), "First cat restores its own preset")
     check(screen.GetSupportIds("starter_archer_b") == PackedStringArray(["fire_infusion"]), "Second cat restores a separate preset")
     check(screen.UsablePoints == 4 and screen.UsedPoints == 3 and screen.RemainingPoints == 1, "Stage 02 displays squad point budget")
-    check("STAGE CAP 4" in screen.get_node("UI/MainPanel/BudgetLabel").text, "Stage cap is visible")
+    check("스테이지 상한 4" in screen.get_node("UI/MainPanel/BudgetLabel").text, "Stage cap is visible in Korean")
+    check("초급 궁수 A" in screen.get_node("UI/MainPanel/CharacterList/Character_starter_archer_a").text, "Localized character name is visible")
+    check("다중 투사체" in screen.get_node("UI/MainPanel/SupportScroll/CandidateList/Support_multiple_projectiles").text, "Localized skill name is visible")
     check(screen.get_viewport().gui_get_focus_owner() != null, "Keyboard focus starts on a character")
 
     check(screen.SelectCharacter("starter_archer_b"), "Second cat can be selected by characterId")

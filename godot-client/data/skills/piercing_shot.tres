@@ -11,7 +11,7 @@ IntValue = 1
 [resource]
 script = ExtResource("SkillDefinition")
 Id = "piercing_shot"
-DisplayName = "Piercing Shot"
+DisplayName = "관통 사격"
 Role = 1
 Tags = Array[String]([])
 RequiredAnyTags = Array[String](["PROJECTILE"])

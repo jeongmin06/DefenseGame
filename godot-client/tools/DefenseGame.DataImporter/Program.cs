@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Diagnostics.CodeAnalysis;
 using System.Text;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -70,6 +71,10 @@ catch (Exception ex) when (ex is InvalidDataException or JsonException or IOExce
 
 sealed class Pipeline(string project)
 {
+    static readonly JsonSerializerOptions GodotStringOptions = new()
+    {
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
     static readonly string[] Roles = ["ranged", "melee", "support", "enemy"];
     static readonly string[] Placements = ["ground", "ground_or_path", "none"];
     static readonly string[] SkillRoles = ["active", "support"];
@@ -474,7 +479,8 @@ sealed class Pipeline(string project)
         }
     }
     static string S(JsonObject o, string k) => o[k]!.GetValue<string>();
-    static string Q(string s) => JsonSerializer.Serialize(s);
+    // Godot's text resource parser does not decode JSON-style \u escapes as Unicode.
+    static string Q(string s) => JsonSerializer.Serialize(s, GodotStringOptions);
     static string N(JsonNode? n) => n!.GetValue<double>().ToString("R", CultureInfo.InvariantCulture);
     static string Vec(JsonNode? n, bool integer = false) => $"Vector2{(integer ? "i" : "")}({N(n![0])}, {N(n[1])})";
     static string PointsText(JsonNode? n) => "Array[Vector2i]([" + string.Join(", ", n!.AsArray().Select(v => Vec(v, true))) + "])";

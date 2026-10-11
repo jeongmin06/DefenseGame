@@ -3,7 +3,7 @@
   "stages": [
     {
       "id": "stage_01",
-      "displayName": "Iron Path",
+      "displayName": "초원 방어선 1",
       "maxSquadUnits": 10,
       "skillPointCap": 3,
       "baseHealth": 5,
@@ -102,7 +102,7 @@
     },
     {
       "id": "stage_02",
-      "displayName": "Iron Path II",
+      "displayName": "초원 방어선 2",
       "maxSquadUnits": 10,
       "skillPointCap": 4,
       "baseHealth": 5,
@@ -171,7 +171,7 @@
     },
     {
       "id": "stage_03",
-      "displayName": "Iron Path III",
+      "displayName": "초원 방어선 3",
       "maxSquadUnits": 10,
       "skillPointCap": 5,
       "baseHealth": 5,

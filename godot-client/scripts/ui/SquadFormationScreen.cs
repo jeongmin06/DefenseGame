@@ -57,8 +57,8 @@ public partial class SquadFormationScreen : Node2D
 
         StageDefinition? stage = StageSelectionState.SelectedStage;
         GetNode<Label>("UI/StageLabel").Text = stage is null
-            ? "NO STAGE SELECTED"
-            : $"{stage.DisplayName.ToUpperInvariant()}  //  {stage.Id.Replace('_', ' ').ToUpperInvariant()}";
+            ? "선택된 스테이지 없음"
+            : $"{stage.DisplayName}  //  {stage.Id}";
         Load(stage);
         Refresh();
         if (!_usingLocalTestStorage && !_serverReady && stage is not null)
@@ -91,7 +91,7 @@ public partial class SquadFormationScreen : Node2D
         else if (_selectedIds.Count < Capacity) _selectedIds.Add(characterId);
         else
         {
-            _statusLabel.Text = $"수정 필요 // Select at most {Capacity} cats.";
+            _statusLabel.Text = $"수정 필요 // 고양이는 최대 {Capacity}마리까지 편성할 수 있습니다.";
             return false;
         }
         Refresh();
@@ -114,7 +114,7 @@ public partial class SquadFormationScreen : Node2D
         StageDefinition? stage = StageSelectionState.SelectedStage;
         if (stage is null)
         {
-            _statusLabel.Text = "수정 필요 // Select a stage first.";
+            _statusLabel.Text = "수정 필요 // 스테이지를 먼저 선택하세요.";
             return false;
         }
         StageSquadValidationResult validation = Validate(stage);
@@ -128,7 +128,7 @@ public partial class SquadFormationScreen : Node2D
         {
             if (!_serverReady || _serverBusy)
             {
-                _statusLabel.Text = "수정 필요 // Server squad state is not ready.";
+                _statusLabel.Text = "수정 필요 // 서버의 편성 정보가 아직 준비되지 않았습니다.";
                 return false;
             }
             _ = SaveToServerAndContinueAsync(stage, validation);
@@ -215,22 +215,22 @@ public partial class SquadFormationScreen : Node2D
     {
         StageDefinition? stage = StageSelectionState.SelectedStage;
         StageSquadValidationResult? validation = stage is null ? null : Validate(stage);
-        _countsLabel.Text = $"SQUAD  {SelectedCount}/{MaxSquadUnits}   //   OWNED {OwnedCharacterCount}";
+        _countsLabel.Text = $"출전  {SelectedCount}/{MaxSquadUnits}   //   보유 {OwnedCharacterCount}";
         _continueButton.Disabled = validation is null || !validation.IsValid || _serverBusy
             || (!_usingLocalTestStorage && !_serverReady)
             || _loadResult?.Status == StageSquadPresetLoadStatus.MigrationRequired;
         _statusLabel.Text = !_usingLocalTestStorage && _serverBusy
-            ? (_lastSaveStatus == "Saving" ? "SERVER // Saving formation..." : "SERVER // Loading formation...")
+            ? (_lastSaveStatus == "Saving" ? "서버 // 편성을 저장하고 있습니다..." : "서버 // 편성을 불러오고 있습니다...")
             : !_usingLocalTestStorage && !_serverReady
-                ? $"수정 필요 // SERVER {_remoteLoadStatus}: Start the server and retry this screen."
+                ? $"수정 필요 // 서버 {_remoteLoadStatus}: 서버를 실행한 뒤 이 화면을 다시 열어주세요."
             : _loadResult?.Status == StageSquadPresetLoadStatus.MigrationRequired
-            ? "수정 필요 // Saved squads require migration before they can be changed."
+            ? "수정 필요 // 저장된 편성을 변경하려면 데이터 이전이 필요합니다."
             : validation is { IsValid: false } ? "수정 필요 // " + validation.Issues[0].Message
             : _loadResult?.Status == StageSquadPresetLoadStatus.RecoveredFromBackup
-                ? "수정 필요 // Restored the last valid backup. Review this formation before continuing."
+                ? "수정 필요 // 마지막 정상 백업을 복구했습니다. 계속하기 전에 편성을 확인하세요."
             : _loadResult?.Status == StageSquadPresetLoadStatus.Corrupt
-                ? "수정 필요 // Saved squad data was corrupt. Review this proposed formation before continuing."
-            : "Formation ready. Order is preserved within each deployment role.";
+                ? "수정 필요 // 저장된 편성 데이터가 손상되었습니다. 현재 편성을 확인하세요."
+            : "편성 준비 완료 // 표시된 순서대로 전투 배치 카드가 생성됩니다.";
         RefreshLists();
     }
 
@@ -244,7 +244,7 @@ public partial class SquadFormationScreen : Node2D
             var button = new Button
             {
                 Name = $"Owned_{id}",
-                Text = $"{(selected ? "[X]" : "[ ]")}  {profile.DisplayName.ToUpperInvariant()}  //  {id}",
+                Text = $"{(selected ? "[X]" : "[ ]")}  {profile.DisplayName}  //  {KoreanUiText.Role(profile.Unit?.Role ?? UnitRole.Ranged)} · {id}",
                 CustomMinimumSize = new Vector2(450, 52), Alignment = HorizontalAlignment.Left
             };
             button.Pressed += () => ToggleCharacter(id);
@@ -254,9 +254,9 @@ public partial class SquadFormationScreen : Node2D
         for (int index = 0; index < _selectedIds.Count; index++)
         {
             string id = _selectedIds[index];
-            string label = _profilesById.TryGetValue(id, out CatProfile? profile) ? profile.DisplayName : "MISSING CHARACTER";
+            string label = _profilesById.TryGetValue(id, out CatProfile? profile) ? profile.DisplayName : "누락된 캐릭터";
             var row = new HBoxContainer { Name = $"Selected_{index}" };
-            var text = new Label { Text = $"{index + 1:00}  {label.ToUpperInvariant()}  //  {id}", CustomMinimumSize = new Vector2(330, 42) };
+            var text = new Label { Text = $"{index + 1:00}  {label}  //  {id}", CustomMinimumSize = new Vector2(330, 42) };
             text.AddThemeColorOverride("font_color", new Color(profile is null ? "ff8e78" : "fff0c2"));
             var up = new Button { Text = "▲", Disabled = index == 0, CustomMinimumSize = new Vector2(48, 40) };
             var down = new Button { Text = "▼", Disabled = index == _selectedIds.Count - 1, CustomMinimumSize = new Vector2(48, 40) };
@@ -327,8 +327,8 @@ public partial class SquadFormationScreen : Node2D
             _lastSaveStatus = result.ErrorCode;
             if (result.IsConflict && result.Payload is not null) _serverRevision = result.Payload.Revision;
             _statusLabel.Text = result.IsConflict
-                ? "수정 필요 // SERVER revision conflict. Review and save again."
-                : $"수정 필요 // SERVER {result.ErrorCode}: {result.Message}";
+                ? "수정 필요 // 서버 저장 충돌이 발생했습니다. 편성을 확인하고 다시 저장하세요."
+                : $"수정 필요 // 서버 {result.ErrorCode}: {result.Message}";
             RefreshLists();
             _continueButton.Disabled = false;
             return;

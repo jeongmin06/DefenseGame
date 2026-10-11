@@ -100,6 +100,6 @@ func run():
     var hp = a.CurrentHealth
     await ticks(120)
     check(a.CurrentHealth == hp, "No healing after result")
-    check(current_scene.get_node("HUD/TopPanel/HealerButton").disabled, "Result disables healer button")
+    check(current_scene.get_node("HUD").AreAllDeploymentCardsDisabled(), "Result disables every deployment card")
     print("HEALER QA failures=", failures)
     quit(0 if failures == 0 else 1)

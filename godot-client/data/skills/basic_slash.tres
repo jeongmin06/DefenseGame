@@ -6,7 +6,7 @@
 [resource]
 script = ExtResource("SkillDefinition")
 Id = "basic_slash"
-DisplayName = "Basic Slash"
+DisplayName = "기본 참격"
 Role = 0
 Tags = Array[String](["ATTACK", "PHYSICAL", "HIT"])
 RequiredAnyTags = Array[String]([])

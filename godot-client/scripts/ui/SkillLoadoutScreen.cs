@@ -69,8 +69,8 @@ public partial class SkillLoadoutScreen : Node2D
 
         StageDefinition? stage = StageSelectionState.SelectedStage;
         GetNode<Label>("UI/StageLabel").Text = stage is null
-            ? "NO STAGE SELECTED"
-            : $"{stage.DisplayName.ToUpperInvariant()}  //  {stage.Id.Replace('_', ' ').ToUpperInvariant()}";
+            ? "선택된 스테이지 없음"
+            : $"{stage.DisplayName}  //  {stage.Id}";
 
         LoadCatalog();
         LoadProfile();
@@ -112,7 +112,7 @@ public partial class SkillLoadoutScreen : Node2D
         if (preset is null || !_skillsById.TryGetValue(id, out SkillDefinition? skill)
             || skill.Role != SkillRole.Active || !_progress.OwnedSkillIds.Contains(id))
         {
-            ShowTransient($"수정 필요 // Active skill '{id}' cannot be selected.", true);
+            ShowTransient($"수정 필요 // 액티브 스킬 '{id}'을 선택할 수 없습니다.", true);
             return false;
         }
         preset.ActiveSkillId = id;
@@ -126,7 +126,7 @@ public partial class SkillLoadoutScreen : Node2D
         CatSkillPreset? preset = CurrentPreset;
         if (preset is null || !_supportById.TryGetValue(id, out SkillDefinition? support))
         {
-            ShowTransient($"수정 필요 // Unknown support skill '{id}'.", true);
+            ShowTransient($"수정 필요 // 알 수 없는 보조 스킬입니다: '{id}'.", true);
             return false;
         }
         int existingIndex = preset.SupportSkillIds.IndexOf(id);
@@ -135,12 +135,12 @@ public partial class SkillLoadoutScreen : Node2D
             preset.SupportSkillIds.RemoveAt(existingIndex);
             preset.AllocatedPoints = preset.SupportSkillIds.Count;
             Touch(preset);
-            Refresh($"Removed {support.DisplayName}.");
+            Refresh($"{support.DisplayName} 스킬을 해제했습니다.");
             return true;
         }
         if (preset.SupportSkillIds.Count >= SquadSkillValidator.MaxSupportsPerCat)
         {
-            ShowTransient($"수정 필요 // A cat can equip at most {SquadSkillValidator.MaxSupportsPerCat} support skills.", true);
+            ShowTransient($"수정 필요 // 고양이 한 마리는 보조 스킬을 최대 {SquadSkillValidator.MaxSupportsPerCat}개 장착할 수 있습니다.", true);
             return false;
         }
 
@@ -158,7 +158,7 @@ public partial class SkillLoadoutScreen : Node2D
             return false;
         }
         Touch(preset);
-        Refresh($"Equipped {support.DisplayName}.");
+        Refresh($"{support.DisplayName} 스킬을 장착했습니다.");
         return true;
     }
 
@@ -169,7 +169,7 @@ public partial class SkillLoadoutScreen : Node2D
         preset.SupportSkillIds.RemoveAt(index);
         preset.AllocatedPoints = preset.SupportSkillIds.Count;
         Touch(preset);
-        Refresh("Removed the invalid support slot.");
+        Refresh("잘못된 보조 스킬 슬롯을 제거했습니다.");
         return true;
     }
 
@@ -190,7 +190,7 @@ public partial class SkillLoadoutScreen : Node2D
         _lastSaveStatus = result.StatusCode;
         if (result.Status == SkillProfileSaveStatus.Saved) _requiresRecoverySave = false;
         ShowTransient(result.Status == SkillProfileSaveStatus.Saved
-            ? "PROFILE SAVED // Cat presets remain keyed by character ID."
+            ? "프리셋 저장 완료 // 캐릭터 ID별 설정을 저장했습니다."
             : $"수정 필요 // SAVE {result.StatusCode}: {result.Message}", result.Status != SkillProfileSaveStatus.Saved);
         return result.Status == SkillProfileSaveStatus.Saved;
     }
@@ -199,7 +199,7 @@ public partial class SkillLoadoutScreen : Node2D
     {
         if (StageSelectionState.SelectedStage is null)
         {
-            ShowTransient("수정 필요 // Select a stage before entering battle.", true);
+            ShowTransient("수정 필요 // 전투 전에 스테이지를 선택하세요.", true);
             return false;
         }
         _validation = ValidateAllocation();
@@ -297,7 +297,7 @@ public partial class SkillLoadoutScreen : Node2D
             string id = skill.Id;
             var button = new Button
             {
-                Name = $"Active_{id}", Text = CurrentPreset?.ActiveSkillId == id ? "SELECTED" : "SELECT",
+                Name = $"Active_{id}", Text = CurrentPreset?.ActiveSkillId == id ? "선택됨" : "선택",
                 CustomMinimumSize = new Vector2(130, 42), Disabled = !_progress.OwnedSkillIds.Contains(id)
             };
             button.AddThemeFontSizeOverride("font_size", 14);
@@ -325,7 +325,7 @@ public partial class SkillLoadoutScreen : Node2D
             var button = new Button
             {
                 Name = $"Support_{support.Id}",
-                Text = $"{(selected ? "[X]" : "[ ]")}  {support.DisplayName.ToUpperInvariant()}   //   {CompatibilityText(support)}{(repair ? "   //   수정 필요" : "")}",
+                Text = $"{(selected ? "[X]" : "[ ]")}  {support.DisplayName}   //   {CompatibilityText(support)}{(repair ? "   //   수정 필요" : "")}",
                 CustomMinimumSize = new Vector2(900, 48), Alignment = HorizontalAlignment.Left,
                 TooltipText = CompatibilityText(support)
             };
@@ -346,11 +346,11 @@ public partial class SkillLoadoutScreen : Node2D
             bool overLimit = index >= SquadSkillValidator.MaxSupportsPerCat;
             if (!missing && !duplicate && !overLimit) continue;
             int slotIndex = index;
-            string reason = missing ? "MISSING SKILL" : duplicate ? "DUPLICATE SLOT" : "OVER LIMIT SLOT";
+            string reason = missing ? "스킬 누락" : duplicate ? "중복 슬롯" : "슬롯 제한 초과";
             var invalid = new Button
             {
                 Name = $"InvalidSupport_{index}",
-                Text = $"[X]  {id.ToUpperInvariant()}   //   수정 필요: {reason}   //   REMOVE",
+                Text = $"[X]  {id}   //   수정 필요: {reason}   //   제거",
                 CustomMinimumSize = new Vector2(900, 44), Alignment = HorizontalAlignment.Left
             };
             invalid.AddThemeFontSizeOverride("font_size", 15);
@@ -371,7 +371,7 @@ public partial class SkillLoadoutScreen : Node2D
             CatProfile profile = _profilesById[id];
             bool selected = id == _selectedCharacterId;
             bool repair = IsRepairRequired(id);
-            button.Text = $"{(selected ? ">" : " ")} {profile.DisplayName.ToUpperInvariant()}  //  {id}{(repair ? "  //  수정 필요" : "")}";
+            button.Text = $"{(selected ? ">" : " ")} {profile.DisplayName}  //  {KoreanUiText.Role(profile.Unit?.Role ?? UnitRole.Ranged)} · {id}{(repair ? "  //  수정 필요" : "")}";
             button.Modulate = new Color(repair ? "ffb09e" : selected ? "ffffff" : "c9d8bc");
         }
 
@@ -379,19 +379,19 @@ public partial class SkillLoadoutScreen : Node2D
         string activeId = preset?.ActiveSkillId ?? "";
         string activeName = _skillsById.TryGetValue(activeId, out SkillDefinition? active) ? active.DisplayName : activeId;
         bool activeRepair = HasActiveIssue();
-        _activeLabel.Text = $"ACTIVE  //  {(string.IsNullOrEmpty(activeName) ? "MISSING" : activeName.ToUpperInvariant())}\n{(active is null ? activeId : string.Join("  ·  ", active.Tags))}{(activeRepair ? "   //   수정 필요" : "")}";
+        _activeLabel.Text = $"액티브  //  {(string.IsNullOrEmpty(activeName) ? "누락" : activeName)}\n{(active is null ? activeId : KoreanUiText.Tags(active.Tags, "  ·  "))}{(activeRepair ? "   //   수정 필요" : "")}";
         _activeLabel.Modulate = new Color(activeRepair ? "ff8e78" : "fff0c2");
 
         StageSkillBudget? budget = StageSelectionState.SelectedStage?.SkillBudget;
-        string cap = budget is null || !budget.HasStageCap ? "NONE" : budget.StageCap.ToString();
+        string cap = budget is null || !budget.HasStageCap ? "없음" : budget.StageCap.ToString();
         bool budgetRepair = _validation.Issues.Any(issue => string.IsNullOrEmpty(issue.CharacterId));
-        _budgetLabel.Text = $"POINTS   USABLE {UsablePoints}   USED {UsedPoints}   REMAINING {RemainingPoints}   //   STAGE CAP {cap}{(budgetRepair ? "   //   수정 필요" : "")}";
+        _budgetLabel.Text = $"포인트   사용 가능 {UsablePoints}   사용 {UsedPoints}   남음 {RemainingPoints}   //   스테이지 상한 {cap}{(budgetRepair ? "   //   수정 필요" : "")}";
         _budgetLabel.Modulate = new Color(budgetRepair ? "ff8e78" : "ffd66b");
 
         RebuildActiveButtons();
         RebuildSupportButtons();
-        string validationMessage = _validation.IsValid ? "ALL CATS READY" : "수정 필요 // " + FirstRelevantMessage(_validation);
-        string loadNote = _loadResult is null ? "" : $"PROFILE {_loadResult.StatusCode}";
+        string validationMessage = _validation.IsValid ? "모든 고양이 준비 완료" : "수정 필요 // " + FirstRelevantMessage(_validation);
+        string loadNote = _loadResult is null ? "" : $"프리셋 {_loadResult.StatusCode}";
         _statusLabel.Text = string.IsNullOrEmpty(transientMessage) ? $"{loadNote}   //   {validationMessage}" : transientMessage;
         _statusLabel.Modulate = new Color(_validation.IsValid && !transientMessage.StartsWith("수정 필요", StringComparison.Ordinal)
             ? "c9e7ae" : "ff8e78");
@@ -441,7 +441,7 @@ public partial class SkillLoadoutScreen : Node2D
     {
         SquadSkillValidationIssue? issue = result.Issues.FirstOrDefault(candidate => candidate.CharacterId == _selectedCharacterId)
             ?? result.Issues.FirstOrDefault(candidate => string.IsNullOrEmpty(candidate.CharacterId)) ?? result.Issues.FirstOrDefault();
-        return issue?.Message ?? "Review this cat's skill slots.";
+        return issue?.Message ?? "이 고양이의 스킬 슬롯을 확인하세요.";
     }
 
     private static void Touch(CatSkillPreset preset) => preset.UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O");
@@ -466,10 +466,10 @@ public partial class SkillLoadoutScreen : Node2D
 
     private static string CompatibilityText(SkillDefinition skill)
     {
-        if (skill.RequiredAllTags.Count > 0) return $"ALL: {string.Join(" + ", skill.RequiredAllTags)}";
-        if (skill.RequiredAnyTags.Count > 0) return $"ANY: {string.Join(" / ", skill.RequiredAnyTags)}";
-        if (skill.ForbiddenTags.Count > 0) return $"FORBIDS: {string.Join(" / ", skill.ForbiddenTags)}";
-        return "NO TAG REQUIREMENT";
+        if (skill.RequiredAllTags.Count > 0) return $"모두 필요: {KoreanUiText.Tags(skill.RequiredAllTags, " + ")}";
+        if (skill.RequiredAnyTags.Count > 0) return $"하나 필요: {KoreanUiText.Tags(skill.RequiredAnyTags, " / ")}";
+        if (skill.ForbiddenTags.Count > 0) return $"사용 불가: {KoreanUiText.Tags(skill.ForbiddenTags, " / ")}";
+        return "태그 조건 없음";
     }
 
     private static StyleBoxFlat CardStyle(string background, string border) => new()

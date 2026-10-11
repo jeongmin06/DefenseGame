@@ -16,7 +16,7 @@ TagValue = "FIRE"
 [resource]
 script = ExtResource("SkillDefinition")
 Id = "fire_infusion"
-DisplayName = "Fire Infusion"
+DisplayName = "화염 주입"
 Role = 1
 Tags = Array[String]([])
 RequiredAnyTags = Array[String](["HIT"])

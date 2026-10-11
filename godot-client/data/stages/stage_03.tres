@@ -65,7 +65,7 @@ SpeedOverride = 92
 [resource]
 script = ExtResource("StageDefinition")
 Id = "stage_03"
-DisplayName = "Iron Path III"
+DisplayName = "초원 방어선 3"
 MaxSquadUnits = 10
 BaseHealth = 5
 FirstWaveDelay = 10

@@ -16,22 +16,22 @@
   "catProfiles": [
     {
       "characterId": "starter_archer_a",
-      "displayName": "Starter Archer A",
+      "displayName": "초급 궁수 A",
       "unitId": "cat_archer"
     },
     {
       "characterId": "starter_archer_b",
-      "displayName": "Starter Archer B",
+      "displayName": "초급 궁수 B",
       "unitId": "cat_archer"
     },
     {
       "characterId": "starter_warrior_a",
-      "displayName": "Starter Warrior A",
+      "displayName": "초급 전사 A",
       "unitId": "cat_warrior"
     },
     {
       "characterId": "starter_healer_a",
-      "displayName": "Starter Healer A",
+      "displayName": "초급 치유사 A",
       "unitId": "cat_healer"
     }
   ],

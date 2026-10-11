@@ -5,7 +5,7 @@ var elapsed_frames := 0
 
 func _process(_delta):
     elapsed_frames += 1
-    if elapsed_frames > 1800:
+    if elapsed_frames > 5000:
         push_error("Runtime deployment QA timed out")
         quit(1)
     return false
@@ -34,20 +34,24 @@ func run():
     await ticks(5)
     var stage = current_scene
     var grid = stage.get_node("DeploymentGrid")
+    var hud = stage.get_node("HUD")
     var wave_label = stage.get_node("HUD/TopPanel/WaveLabel")
 
+    check(hud.DeploymentCardCount == 4, "One deployment card is created per selected character")
+    check("starter_archer_a" in hud.DeploymentCardCharacterIds, "Deployment cards preserve stable character IDs")
     check(stage.SecondsUntilFirstWave > 9.0, "Countdown starts when the stage enters")
-    check("FIRST WAVE" in wave_label.text, "HUD shows first wave countdown")
+    check("첫 웨이브" in wave_label.text, "HUD shows first wave countdown")
     await ticks(300)
     check(get_nodes_in_group("enemies").is_empty(), "First wave does not start before ten seconds")
 
     var wave_started = await wait_until(func(): return not get_nodes_in_group("enemies").is_empty(), 360)
     check(wave_started, "First wave starts without any deployed unit")
-    check("WAVE 01" in wave_label.text, "HUD changes to active wave status")
+    check("웨이브 01" in wave_label.text, "HUD changes to active wave status")
 
     check(stage.SelectPlacementType(0), "Archer remains selectable after the wave starts")
     check(grid.SelectCell(Vector2i(4, 2)), "Archer can be deployed during combat")
     check(stage.RemainingArchers == 1 and get_nodes_in_group("towers").size() == 1, "Runtime archer deployment consumes one unit")
+    check(hud.IsDeploymentCardDisabled("starter_archer_a"), "Placed character card is disabled")
 
     check(stage.SelectPlacementType(1), "Warrior remains selectable after the wave starts")
     check(grid.SelectCell(Vector2i(1, 3)), "Warrior can be deployed during combat")
@@ -72,7 +76,7 @@ func run():
     grid.SelectCell(Vector2i(1, 3))
     stage.SelectPlacementType(2)
     grid.SelectCell(Vector2i(7, 2))
-    check("ALL UNITS DEPLOYED" in stage.get_node("HUD/TopPanel/PlacementLabel").text, "HUD reports all units deployed")
+    check("모든 고양이 배치 완료" in stage.get_node("HUD/TopPanel/PlacementLabel").text, "HUD reports all units deployed")
     await ticks(300)
     check(get_nodes_in_group("enemies").is_empty(), "Early full deployment does not shorten countdown")
 

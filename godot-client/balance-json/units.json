@@ -3,7 +3,7 @@
   "units": [
     {
       "id": "cat_archer",
-      "displayName": "cat_archer",
+      "displayName": "고양이 궁수",
       "role": "ranged",
       "skillTags": ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"],
       "scenePath": "res://scenes/tower.tscn",
@@ -24,7 +24,7 @@
     },
     {
       "id": "cat_warrior",
-      "displayName": "cat_warrior",
+      "displayName": "고양이 전사",
       "role": "melee",
       "skillTags": ["ATTACK", "PHYSICAL", "HIT"],
       "scenePath": "res://scenes/warrior.tscn",
@@ -40,7 +40,7 @@
     },
     {
       "id": "cat_healer",
-      "displayName": "cat_healer",
+      "displayName": "고양이 치유사",
       "role": "support",
       "skillTags": ["HEAL"],
       "scenePath": "res://scenes/healer.tscn",
@@ -54,7 +54,7 @@
     },
     {
       "id": "mutant_mouse",
-      "displayName": "mutant_mouse",
+      "displayName": "돌연변이 생쥐",
       "role": "enemy",
       "skillTags": [],
       "scenePath": "res://scenes/enemy.tscn",
