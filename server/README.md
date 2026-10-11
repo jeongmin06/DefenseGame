@@ -1,6 +1,6 @@
 # DefenseGame 서버
 
-.NET 9 ASP.NET Core HTTP 서버다. 진행도, 스테이지 클리어와 스테이지별 편성을 사용자 단위 Actor로 처리한다.
+.NET 9 ASP.NET Core HTTP 서버다. 진행도, 스테이지 클리어, 스테이지별 편성과 스킬 프리셋을 사용자 단위 Actor로 처리한다.
 
 ## 실행과 테스트
 
@@ -12,12 +12,12 @@ dotnet test server/DefenseGame.sln -m:1 -nr:false
 ## Actor 처리 경로
 
 ```text
-GET /v1/progress/{userId}, POST /v1/stage-clear 또는 GET/PUT /v1/squads
+GET /v1/progress/{userId}, POST /v1/stage-clear, GET/PUT /v1/squads 또는 GET/PUT /v1/skill-profiles
   → PlayerActorRegistry (공백 제거한 userId, 대소문자 구분)
   → PlayerActor
   → ActorChannel 메일박스
   → ActorThreadScheduler / ActorThread
-  → StageProgressService / StageSquadService
+  → StageProgressService / StageSquadService / SkillProfileService
   → JsonFileProgressStore
 ```
 
@@ -38,7 +38,7 @@ Worker 수는 `Actors:WorkerCount` 설정(환경 변수 `Actors__WorkerCount`)�
 
 ## 검증과 제약
 
-32개 자동 테스트가 진행도 규칙, 편성 순서·보유 검증·revision 충돌, JSON 재로드, HTTP 계약, 동시 첫 클리어 1회 보상,
+43개 자동 테스트가 진행도 규칙, 편성 순서·보유 검증·revision 충돌, 스킬 역할·태그·포인트·migration 검증, JSON 재로드, HTTP 계약, 동시 첫 클리어 1회 보상,
 정규화된 사용자별 Actor 단일성, 실행 순서, 사용자 간 독립성, 예외·취소,
 종료와 여러 호스트의 런타임 격리를 검증한다.
 
@@ -50,3 +50,10 @@ Worker 수는 `Actors:WorkerCount` 설정(환경 변수 `Actors__WorkerCount`)�
 
 수동 확인: 서버 실행 후 동일 userId로 진행도 조회와 첫/반복 클리어를 요청하고,
 서버 재시작 후 진행도가 유지되는지 확인한다.
+
+## 스킬 프로필 API
+
+- `GET /v1/skill-profiles/{userId}`는 서버 소유 레벨, 해금 포인트, 보유 스킬, 고양이별 최근 프리셋과 revision을 반환한다.
+- `PUT /v1/skill-profiles`는 모든 보유 고양이의 프리셋, `expectedRevision`, `isMigration`만 받는다. 성장 상태는 클라이언트가 변경할 수 없다.
+- 서버는 보유 캐릭터·스킬, 액티브/보조 역할, 링크 수, 중복, 캐릭터 태그, 보조 태그와 전체 포인트를 검증한다.
+- revision 불일치는 HTTP 409와 현재 서버 프로필을 반환한다. 로컬 프리셋 이전은 revision 0에서 한 번만 허용한다.

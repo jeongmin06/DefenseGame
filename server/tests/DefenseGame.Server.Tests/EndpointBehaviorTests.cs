@@ -103,6 +103,30 @@ public class EndpointBehaviorTests
     }
 
     [Fact]
+    public async Task SaveSkillProfile_ThenGetProfile_PreservesServerState()
+    {
+        await using var app = new TestWebApplicationFactory();
+        var client = app.CreateClient();
+        SkillProfileResponse initial = (await client.GetFromJsonAsync<SkillProfileResponse>(
+            "/v1/skill-profiles/player"))!;
+        var presets = initial.Presets.Select(preset => new SaveSkillPresetRequest(
+            preset.CharacterId,
+            preset.ActiveSkillId,
+            preset.CharacterId == "starter_archer_b" ? Array.Empty<string>() : preset.SupportSkillIds,
+            preset.CharacterId == "starter_archer_b" ? 0 : preset.AllocatedPoints)).ToArray();
+
+        var save = await client.PutAsJsonAsync("/v1/skill-profiles",
+            new SaveSkillProfileRequest("player", presets, initial.Revision, false));
+
+        Assert.Equal(HttpStatusCode.OK, save.StatusCode);
+        SkillProfileResponse saved = (await save.Content.ReadFromJsonAsync<SkillProfileResponse>())!;
+        Assert.Equal(1, saved.Revision);
+        SkillProfileResponse loaded = (await client.GetFromJsonAsync<SkillProfileResponse>(
+            "/v1/skill-profiles/player"))!;
+        Assert.Empty(loaded.Presets.Single(preset => preset.CharacterId == "starter_archer_b").SupportSkillIds);
+    }
+
+    [Fact]
     public async Task ConcurrentFirstClear_GrantsRewardExactlyOnce_ForNormalizedUser()
     {
         await using var app = new TestWebApplicationFactory();

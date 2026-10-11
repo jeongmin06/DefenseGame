@@ -6,6 +6,7 @@ public sealed class UserProgress
     public required HashSet<int> ClearedStageIds { get; init; }
     public HashSet<string> OwnedCharacterIds { get; init; } = new(StringComparer.Ordinal);
     public Dictionary<string, StageSquadState> StageSquads { get; init; } = new(StringComparer.Ordinal);
+    public required SkillProfileState SkillProfile { get; init; }
     public required DateTimeOffset UpdatedAtUtc { get; set; }
 
     public int HighestClearedStageId => ClearedStageIds.Count == 0 ? 0 : ClearedStageIds.Max();
@@ -19,6 +20,7 @@ public sealed class UserProgress
             ClearedStageIds = new HashSet<int>(),
             OwnedCharacterIds = new HashSet<string>(PlayerDefaults.InitialCharacterIds, StringComparer.Ordinal),
             StageSquads = new Dictionary<string, StageSquadState>(StringComparer.Ordinal),
+            SkillProfile = PlayerDefaults.CreateInitialSkillProfile(nowUtc),
             UpdatedAtUtc = nowUtc
         };
     }
@@ -31,6 +33,7 @@ public sealed class UserProgress
             ClearedStageIds = new HashSet<int>(ClearedStageIds),
             OwnedCharacterIds = new HashSet<string>(OwnedCharacterIds, StringComparer.Ordinal),
             StageSquads = StageSquads.ToDictionary(pair => pair.Key, pair => pair.Value.Clone(), StringComparer.Ordinal),
+            SkillProfile = SkillProfile.Clone(),
             UpdatedAtUtc = UpdatedAtUtc
         };
     }

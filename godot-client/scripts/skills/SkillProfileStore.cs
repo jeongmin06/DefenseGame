@@ -24,6 +24,7 @@ public partial class SkillProfileStore : RefCounted
     public string StoragePath => _storagePath;
     public string BackupPath => _storagePath + ".bak";
     public string TemporaryPath => _storagePath + ".tmp";
+    public bool HasSavedDocument => File.Exists(_storagePath);
 
     public void ConfigureStoragePath(string path)
     {

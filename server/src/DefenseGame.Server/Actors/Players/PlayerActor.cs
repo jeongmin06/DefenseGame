@@ -8,6 +8,7 @@ public sealed class PlayerActor(
     string userId,
     IStageProgressService progressService,
     IStageSquadService squadService,
+    ISkillProfileService skillProfileService,
     ActorChannel channel)
     : Actor<PlayerActor>(channel)
 {
@@ -25,4 +26,12 @@ public sealed class PlayerActor(
         SaveStageSquadRequest request,
         CancellationToken cancellationToken) =>
         AskAsync((_, token) => squadService.SaveAsync(userId, stageId, request with { UserId = userId }, token), cancellationToken);
+
+    public Task<SkillProfileHandleResult> GetSkillProfileAsync(CancellationToken cancellationToken) =>
+        AskAsync((_, token) => skillProfileService.GetAsync(userId, token), cancellationToken);
+
+    public Task<SkillProfileHandleResult> SaveSkillProfileAsync(
+        SaveSkillProfileRequest request,
+        CancellationToken cancellationToken) =>
+        AskAsync((_, token) => skillProfileService.SaveAsync(userId, request with { UserId = userId }, token), cancellationToken);
 }

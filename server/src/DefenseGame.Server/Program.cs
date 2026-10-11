@@ -19,6 +19,7 @@ builder.Services.AddSingleton<IProgressStore>(sp =>
 });
 builder.Services.AddSingleton<IStageProgressService, StageProgressService>();
 builder.Services.AddSingleton<IStageSquadService, StageSquadService>();
+builder.Services.AddSingleton<ISkillProfileService, SkillProfileService>();
 
 builder.Services.AddSingleton<ActorThreadScheduler>();
 builder.Services.AddHostedService<ActorThreadPool>();
@@ -85,6 +86,41 @@ app.MapPut("/v1/squads/{stageId}", async (
     {
         StageSquadHandleStatus.Accepted => Results.Ok(result.Payload),
         StageSquadHandleStatus.Conflict => Results.Conflict(new
+        {
+            errorCode = result.ErrorCode,
+            message = result.ErrorMessage,
+            current = result.Payload
+        }),
+        _ => Results.BadRequest(new { errorCode = result.ErrorCode, message = result.ErrorMessage })
+    };
+});
+
+app.MapGet("/v1/skill-profiles/{userId}", async (
+    string userId,
+    PlayerActorRegistry players,
+    CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(userId))
+        return Results.BadRequest(new { errorCode = "invalid_user_id", message = "userId is required." });
+    SkillProfileHandleResult result = await players.Get(userId).GetSkillProfileAsync(cancellationToken);
+    return result.Status == SkillProfileHandleStatus.Accepted
+        ? Results.Ok(result.Payload)
+        : Results.BadRequest(new { errorCode = result.ErrorCode, message = result.ErrorMessage });
+});
+
+app.MapPut("/v1/skill-profiles", async (
+    SaveSkillProfileRequest request,
+    PlayerActorRegistry players,
+    CancellationToken cancellationToken) =>
+{
+    if (string.IsNullOrWhiteSpace(request.UserId))
+        return Results.BadRequest(new { errorCode = "invalid_user_id", message = "userId is required." });
+    SkillProfileHandleResult result = await players.Get(request.UserId)
+        .SaveSkillProfileAsync(request, cancellationToken);
+    return result.Status switch
+    {
+        SkillProfileHandleStatus.Accepted => Results.Ok(result.Payload),
+        SkillProfileHandleStatus.Conflict => Results.Conflict(new
         {
             errorCode = result.ErrorCode,
             message = result.ErrorMessage,

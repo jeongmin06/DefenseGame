@@ -1,9 +1,12 @@
 using DefenseGame.Client.Data;
+using DefenseGame.Client.Network;
 using DefenseGame.Client.Skills;
 using Godot;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace DefenseGame.Client.UI;
 
@@ -22,8 +25,12 @@ public partial class SkillLoadoutScreen : Node2D
     public int UsedLinkCores => SelectedSupportCount;
     public int RemainingLinkCores => RemainingPoints;
     public string StatusMessage => _statusLabel.Text;
-    public string LoadStatusCode => _loadResult?.StatusCode ?? "";
+    public string LoadStatusCode => _usingLocalTestStorage ? _loadResult?.StatusCode ?? "" : _remoteLoadStatus;
     public string SaveStatusCode => _lastSaveStatus;
+    public int ServerRevision => _serverRevision;
+    public bool IsServerReady => _usingLocalTestStorage || _serverReady;
+    public bool MigrationAvailable => !_usingLocalTestStorage && _serverReady
+        && _serverRevision == 0 && _profileStore.HasSavedDocument;
 
     private readonly Dictionary<string, SkillDefinition> _skillsById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, SkillDefinition> _supportById = new(StringComparer.Ordinal);
@@ -33,6 +40,8 @@ public partial class SkillLoadoutScreen : Node2D
     private readonly List<CatProfile> _selectedProfiles = new();
     private readonly SquadSkillValidator _validator = new();
     private readonly SkillProfileStore _profileStore = new();
+    private readonly SkillProfileServerClient _serverClient = new();
+    private readonly CancellationTokenSource _serverCancellation = new();
 
     private PlayerSkillProgress _progress = null!;
     private Godot.Collections.Array<CatSkillPreset> _storedPresets = new();
@@ -41,6 +50,12 @@ public partial class SkillLoadoutScreen : Node2D
     private string _selectedCharacterId = "";
     private string _lastSaveStatus = "";
     private bool _requiresRecoverySave;
+    private bool _usingLocalTestStorage;
+    private bool _serverReady;
+    private bool _serverBusy;
+    private bool _serverDirty;
+    private int _serverRevision;
+    private string _remoteLoadStatus = "Loading";
 
     private HBoxContainer _characterList = null!;
     private HBoxContainer _activeList = null!;
@@ -49,6 +64,7 @@ public partial class SkillLoadoutScreen : Node2D
     private Label _budgetLabel = null!;
     private Label _statusLabel = null!;
     private Button _saveButton = null!;
+    private Button _migrationButton = null!;
     private Button _startButton = null!;
 
     private CatSkillPreset? CurrentPreset => _squadPresetsById.GetValueOrDefault(_selectedCharacterId);
@@ -62,9 +78,11 @@ public partial class SkillLoadoutScreen : Node2D
         _budgetLabel = GetNode<Label>("UI/MainPanel/BudgetLabel");
         _statusLabel = GetNode<Label>("UI/MainPanel/StatusLabel");
         _saveButton = GetNode<Button>("UI/MainPanel/Actions/SaveButton");
+        _migrationButton = GetNode<Button>("UI/MainPanel/Actions/MigrationButton");
         _startButton = GetNode<Button>("UI/MainPanel/Actions/StartButton");
         GetNode<Button>("UI/MainPanel/Actions/BackButton").Pressed += ReturnToFormation;
         _saveButton.Pressed += () => SaveProfile();
+        _migrationButton.Pressed += () => MigrateLocalProfile();
         _startButton.Pressed += () => StartBattle();
 
         StageDefinition? stage = StageSelectionState.SelectedStage;
@@ -78,6 +96,7 @@ public partial class SkillLoadoutScreen : Node2D
         _selectedCharacterId = _selectedProfiles.FirstOrDefault()?.CharacterId ?? "";
         Refresh();
         _characterButtons.GetValueOrDefault(_selectedCharacterId)?.GrabFocus();
+        if (!_usingLocalTestStorage) _ = LoadFromServerAsync();
         QueueRedraw();
     }
 
@@ -108,6 +127,7 @@ public partial class SkillLoadoutScreen : Node2D
 
     public bool TrySelectActive(string id)
     {
+        if (!CanEditServerProfile()) return false;
         CatSkillPreset? preset = CurrentPreset;
         if (preset is null || !_skillsById.TryGetValue(id, out SkillDefinition? skill)
             || skill.Role != SkillRole.Active || !_progress.OwnedSkillIds.Contains(id))
@@ -116,13 +136,14 @@ public partial class SkillLoadoutScreen : Node2D
             return false;
         }
         preset.ActiveSkillId = id;
-        Touch(preset);
+        MarkEdited(preset);
         Refresh();
         return true;
     }
 
     public bool TryToggleSupport(string id)
     {
+        if (!CanEditServerProfile()) return false;
         CatSkillPreset? preset = CurrentPreset;
         if (preset is null || !_supportById.TryGetValue(id, out SkillDefinition? support))
         {
@@ -134,7 +155,7 @@ public partial class SkillLoadoutScreen : Node2D
         {
             preset.SupportSkillIds.RemoveAt(existingIndex);
             preset.AllocatedPoints = preset.SupportSkillIds.Count;
-            Touch(preset);
+            MarkEdited(preset);
             Refresh($"{support.DisplayName} 스킬을 해제했습니다.");
             return true;
         }
@@ -157,18 +178,19 @@ public partial class SkillLoadoutScreen : Node2D
             ShowTransient("수정 필요 // " + FirstRelevantMessage(proposed), true);
             return false;
         }
-        Touch(preset);
+        MarkEdited(preset);
         Refresh($"{support.DisplayName} 스킬을 장착했습니다.");
         return true;
     }
 
     public bool RemoveSupportAt(int index)
     {
+        if (!CanEditServerProfile()) return false;
         CatSkillPreset? preset = CurrentPreset;
         if (preset is null || index < 0 || index >= preset.SupportSkillIds.Count) return false;
         preset.SupportSkillIds.RemoveAt(index);
         preset.AllocatedPoints = preset.SupportSkillIds.Count;
-        Touch(preset);
+        MarkEdited(preset);
         Refresh("잘못된 보조 스킬 슬롯을 제거했습니다.");
         return true;
     }
@@ -184,6 +206,23 @@ public partial class SkillLoadoutScreen : Node2D
 
     public bool SaveProfile()
     {
+        if (!_usingLocalTestStorage)
+        {
+            if (!_serverReady || _serverBusy)
+            {
+                ShowTransient("수정 필요 // 서버의 스킬 프리셋이 아직 준비되지 않았습니다.", true);
+                return false;
+            }
+            _validation = ValidateAllocation();
+            if (!_validation.IsValid)
+            {
+                Refresh();
+                return false;
+            }
+            _ = SaveToServerAsync(_storedPresets, false, false);
+            return true;
+        }
+
         SkillProfileSaveResult result = _requiresRecoverySave
             ? _profileStore.SaveAfterRecovery(_progress, _storedPresets)
             : _profileStore.Save(_progress, _storedPresets);
@@ -208,12 +247,47 @@ public partial class SkillLoadoutScreen : Node2D
             Refresh();
             return false;
         }
-        // Stage 3 keeps the existing single-loadout battle bridge. Per-character instance mapping is stage 4.
+        if (!_usingLocalTestStorage)
+        {
+            if (!_serverReady || _serverBusy)
+            {
+                ShowTransient("수정 필요 // 서버의 스킬 프리셋이 아직 준비되지 않았습니다.", true);
+                return false;
+            }
+            if (_serverDirty)
+            {
+                _ = SaveToServerAsync(_storedPresets, false, true);
+                return true;
+            }
+        }
+        ApplyLoadoutAndStartBattle();
+        return true;
+    }
+
+    public bool MigrateLocalProfile()
+    {
+        if (!MigrationAvailable || _serverBusy)
+        {
+            ShowTransient("수정 필요 // 현재 계정은 로컬 프리셋을 이전할 수 없습니다.", true);
+            return false;
+        }
+        SkillProfileLoadResult local = _profileStore.Load();
+        if (local.Status != SkillProfileLoadStatus.Loaded)
+        {
+            ShowTransient($"수정 필요 // 로컬 프리셋 {local.StatusCode}: 정상 저장본만 이전할 수 있습니다.", true);
+            return false;
+        }
+        _ = SaveToServerAsync(local.Presets, true, false);
+        return true;
+    }
+
+    private void ApplyLoadoutAndStartBattle()
+    {
+        // The battle bridge keeps both the legacy first loadout and per-character loadouts.
         string firstCharacterId = _selectedProfiles.First().CharacterId;
         StageSelectionState.SelectedLoadout = _validation.GetLoadout(firstCharacterId);
         StageSelectionState.SelectedCharacterLoadouts = new Godot.Collections.Array<CharacterSkillLoadout>(_validation.CharacterLoadouts);
         GetTree().ChangeSceneToFile("res://scenes/stage_one.tscn");
-        return true;
     }
 
     public void ReturnToFormation()
@@ -242,12 +316,34 @@ public partial class SkillLoadoutScreen : Node2D
             : Defaults.CatProfiles.Select(profile => profile.CharacterId);
         foreach (string characterId in selectedIds)
             if (allProfiles.TryGetValue(characterId, out CatProfile? selected)) _selectedProfiles.Add(selected);
-        if (!string.IsNullOrWhiteSpace(StageSelectionState.SkillProfileStoragePathOverride))
+        _usingLocalTestStorage = !string.IsNullOrWhiteSpace(StageSelectionState.SkillProfileStoragePathOverride);
+        if (_usingLocalTestStorage)
+        {
             _profileStore.ConfigureStoragePath(StageSelectionState.SkillProfileStoragePathOverride);
-        _loadResult = _profileStore.Load();
-        _progress = _loadResult.Progress;
-        _storedPresets = _loadResult.Presets;
-        _requiresRecoverySave = _loadResult.RequiresExplicitOverwrite;
+            _loadResult = _profileStore.Load();
+            _requiresRecoverySave = _loadResult.RequiresExplicitOverwrite;
+            ApplyProfile(_loadResult.Progress, _loadResult.Presets);
+            return;
+        }
+
+        var progress = new PlayerSkillProgress
+        {
+            PlayerLevel = Defaults.Progress.PlayerLevel,
+            UnlockedPoints = Defaults.Progress.UnlockedPoints,
+            OwnedSkillIds = new Godot.Collections.Array<string>(Defaults.Progress.OwnedSkillIds)
+        };
+        var presets = new Godot.Collections.Array<CatSkillPreset>(Defaults.InitialPresets.Select(ClonePreset));
+        ApplyProfile(progress, presets);
+    }
+
+    private void ApplyProfile(
+        PlayerSkillProgress progress,
+        Godot.Collections.Array<CatSkillPreset> presets)
+    {
+        _progress = progress;
+        _storedPresets = presets;
+        _profilesById.Clear();
+        _squadPresetsById.Clear();
         foreach (CatProfile profile in Defaults.CatProfiles)
         {
             CatSkillPreset? preset = _storedPresets.FirstOrDefault(candidate => candidate.CharacterId == profile.CharacterId);
@@ -263,7 +359,7 @@ public partial class SkillLoadoutScreen : Node2D
                 } : ClonePreset(initial);
                 _storedPresets.Add(preset);
             }
-            if (_selectedProfiles.Contains(profile))
+            if (_selectedProfiles.Any(selected => selected.CharacterId == profile.CharacterId))
             {
                 _profilesById.Add(profile.CharacterId, profile);
                 _squadPresetsById.Add(profile.CharacterId, preset);
@@ -298,7 +394,8 @@ public partial class SkillLoadoutScreen : Node2D
             var button = new Button
             {
                 Name = $"Active_{id}", Text = CurrentPreset?.ActiveSkillId == id ? "선택됨" : "선택",
-                CustomMinimumSize = new Vector2(130, 42), Disabled = !_progress.OwnedSkillIds.Contains(id),
+                CustomMinimumSize = new Vector2(130, 42),
+                Disabled = !_progress.OwnedSkillIds.Contains(id) || (!_usingLocalTestStorage && (!_serverReady || _serverBusy)),
                 TooltipText = UiLocalization.Description(skill.Description)
             };
             button.AddThemeFontSizeOverride("font_size", 14);
@@ -329,7 +426,8 @@ public partial class SkillLoadoutScreen : Node2D
                 Name = $"Support_{support.Id}",
                 Text = $"{(selected ? "[X]" : "[ ]")}  {support.DisplayName}   //   {CompatibilityText(support)}{(repair ? "   //   수정 필요" : "")}\n     {description}",
                 CustomMinimumSize = new Vector2(900, 64), Alignment = HorizontalAlignment.Left,
-                TooltipText = description
+                TooltipText = description,
+                Disabled = !_usingLocalTestStorage && (!_serverReady || _serverBusy)
             };
             button.AddThemeFontSizeOverride("font_size", 16);
             button.AddThemeColorOverride("font_color", new Color(repair ? "ff8e78" : "fff0c2"));
@@ -394,12 +492,23 @@ public partial class SkillLoadoutScreen : Node2D
         RebuildActiveButtons();
         RebuildSupportButtons();
         string validationMessage = _validation.IsValid ? "모든 고양이 준비 완료" : "수정 필요 // " + FirstRelevantMessage(_validation);
-        string loadNote = _loadResult is null ? "" : $"프리셋 {_loadResult.StatusCode}";
+        string loadNote = _usingLocalTestStorage
+            ? $"프리셋 {_loadResult?.StatusCode ?? "Unknown"}"
+            : _serverBusy
+                ? (_lastSaveStatus == "Saving" ? "서버 // 프리셋을 저장하고 있습니다" : "서버 // 프리셋을 불러오고 있습니다")
+                : !_serverReady
+                    ? $"수정 필요 // 서버 {_remoteLoadStatus}: 서버를 실행한 뒤 이 화면을 다시 열어주세요"
+                    : $"서버 프리셋 {_remoteLoadStatus} // revision {_serverRevision}";
         _statusLabel.Text = string.IsNullOrEmpty(transientMessage) ? $"{loadNote}   //   {validationMessage}" : transientMessage;
-        _statusLabel.Modulate = new Color(_validation.IsValid && !transientMessage.StartsWith("수정 필요", StringComparison.Ordinal)
+        _statusLabel.Modulate = new Color(_validation.IsValid && ServerReadyOrLocal()
+            && !transientMessage.StartsWith("수정 필요", StringComparison.Ordinal)
             ? "c9e7ae" : "ff8e78");
-        _startButton.Disabled = StageSelectionState.SelectedStage is null || !_validation.IsValid;
-        _saveButton.Disabled = _loadResult?.Status == SkillProfileLoadStatus.MigrationRequired;
+        _startButton.Disabled = StageSelectionState.SelectedStage is null || !_validation.IsValid || _serverBusy
+            || (!_usingLocalTestStorage && !_serverReady);
+        _saveButton.Disabled = _serverBusy || (!_usingLocalTestStorage && !_serverReady)
+            || _loadResult?.Status == SkillProfileLoadStatus.MigrationRequired;
+        _migrationButton.Visible = MigrationAvailable;
+        _migrationButton.Disabled = _serverBusy;
     }
 
     private void ShowTransient(string message, bool isError)
@@ -447,7 +556,114 @@ public partial class SkillLoadoutScreen : Node2D
         return issue?.Message ?? "이 고양이의 스킬 슬롯을 확인하세요.";
     }
 
-    private static void Touch(CatSkillPreset preset) => preset.UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O");
+    private async Task LoadFromServerAsync()
+    {
+        _serverBusy = true;
+        _remoteLoadStatus = "Loading";
+        Refresh();
+        SkillProfileServerResult result = await _serverClient.LoadAsync(
+            ServerBaseUrl(), PlayerId(), _serverCancellation.Token);
+        if (!IsInsideTree()) return;
+        _serverBusy = false;
+        if (!result.IsSuccess || result.Payload is null)
+        {
+            _remoteLoadStatus = result.ErrorCode;
+            _serverReady = false;
+            Refresh();
+            return;
+        }
+
+        ApplyServerPayload(result.Payload);
+        _remoteLoadStatus = "Loaded";
+        _serverReady = true;
+        _serverDirty = false;
+        Refresh();
+    }
+
+    private async Task SaveToServerAsync(
+        Godot.Collections.Array<CatSkillPreset> presets,
+        bool isMigration,
+        bool startAfterSave)
+    {
+        _serverBusy = true;
+        _lastSaveStatus = "Saving";
+        Refresh();
+        SkillProfileServerResult result = await _serverClient.SaveAsync(
+            ServerBaseUrl(), PlayerId(), presets, _serverRevision, isMigration, _serverCancellation.Token);
+        if (!IsInsideTree()) return;
+        _serverBusy = false;
+        if (!result.IsSuccess || result.Payload is null)
+        {
+            _lastSaveStatus = result.ErrorCode;
+            _remoteLoadStatus = result.IsConflict ? "Conflict" : result.ErrorCode;
+            if (result.IsConflict && result.Payload is not null)
+                _serverRevision = result.Payload.Revision;
+            Refresh();
+            ShowTransient(result.IsConflict
+                ? "수정 필요 // 서버 저장 충돌이 발생했습니다. 현재 편집은 유지했습니다. 다시 저장하기 전에 확인하세요."
+                : $"수정 필요 // 서버 {result.ErrorCode}: {result.Message}", true);
+            return;
+        }
+
+        ApplyServerPayload(result.Payload);
+        _serverReady = true;
+        _serverDirty = false;
+        _remoteLoadStatus = isMigration ? "Migrated" : "Saved";
+        _lastSaveStatus = "Saved";
+        Refresh(isMigration
+            ? "로컬 프리셋 이전 완료 // 서버 진행도는 유지하고 프리셋만 이전했습니다."
+            : "프리셋 저장 완료 // 서버에 캐릭터 ID별 설정을 저장했습니다.");
+        if (startAfterSave)
+        {
+            _validation = ValidateAllocation();
+            if (_validation.IsValid) ApplyLoadoutAndStartBattle();
+        }
+    }
+
+    private void ApplyServerPayload(SkillProfileServerPayload payload)
+    {
+        var progress = new PlayerSkillProgress
+        {
+            PlayerLevel = payload.PlayerLevel,
+            UnlockedPoints = payload.UnlockedPoints,
+            OwnedSkillIds = new Godot.Collections.Array<string>(payload.OwnedSkillIds)
+        };
+        var presets = new Godot.Collections.Array<CatSkillPreset>();
+        foreach (SkillPresetServerPayload preset in payload.Presets)
+        {
+            presets.Add(new CatSkillPreset
+            {
+                CharacterId = preset.CharacterId,
+                ActiveSkillId = preset.ActiveSkillId,
+                SupportSkillIds = new Godot.Collections.Array<string>(preset.SupportSkillIds),
+                AllocatedPoints = preset.AllocatedPoints,
+                UpdatedAtUtc = preset.UpdatedAtUtc.ToString("O")
+            });
+        }
+        ApplyProfile(progress, presets);
+        _serverRevision = payload.Revision;
+    }
+
+    private bool CanEditServerProfile()
+    {
+        if (_usingLocalTestStorage || (_serverReady && !_serverBusy)) return true;
+        ShowTransient("수정 필요 // 서버의 스킬 프리셋이 아직 준비되지 않았습니다.", true);
+        return false;
+    }
+
+    private bool ServerReadyOrLocal() => _usingLocalTestStorage || _serverReady;
+
+    private void MarkEdited(CatSkillPreset preset)
+    {
+        preset.UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O");
+        if (!_usingLocalTestStorage) _serverDirty = true;
+    }
+
+    private static string ServerBaseUrl() => (string)ProjectSettings.GetSetting(
+        "defense_game/server/base_url", "http://127.0.0.1:5080");
+
+    private static string PlayerId() => (string)ProjectSettings.GetSetting(
+        "defense_game/player/development_user_id", "local-development-user");
 
     private static CatSkillPreset ClonePreset(CatSkillPreset source) => new()
     {
@@ -482,4 +698,10 @@ public partial class SkillLoadoutScreen : Node2D
         CornerRadiusTopLeft = 6, CornerRadiusTopRight = 6, CornerRadiusBottomLeft = 6, CornerRadiusBottomRight = 6,
         ContentMarginLeft = 14
     };
+
+    public override void _ExitTree()
+    {
+        _serverCancellation.Cancel();
+        _serverCancellation.Dispose();
+    }
 }

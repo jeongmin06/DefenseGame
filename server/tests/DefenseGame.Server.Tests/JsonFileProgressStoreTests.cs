@@ -30,6 +30,7 @@ public class JsonFileProgressStoreTests
                     UpdatedAtUtc = now
                 }
             },
+            SkillProfile = PlayerDefaults.CreateInitialSkillProfile(now),
             UpdatedAtUtc = now
         };
 
@@ -47,5 +48,37 @@ public class JsonFileProgressStoreTests
             loaded.OwnedCharacterIds.Order(StringComparer.Ordinal));
         Assert.Equal(3, loaded.StageSquads["stage_01"].Revision);
         Assert.Equal(["starter_archer_b", "starter_warrior_a"], loaded.StageSquads["stage_01"].CharacterIds);
+        Assert.Equal(5, loaded.SkillProfile.UnlockedPoints);
+        Assert.Equal(["multiple_projectiles", "piercing_shot"],
+            loaded.SkillProfile.Presets["starter_archer_a"].SupportSkillIds);
+        Assert.Equal(0, loaded.SkillProfile.Revision);
+    }
+
+    [Fact]
+    public async Task LegacyFile_WithoutSkillProfile_LoadsServerDefaults()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), "defensegame-server-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempDir);
+        var filePath = Path.Combine(tempDir, "progress.json");
+        await File.WriteAllTextAsync(filePath, """
+        {
+          "users": {
+            "legacy-user": {
+              "clearedStageIds": [1],
+              "ownedCharacterIds": ["starter_archer_a", "starter_archer_b", "starter_warrior_a", "starter_healer_a"],
+              "stageSquads": {},
+              "updatedAtUtc": "2026-01-01T00:00:00+00:00"
+            }
+          }
+        }
+        """);
+
+        var store = new JsonFileProgressStore(filePath,
+            new FakeClock(DateTimeOffset.Parse("2026-02-01T00:00:00Z")));
+        UserProgress loaded = await store.GetOrCreateAsync("legacy-user", default);
+
+        Assert.Equal(5, loaded.SkillProfile.PlayerLevel);
+        Assert.Equal(4, loaded.SkillProfile.Presets.Count);
+        Assert.Equal(0, loaded.SkillProfile.Revision);
     }
 }

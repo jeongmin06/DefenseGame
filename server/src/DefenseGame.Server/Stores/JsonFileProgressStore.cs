@@ -97,12 +97,54 @@ public sealed class JsonFileProgressStore : IProgressStore
                     UpdatedAtUtc = pair.Value.UpdatedAtUtc
                 },
                 StringComparer.Ordinal),
+            SkillProfile = new SkillProfileEntry
+            {
+                PlayerLevel = progress.SkillProfile.PlayerLevel,
+                UnlockedPoints = progress.SkillProfile.UnlockedPoints,
+                OwnedSkillIds = progress.SkillProfile.OwnedSkillIds.Order(StringComparer.Ordinal).ToList(),
+                Presets = progress.SkillProfile.Presets.ToDictionary(
+                    pair => pair.Key,
+                    pair => new SkillPresetEntry
+                    {
+                        ActiveSkillId = pair.Value.ActiveSkillId,
+                        SupportSkillIds = new List<string>(pair.Value.SupportSkillIds),
+                        AllocatedPoints = pair.Value.AllocatedPoints,
+                        UpdatedAtUtc = pair.Value.UpdatedAtUtc
+                    },
+                    StringComparer.Ordinal),
+                Revision = progress.SkillProfile.Revision,
+                UpdatedAtUtc = progress.SkillProfile.UpdatedAtUtc
+            },
             UpdatedAtUtc = progress.UpdatedAtUtc
         };
     }
 
-    private static UserProgress FromEntry(string userId, ProgressEntry entry)
+    private UserProgress FromEntry(string userId, ProgressEntry entry)
     {
+        DateTimeOffset fallbackTime = entry.UpdatedAtUtc == default ? _clock.UtcNow : entry.UpdatedAtUtc;
+        SkillProfileState skillProfile = entry.SkillProfile is null
+            ? PlayerDefaults.CreateInitialSkillProfile(fallbackTime)
+            : new SkillProfileState
+            {
+                PlayerLevel = entry.SkillProfile.PlayerLevel,
+                UnlockedPoints = entry.SkillProfile.UnlockedPoints,
+                OwnedSkillIds = entry.SkillProfile.OwnedSkillIds.Count == 0
+                    ? new HashSet<string>(PlayerDefaults.InitialSkillIds, StringComparer.Ordinal)
+                    : new HashSet<string>(entry.SkillProfile.OwnedSkillIds, StringComparer.Ordinal),
+                Presets = entry.SkillProfile.Presets.ToDictionary(
+                    pair => pair.Key,
+                    pair => new SkillPresetState
+                    {
+                        CharacterId = pair.Key,
+                        ActiveSkillId = pair.Value.ActiveSkillId,
+                        SupportSkillIds = new List<string>(pair.Value.SupportSkillIds),
+                        AllocatedPoints = pair.Value.AllocatedPoints,
+                        UpdatedAtUtc = pair.Value.UpdatedAtUtc
+                    },
+                    StringComparer.Ordinal),
+                Revision = entry.SkillProfile.Revision,
+                UpdatedAtUtc = entry.SkillProfile.UpdatedAtUtc
+            };
         return new UserProgress
         {
             UserId = userId,
@@ -120,6 +162,7 @@ public sealed class JsonFileProgressStore : IProgressStore
                     UpdatedAtUtc = pair.Value.UpdatedAtUtc
                 },
                 StringComparer.Ordinal),
+            SkillProfile = skillProfile,
             UpdatedAtUtc = entry.UpdatedAtUtc
         };
     }
@@ -134,6 +177,7 @@ public sealed class JsonFileProgressStore : IProgressStore
         public List<int> ClearedStageIds { get; init; } = new();
         public List<string> OwnedCharacterIds { get; init; } = new();
         public Dictionary<string, StageSquadEntry> StageSquads { get; init; } = new(StringComparer.Ordinal);
+        public SkillProfileEntry? SkillProfile { get; init; }
         public DateTimeOffset UpdatedAtUtc { get; init; }
     }
 
@@ -141,6 +185,24 @@ public sealed class JsonFileProgressStore : IProgressStore
     {
         public List<string> CharacterIds { get; init; } = new();
         public int Revision { get; init; }
+        public DateTimeOffset UpdatedAtUtc { get; init; }
+    }
+
+    private sealed class SkillProfileEntry
+    {
+        public int PlayerLevel { get; init; }
+        public int UnlockedPoints { get; init; }
+        public List<string> OwnedSkillIds { get; init; } = new();
+        public Dictionary<string, SkillPresetEntry> Presets { get; init; } = new(StringComparer.Ordinal);
+        public int Revision { get; init; }
+        public DateTimeOffset UpdatedAtUtc { get; init; }
+    }
+
+    private sealed class SkillPresetEntry
+    {
+        public string ActiveSkillId { get; init; } = "";
+        public List<string> SupportSkillIds { get; init; } = new();
+        public int AllocatedPoints { get; init; }
         public DateTimeOffset UpdatedAtUtc { get; init; }
     }
 }

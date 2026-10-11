@@ -7,6 +7,7 @@ namespace DefenseGame.Server.Actors.Players;
 public sealed class PlayerActorRegistry(
     IStageProgressService progressService,
     IStageSquadService squadService,
+    ISkillProfileService skillProfileService,
     ActorThreadScheduler scheduler)
 {
     private readonly ConcurrentDictionary<string, Lazy<PlayerActor>> _players = new(StringComparer.Ordinal);
@@ -16,6 +17,6 @@ public sealed class PlayerActorRegistry(
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
         var normalizedId = userId.Trim();
         return _players.GetOrAdd(normalizedId, id => new Lazy<PlayerActor>(
-            () => new PlayerActor(id, progressService, squadService, scheduler.CreateChannel()))).Value;
+            () => new PlayerActor(id, progressService, squadService, skillProfileService, scheduler.CreateChannel()))).Value;
     }
 }

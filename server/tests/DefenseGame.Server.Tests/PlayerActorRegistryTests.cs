@@ -13,7 +13,7 @@ public sealed class PlayerActorRegistryTests
     public async Task ConcurrentLookups_ReturnOneActorPerNormalizedUser()
     {
         using var scheduler = new ActorThreadScheduler();
-        var registry = new PlayerActorRegistry(new ControlledService(), CreateSquadService(), scheduler);
+        var registry = new PlayerActorRegistry(new ControlledService(), CreateSquadService(), CreateSkillService(), scheduler);
         var actors = await Task.WhenAll(Enumerable.Range(0, 100).Select(index =>
             Task.Run(() => registry.Get(index % 2 == 0 ? " user " : "user"))));
         Assert.All(actors, actor => Assert.Same(actors[0], actor));
@@ -30,7 +30,7 @@ public sealed class PlayerActorRegistryTests
         try
         {
             var service = new ControlledService();
-            var registry = new PlayerActorRegistry(service, CreateSquadService(), scheduler);
+            var registry = new PlayerActorRegistry(service, CreateSquadService(), CreateSkillService(), scheduler);
             var clear = registry.Get("first").HandleStageClearAsync(new StageClearRequest("first", 1, true), default);
             await service.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             var samePlayerQuery = registry.Get(" first ").GetProgressAsync(default);
@@ -52,6 +52,12 @@ public sealed class PlayerActorRegistryTests
     {
         var clock = new FakeClock(DateTimeOffset.Parse("2026-10-09T00:00:00Z"));
         return new StageSquadService(new InMemoryProgressStore(() => clock.UtcNow), clock);
+    }
+
+    private static ISkillProfileService CreateSkillService()
+    {
+        var clock = new FakeClock(DateTimeOffset.Parse("2026-10-09T00:00:00Z"));
+        return new SkillProfileService(new InMemoryProgressStore(() => clock.UtcNow), clock);
     }
 
     private sealed class ControlledService : IStageProgressService
