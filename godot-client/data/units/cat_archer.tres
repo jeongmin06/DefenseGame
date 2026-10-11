@@ -16,6 +16,7 @@ DisplayName = "고양이 궁수"
 Description = SubResource("description")
 Role = 0
 Placement = 0
+DeploymentCost = 10
 SkillTags = Array[String](["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"])
 Scene = ExtResource("scene")
 MaxHealth = 20

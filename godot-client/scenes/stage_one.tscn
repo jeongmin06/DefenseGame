@@ -135,6 +135,16 @@ theme_override_colors/font_color = Color(1, 0.82, 0.42, 1)
 theme_override_font_sizes/font_size = 14
 text = "출전 고양이  //  카드 선택 후 타일 지정"
 
+[node name="DeploymentPointsLabel" type="Label" parent="HUD/DeploymentPanel"]
+offset_left = 930.0
+offset_top = 7.0
+offset_right = 1208.0
+offset_bottom = 28.0
+theme_override_colors/font_color = Color(1, 0.82, 0.42, 1)
+theme_override_font_sizes/font_size = 14
+text = "배치 포인트 20 / 30"
+horizontal_alignment = 2
+
 [node name="CardScroll" type="ScrollContainer" parent="HUD/DeploymentPanel"]
 offset_left = 12.0
 offset_top = 32.0

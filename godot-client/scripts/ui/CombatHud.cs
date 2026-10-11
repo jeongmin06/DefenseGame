@@ -17,6 +17,7 @@ public partial class CombatHud : CanvasLayer
     private readonly Dictionary<string, CatProfile> _profiles = new(StringComparer.Ordinal);
     private HBoxContainer _deploymentCardList = null!;
     private Label _placementLabel = null!;
+    private Label _deploymentPointsLabel = null!;
     private Label _waveLabel = null!;
     private Label _enemyLabel = null!;
     private Label _scoreLabel = null!;
@@ -43,6 +44,7 @@ public partial class CombatHud : CanvasLayer
         _title = GetNode<Label>("TopPanel/Title");
         _deploymentCardList = GetNode<HBoxContainer>("DeploymentPanel/CardScroll/CardList");
         _placementLabel = GetNode<Label>("TopPanel/PlacementLabel");
+        _deploymentPointsLabel = GetNode<Label>("DeploymentPanel/DeploymentPointsLabel");
         _waveLabel = GetNode<Label>("TopPanel/WaveLabel");
         _enemyLabel = GetNode<Label>("TopPanel/EnemyLabel");
         _scoreLabel = GetNode<Label>("TopPanel/ScoreLabel");
@@ -94,7 +96,7 @@ public partial class CombatHud : CanvasLayer
             var button = new Button
             {
                 Name = $"Card_{characterId}",
-                CustomMinimumSize = new Vector2(220, 58),
+                CustomMinimumSize = new Vector2(220, 66),
                 Alignment = HorizontalAlignment.Left
             };
             button.AddThemeFontSizeOverride("font_size", 15);
@@ -111,22 +113,33 @@ public partial class CombatHud : CanvasLayer
         }
     }
 
-    public void UpdateDeploymentCards(IEnumerable<string> remainingCharacterIds, string selectedCharacterId)
+    public void UpdateDeploymentCards(
+        IEnumerable<string> remainingCharacterIds,
+        string selectedCharacterId,
+        float deploymentPoints)
     {
         var remaining = new HashSet<string>(remainingCharacterIds, StringComparer.Ordinal);
         foreach ((string characterId, Button button) in _deploymentCards)
         {
             CatProfile profile = _profiles[characterId];
+            UnitDefinition unit = profile.Unit!;
             bool available = remaining.Contains(characterId);
-            bool selected = available && characterId == selectedCharacterId;
-            button.Disabled = !available;
+            bool affordable = available && deploymentPoints >= unit.DeploymentCost;
+            bool selected = affordable && characterId == selectedCharacterId;
+            button.Disabled = !affordable;
             button.Text = available
-                ? $"{(selected ? "▶ " : "  ")}{profile.DisplayName}\n  {KoreanUiText.Role(profile.Unit!.Role)} · {characterId}"
-                : $"✓ {profile.DisplayName}\n  배치 완료";
-            button.Modulate = selected ? Colors.White : available ? new Color("d6dfca") : new Color("788275");
+                ? $"{(selected ? "▶ " : "  ")}{profile.DisplayName}\n  {KoreanUiText.Role(unit.Role)} · 비용 {unit.DeploymentCost}{(affordable ? "" : " · 부족")}\n  {characterId}"
+                : $"✓ {profile.DisplayName}\n  {characterId} · 배치 완료";
+            button.Modulate = selected ? Colors.White : affordable ? new Color("d6dfca")
+                : available ? new Color("a08362") : new Color("788275");
             if (!available && (_dragCandidateId == characterId || _draggedCharacterId == characterId))
                 CancelCharacterDrag();
         }
+    }
+
+    public void UpdateDeploymentPoints(int current, int maximum)
+    {
+        _deploymentPointsLabel.Text = $"배치 포인트 {current} / {maximum}";
     }
 
     public void UpdatePlacement(CatProfile? selectedProfile, int remainingCount)
@@ -138,7 +151,7 @@ public partial class CombatHud : CanvasLayer
         }
         if (selectedProfile?.Unit is null)
         {
-            _placementLabel.Text = "배치할 고양이를 선택하세요";
+            _placementLabel.Text = "배치 포인트 회복 대기";
             return;
         }
         string terrain = selectedProfile.Unit.Role == UnitRole.Melee ? "잔디 또는 경로" : "잔디";
@@ -189,7 +202,7 @@ public partial class CombatHud : CanvasLayer
             return false;
         _dragCandidateId = characterId;
         _draggedCharacterId = characterId;
-        _dragPreviewLabel.Text = $"{profile.DisplayName}\n{KoreanUiText.Role(profile.Unit.Role)}";
+        _dragPreviewLabel.Text = $"{profile.DisplayName}\n{KoreanUiText.Role(profile.Unit.Role)} · 비용 {profile.Unit.DeploymentCost}";
         _dragPreview.Visible = true;
         MoveDragPreview(globalPosition);
         EmitSignal(SignalName.CharacterSelected, characterId);

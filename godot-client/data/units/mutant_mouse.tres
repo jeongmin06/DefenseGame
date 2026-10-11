@@ -15,6 +15,7 @@ DisplayName = "돌연변이 생쥐"
 Description = SubResource("description")
 Role = 3
 Placement = 2
+DeploymentCost = 0
 SkillTags = Array[String]([])
 Scene = ExtResource("scene")
 MaxHealth = 12

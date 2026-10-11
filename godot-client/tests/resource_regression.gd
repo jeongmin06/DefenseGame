@@ -11,11 +11,18 @@ func check(ok, message):
     if not ok:
         failures += 1
         push_error(message)
+func wait_until(predicate: Callable, max_frames := 300) -> bool:
+    for i in range(max_frames):
+        if predicate.call(): return true
+        await physics_frame
+    return predicate.call()
 func _initialize(): run.call_deferred()
 func run():
     var definition = load("res://data/stages/stage_01.tres")
     check(definition.Id == "stage_01" and definition.Roster.size() == 3 and definition.Waves.size() == 3, "Typed stage resources")
     check(definition.FirstWaveDelay == 10.0, "First wave preparation time")
+    check(definition.InitialDeploymentPoints == 20 and definition.MaxDeploymentPoints == 30, "Stage deployment point bounds")
+    check(definition.DeploymentPointRegenPerSecond == 3.0, "Stage deployment point regeneration")
     check("첫 방어선" in definition.Description.Resolve("ko-KR"), "Regional Korean locale uses Korean stage description")
     check("first grassland" in definition.Description.Resolve("en-US").to_lower(), "Regional English locale uses English stage description")
     var catalog = load("res://data/stages/catalog.tres")
@@ -66,6 +73,7 @@ func run():
     grid.SelectCell(Vector2i(4,2))
     var archer = get_nodes_in_group("towers")[0]
     var archer_def = load("res://data/units/cat_archer.tres")
+    check(archer_def.DeploymentCost == 10, "Unit deployment cost reaches generated resource")
     check(archer_def.SkillTags == ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"], "Unit skill compatibility tags")
     check(archer.AttackDamage == expected_power and archer.AttackDamage == archer_def.ActionPower, "JSON power reaches runtime")
     check(archer.MaxHealth == archer_def.MaxHealth, "Archer health")
@@ -76,6 +84,7 @@ func run():
     archer.AttackDamage = 1.0
     check(archer_def.ActionPower == expected_power, "Instance combat state does not mutate definition")
     var warrior_def = load("res://data/units/cat_warrior.tres")
+    check(await wait_until(func(): return current_scene.DeploymentPoints >= warrior_def.DeploymentCost), "Deployment points recover for warrior fixture")
     current_scene.SelectPlacementType(1)
     grid.SelectCell(Vector2i(6,2))
     var warrior = get_nodes_in_group("warriors")[0]
@@ -87,8 +96,8 @@ func run():
     enemy.Setup(mouse, 0.0, 0.0)
     check(enemy.get_node("HealthBar").max_value == mouse.MaxHealth, "Default wave health")
     check(enemy.AttackDamage == mouse.ActionPower and enemy.AttackInterval == mouse.ActionInterval, "Enemy action")
-    var progress = enemy.progress
     await physics_frame
+    var progress = enemy.progress
     await physics_frame
     check(is_equal_approx(enemy.progress - progress, mouse.MoveSpeed / 60.0), "Default enemy move speed")
     enemy.Setup(mouse, 17.0, 82.0)

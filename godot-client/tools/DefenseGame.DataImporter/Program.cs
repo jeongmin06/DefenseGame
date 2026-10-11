@@ -225,7 +225,7 @@ sealed class Pipeline(string project)
             string id = Id(o, p), role = Str(o, "role", p);
             if (!units.TryAdd(id, o)) Fail(p + ".id", "duplicate ID");
             if (!Roles.Contains(role)) Fail(p + ".role", "unknown role");
-            string[] common = ["id", "displayName", "description", "role", "skillTags", "scenePath", "placement", "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit"];
+            string[] common = ["id", "displayName", "description", "role", "skillTags", "scenePath", "placement", "deploymentCost", "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit"];
             string[] extra = role switch
             {
                 "ranged" => ["rangePixels", "projectileScenePath", "projectileSpeed", "projectileHitDistance", "projectileSpawnOffset"],
@@ -238,6 +238,9 @@ sealed class Pipeline(string project)
             Str(o, "displayName", p); Localized(o["description"], p + ".description"); ScenePath(o, "scenePath", p);
             string expected = role == "enemy" ? "none" : role == "melee" ? "ground_or_path" : "ground";
             if (Str(o, "placement", p) != expected) Fail(p + ".placement", "invalid placement for role");
+            int deploymentCost = (int)Num(o, "deploymentCost", p, integer: true);
+            if (role == "enemy" ? deploymentCost != 0 : deploymentCost <= 0)
+                Fail(p + ".deploymentCost", role == "enemy" ? "enemy deployment cost must be zero" : "allied deployment cost must be positive");
             Num(o, "maxHealth", p, positive: true); Num(o, "actionPower", p);
             Num(o, "actionInterval", p, positive: true);
             double frame = Num(o, "actionFrame", p, integer: true);
@@ -424,7 +427,7 @@ sealed class Pipeline(string project)
     }
     void ValidateStage(JsonObject s, string p, HashSet<string> ids)
     {
-        Fields(s, p, "id", "displayName", "description", "maxSquadUnits", "skillPointCap", "baseHealth", "firstWaveDelay", "waveGap", "grid", "pathCorners", "blockedCells", "roster", "waves");
+        Fields(s, p, "id", "displayName", "description", "maxSquadUnits", "skillPointCap", "baseHealth", "firstWaveDelay", "waveGap", "initialDeploymentPoints", "maxDeploymentPoints", "deploymentPointRegenPerSecond", "grid", "pathCorners", "blockedCells", "roster", "waves");
         if (!ids.Add(Id(s, p))) Fail(p + ".id", "duplicate ID");
         Str(s, "displayName", p); Localized(s["description"], p + ".description"); Num(s, "baseHealth", p, integer: true, positive: true);
         int maxSquadUnits = s.ContainsKey("maxSquadUnits")
@@ -432,6 +435,11 @@ sealed class Pipeline(string project)
         if (maxSquadUnits > 10) Fail(p + ".maxSquadUnits", "maximum squad size is 10");
         if (s.ContainsKey("skillPointCap")) Num(s, "skillPointCap", p, integer: true);
         Num(s, "firstWaveDelay", p, positive: true); Num(s, "waveGap", p, positive: true);
+        int initialDeploymentPoints = (int)Num(s, "initialDeploymentPoints", p, integer: true);
+        int maxDeploymentPoints = (int)Num(s, "maxDeploymentPoints", p, integer: true, positive: true);
+        if (initialDeploymentPoints > maxDeploymentPoints)
+            Fail(p + ".initialDeploymentPoints", "cannot exceed maxDeploymentPoints");
+        Num(s, "deploymentPointRegenPerSecond", p, positive: true);
         var grid = Obj(s["grid"], p + ".grid");
         Fields(grid, p + ".grid", "columns", "rows", "cellSize", "origin");
         int cols = (int)Num(grid, "columns", p + ".grid", integer: true, positive: true);
@@ -474,6 +482,8 @@ sealed class Pipeline(string project)
             if (!units.TryGetValue(id, out var unit)) { Fail(rp + ".unitId", "unknown unit reference"); return; }
             string role = S(unit, "role");
             if (role == "enemy" || !roles.Add(role)) Fail(rp + ".unitId", "HUD requires one definition per allied role");
+            if (Num(unit, "deploymentCost", rp + ".unitId", integer: true, positive: true) > maxDeploymentPoints)
+                Fail(rp + ".unitId", "unit deployment cost exceeds stage maximum points");
             int count = (int)Num(r, "count", rp, integer: true, positive: true);
             total += count; if (role != "melee") ground += count;
             if (role == "melee") melee += count;
@@ -526,6 +536,7 @@ sealed class Pipeline(string project)
         b.AppendLine("Id = " + Q(S(u, "id"))); b.AppendLine("DisplayName = " + Q(S(u, "displayName")));
         b.AppendLine("Description = " + Sub("description"));
         b.AppendLine("Role = " + Array.IndexOf(Roles, S(u, "role"))); b.AppendLine("Placement = " + Array.IndexOf(Placements, S(u, "placement")));
+        b.AppendLine("DeploymentCost = " + N(u["deploymentCost"]));
         b.AppendLine("SkillTags = " + StringsText(u["skillTags"]));
         b.AppendLine("Scene = " + Ext("scene"));
         foreach (string key in new[] { "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit", "rangePixels", "rangeCells", "blockCount", "projectileSpeed", "projectileHitDistance", "moveSpeed" })
@@ -566,7 +577,8 @@ sealed class Pipeline(string project)
         b.AppendLine("Id = " + Q(S(s, "id")) + "\nDisplayName = " + Q(S(s, "displayName")));
         b.AppendLine("Description = " + Sub("description"));
         b.AppendLine("MaxSquadUnits = " + (s.ContainsKey("maxSquadUnits") ? N(s["maxSquadUnits"]) : "10"));
-        foreach (string key in new[] { "baseHealth", "firstWaveDelay", "waveGap" }) b.AppendLine(char.ToUpperInvariant(key[0]) + key[1..] + " = " + N(s[key]));
+        foreach (string key in new[] { "baseHealth", "firstWaveDelay", "waveGap", "initialDeploymentPoints", "maxDeploymentPoints", "deploymentPointRegenPerSecond" })
+            b.AppendLine(char.ToUpperInvariant(key[0]) + key[1..] + " = " + N(s[key]));
         b.AppendLine("SkillBudget = " + Sub("skill_budget"));
         b.AppendLine("Grid = " + Sub("grid") + "\nPathCorners = " + PointsText(s["pathCorners"]) + "\nBlockedCells = " + PointsText(s["blockedCells"]));
         b.AppendLine("Roster = Array[" + Ext("RosterEntry") + "]([" + string.Join(", ", Enumerable.Range(0, roster.Count).Select(i => Sub("roster_" + i))) + "])");

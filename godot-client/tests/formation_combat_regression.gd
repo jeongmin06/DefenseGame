@@ -11,6 +11,12 @@ func check(ok, message):
 func ticks(count):
     for i in range(count): await process_frame
 
+func wait_until(predicate: Callable, max_frames := 300) -> bool:
+    for i in range(max_frames):
+        if predicate.call(): return true
+        await physics_frame
+    return predicate.call()
+
 func enter_battle(character_ids: Array):
     var squad_path = root_path + "/squad-%d.json" % character_ids.size()
     var file = FileAccess.open(squad_path, FileAccess.WRITE)
@@ -63,9 +69,11 @@ func run():
     grid = stage.get_node("DeploymentGrid")
     check(grid.SelectCell(Vector2i(4, 2)), "Place sole selected archer")
     check(stage.RemainingArchers == 0, "No legacy ranged count leaks into selected formation")
+    check(await wait_until(func(): return stage.DeploymentPoints >= 12.0), "Warrior cost recovers during combat preparation")
     check(stage.SelectPlacementType(1), "Selected warrior remains deployable")
     check(grid.SelectCell(Vector2i(1, 3)), "Place selected warrior")
     check(stage.PlacedWarriorCharacterIds == PackedStringArray(["starter_warrior_a"]), "Warrior keeps its character ID")
+    check(await wait_until(func(): return stage.DeploymentPoints >= 11.0), "Healer cost recovers after warrior deployment")
     check(stage.SelectPlacementType(2), "Selected healer remains deployable")
     check(grid.SelectCell(Vector2i(5, 3)), "Place selected healer")
     check(stage.PlacedHealerCharacterIds == PackedStringArray(["starter_healer_a"]), "Healer keeps its character ID")

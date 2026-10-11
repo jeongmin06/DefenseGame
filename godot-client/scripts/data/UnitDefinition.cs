@@ -14,6 +14,7 @@ public partial class UnitDefinition : Resource
     [Export] public LocalizedText Description { get; set; } = null!;
     [Export] public UnitRole Role { get; set; }
     [Export] public PlacementRule Placement { get; set; }
+    [Export] public int DeploymentCost { get; set; }
     [Export] public Godot.Collections.Array<string> SkillTags { get; set; } = new();
     [Export] public PackedScene Scene { get; set; } = null!;
     [Export] public float MaxHealth { get; set; }

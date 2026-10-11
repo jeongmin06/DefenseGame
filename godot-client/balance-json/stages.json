@@ -10,6 +10,9 @@
       "baseHealth": 5,
       "firstWaveDelay": 10,
       "waveGap": 2,
+      "initialDeploymentPoints": 20,
+      "maxDeploymentPoints": 30,
+      "deploymentPointRegenPerSecond": 3,
       "grid": {
         "columns": 16,
         "rows": 8,
@@ -110,6 +113,9 @@
       "baseHealth": 5,
       "firstWaveDelay": 10,
       "waveGap": 2,
+      "initialDeploymentPoints": 20,
+      "maxDeploymentPoints": 30,
+      "deploymentPointRegenPerSecond": 3,
       "grid": {
         "columns": 16,
         "rows": 8,
@@ -180,6 +186,9 @@
       "baseHealth": 5,
       "firstWaveDelay": 10,
       "waveGap": 2,
+      "initialDeploymentPoints": 20,
+      "maxDeploymentPoints": 30,
+      "deploymentPointRegenPerSecond": 3,
       "grid": {
         "columns": 16,
         "rows": 8,

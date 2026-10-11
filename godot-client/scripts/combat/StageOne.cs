@@ -16,6 +16,8 @@ public partial class StageOne : Node2D
     public int RemainingArchers => RemainingFor(DeploymentGrid.PlacementType.Ranged);
     public string SelectedDeploymentCharacterId => _selectedCharacterId;
     public float SecondsUntilFirstWave => _firstWaveCountdown;
+    public float DeploymentPoints => _deploymentPoints;
+    public int MaxDeploymentPoints => Definition.MaxDeploymentPoints;
     public string NextArcherCharacterId => _deploymentOrder.FirstOrDefault(deployment =>
         deployment.Profile.Unit?.Role == UnitRole.Ranged && _availableDeployments.ContainsKey(deployment.Profile.CharacterId))
         ?.Profile.CharacterId ?? "";
@@ -32,8 +34,10 @@ public partial class StageOne : Node2D
     private float _firstWaveDelay;
     private float _firstWaveCountdown;
     private float _waveGap;
+    private float _deploymentPoints;
     private bool _combatTimelineStarted;
     private int _lastDisplayedCountdownSecond = -1;
+    private int _lastDisplayedDeploymentPoints = -1;
     private DeploymentGrid.PlacementType _selectedType;
 
     private int _waveIndex = -1;
@@ -69,6 +73,7 @@ public partial class StageOne : Node2D
         _baseHealth = Definition.BaseHealth;
         _firstWaveDelay = Definition.FirstWaveDelay;
         _waveGap = Definition.WaveGap;
+        _deploymentPoints = Definition.InitialDeploymentPoints;
         _pathCorners = System.Linq.Enumerable.ToArray(Definition.PathCorners);
         _waves = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Select(Definition.Waves,
             w => new WaveSpec(w.Enemy, w.Count, w.HealthOverride, w.SpeedOverride, w.Interval)));
@@ -83,7 +88,7 @@ public partial class StageOne : Node2D
         _hud.StageListRequested += ReturnToStageList;
         _hud.UpdateStage(Definition.DisplayName, Definition.Id);
         _hud.ConfigureDeploymentCards(_deploymentOrder.Select(deployment => deployment.Profile));
-        SelectNextAvailableCharacter();
+        SelectNextAffordableCharacter();
         BuildEnemyPath();
         _spawnTimer.Timeout += SpawnEnemy;
         _combatTimelineStarted = true;
@@ -95,7 +100,10 @@ public partial class StageOne : Node2D
 
     public override void _PhysicsProcess(double delta)
     {
-        if (!_combatTimelineStarted || _battleEnded || _waveIndex >= 0) return;
+        if (!_combatTimelineStarted || _battleEnded) return;
+
+        RegenerateDeploymentPoints((float)delta);
+        if (_waveIndex >= 0) return;
 
         _firstWaveCountdown = Mathf.Max(0.0f, _firstWaveCountdown - (float)delta);
         int displayedSecond = Mathf.CeilToInt(_firstWaveCountdown);
@@ -141,7 +149,7 @@ public partial class StageOne : Node2D
     public bool SelectDeploymentCharacter(string characterId)
     {
         if (_battleEnded || !_availableDeployments.TryGetValue(characterId, out UnitDeployment? deployment)
-            || deployment.Profile.Unit is null) return false;
+            || deployment.Profile.Unit is null || !CanAfford(deployment.Profile.Unit)) return false;
         _selectedCharacterId = characterId;
         _selectedType = ToPlacementType(deployment.Profile.Unit.Role);
         _grid.SetPlacementType(_selectedType);
@@ -152,7 +160,7 @@ public partial class StageOne : Node2D
     public bool TryDeployCharacterAtGlobalPosition(string characterId, Vector2 globalPosition)
     {
         if (!SelectDeploymentCharacter(characterId)) return false;
-        return _grid.SelectCell(_grid.GlobalToCell(globalPosition));
+        return TryDeploySelectedCharacter(_grid.GlobalToCell(globalPosition));
     }
 
     private int RemainingFor(DeploymentGrid.PlacementType type) => _availableDeployments.Values.Count(deployment =>
@@ -162,16 +170,21 @@ public partial class StageOne : Node2D
     {
         CatProfile? selected = _availableDeployments.TryGetValue(_selectedCharacterId, out UnitDeployment? deployment)
             ? deployment.Profile : null;
-        _hud.UpdateDeploymentCards(_availableDeployments.Keys, _selectedCharacterId);
+        _hud.UpdateDeploymentCards(_availableDeployments.Keys, _selectedCharacterId, _deploymentPoints);
         _hud.UpdatePlacement(selected, _availableDeployments.Count);
+        _hud.UpdateDeploymentPoints(Mathf.FloorToInt(_deploymentPoints), Definition.MaxDeploymentPoints);
     }
 
-    private void OnCellSelected(Vector2I cell)
+    private void OnCellSelected(Vector2I cell) => TryDeploySelectedCharacter(cell);
+
+    private bool TryDeploySelectedCharacter(Vector2I cell)
     {
         if (_battleEnded || !_availableDeployments.TryGetValue(_selectedCharacterId, out UnitDeployment? deployment)
-            || deployment.Profile.Unit is null || !_grid.TryOccupy(cell, _selectedType)) return;
+            || deployment.Profile.Unit is null || !CanAfford(deployment.Profile.Unit)
+            || !_grid.TryOccupy(cell, _selectedType)) return false;
         string characterId = deployment.Profile.CharacterId;
         UnitDefinition unit = deployment.Profile.Unit;
+        _deploymentPoints -= unit.DeploymentCost;
         if (unit.Role == UnitRole.Ranged)
         {
             Tower tower = unit.Scene.Instantiate<Tower>();
@@ -203,18 +216,37 @@ public partial class StageOne : Node2D
             healer.Defeated += _ => _grid.ReleaseCell(cell);
         }
         _availableDeployments.Remove(characterId);
-        SelectNextAvailableCharacter();
+        SelectNextAffordableCharacter();
         UpdatePlacementHud();
+        return true;
     }
 
-    private void SelectNextAvailableCharacter()
+    private void SelectNextAffordableCharacter()
     {
         UnitDeployment? next = _deploymentOrder.FirstOrDefault(deployment =>
-            _availableDeployments.ContainsKey(deployment.Profile.CharacterId));
+            _availableDeployments.ContainsKey(deployment.Profile.CharacterId)
+            && deployment.Profile.Unit is not null && CanAfford(deployment.Profile.Unit));
         _selectedCharacterId = next?.Profile.CharacterId ?? "";
         if (next?.Profile.Unit is null) return;
         _selectedType = ToPlacementType(next.Profile.Unit.Role);
         _grid.SetPlacementType(_selectedType);
+    }
+
+    private bool CanAfford(UnitDefinition unit) => _deploymentPoints >= unit.DeploymentCost;
+
+    private void RegenerateDeploymentPoints(float delta)
+    {
+        if (_deploymentPoints >= Definition.MaxDeploymentPoints) return;
+
+        _deploymentPoints = Mathf.Min(
+            Definition.MaxDeploymentPoints,
+            _deploymentPoints + Definition.DeploymentPointRegenPerSecond * delta);
+        int displayedPoints = Mathf.FloorToInt(_deploymentPoints);
+        if (displayedPoints == _lastDisplayedDeploymentPoints) return;
+
+        _lastDisplayedDeploymentPoints = displayedPoints;
+        if (string.IsNullOrEmpty(_selectedCharacterId)) SelectNextAffordableCharacter();
+        UpdatePlacementHud();
     }
 
     private static DeploymentGrid.PlacementType ToPlacementType(UnitRole role) => role switch

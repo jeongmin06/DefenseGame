@@ -13,7 +13,7 @@ func check(ok,msg):
         push_error(msg)
 func ticks(n):
     for i in range(n): await physics_frame
-func wait_until(predicate: Callable, max_physics_frames := 120) -> bool:
+func wait_until(predicate: Callable, max_physics_frames := 300) -> bool:
     for i in range(max_physics_frames):
         if predicate.call(): return true
         await physics_frame
@@ -28,7 +28,9 @@ func run():
     check(not grid.SelectCell(Vector2i(15,0)), "Support rejects blocked")
     grid.SelectCell(Vector2i(4,2))
     var h = get_nodes_in_group("healers")[0]
+    check(await wait_until(func(): return current_scene.DeploymentPoints >= 10.0), "Archer cost recovers after healer deployment")
     grid.SelectCell(Vector2i(3,2))
+    check(await wait_until(func(): return current_scene.DeploymentPoints >= 10.0), "Second archer cost recovers during preparation")
     grid.SelectCell(Vector2i(5,2))
     var a = get_nodes_in_group("towers")[0]
     var b = get_nodes_in_group("towers")[1]
@@ -81,10 +83,13 @@ func run():
     grid = current_scene.get_node("DeploymentGrid")
     grid.SelectCell(Vector2i(4,2))
     grid.SelectCell(Vector2i(9,3))
+    check(await wait_until(func(): return current_scene.DeploymentPoints >= 12.0), "Warrior cost recovers after archers")
+    check(current_scene.SelectPlacementType(1), "Select warrior after its deployment cost recovers")
     grid.SelectCell(Vector2i(6,2))
     await ticks(90)
     check(get_nodes_in_group("enemies").is_empty(), "Countdown does not depend on final healer")
-    check(grid.SelectedProfile == 2, "Auto support selection")
+    check(await wait_until(func(): return current_scene.DeploymentPoints >= 11.0), "Healer cost recovers before final preparation deployment")
+    check(current_scene.SelectPlacementType(2), "Select healer after its deployment cost recovers")
     grid.SelectCell(Vector2i(5,2))
     h = get_nodes_in_group("healers")[0]
     check(h.CurrentHealth == 18, "Restart health")

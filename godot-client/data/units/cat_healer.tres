@@ -15,6 +15,7 @@ DisplayName = "고양이 치유사"
 Description = SubResource("description")
 Role = 2
 Placement = 0
+DeploymentCost = 11
 SkillTags = Array[String](["HEAL"])
 Scene = ExtResource("scene")
 MaxHealth = 18

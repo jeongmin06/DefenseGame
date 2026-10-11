@@ -17,6 +17,7 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 
 - `id`: 소문자로 시작하는 소문자·숫자·밑줄 ID, 문서 내 중복 불가
 - `displayName`, `role`, `scenePath`, `placement`, `skillTags`
+- `deploymentCost`: 아군은 양의 정수, 적은 0
 - `maxHealth`, `actionPower`, `actionInterval`, `actionFrame`, `targetLimit`
 
 역할별 필드:
@@ -33,6 +34,7 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 스테이지 필드:
 
 - `id`, `displayName`, 선택 `skillPointCap`, `baseHealth`, `firstWaveDelay`, `waveGap`
+- `initialDeploymentPoints`, `maxDeploymentPoints`, `deploymentPointRegenPerSecond`
 - `grid`: columns, rows, cellSize, origin
 - `pathCorners`, `blockedCells`
 - `roster`: unitId, count
@@ -41,6 +43,8 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 웨이브 override 생략은 `.tres`에서 0으로 유지하고 런타임이 적 정의의 기본값을 사용한다. JSON에서 명시적인 override는 양수여야 한다. 경로는 2개 이상 코너와 길이가 0이 아닌 직교 구간으로 정의하며, 맵 밖 시작·끝 좌표를 허용한다. 격자 안 차단 셀은 경로와 겹칠 수 없다. 모든 편성의 배치가 가능한 셀 수를 검증한다.
 
 `skillPointCap` 생략은 스테이지 제한 없음이고 명시한 `0`은 사용 가능 포인트 0이다. 생성되는 `StageSkillBudget.HasStageCap`이 두 상태를 구분하며, 사용 가능 포인트는 플레이어 해금 포인트와 스테이지 상한 중 작은 값이다.
+
+`initialDeploymentPoints`는 0 이상의 정수이며 `maxDeploymentPoints`를 넘을 수 없다. 최대 포인트는 양의 정수, 초당 회복량은 양수다. 현재 스테이지 기본값은 초기 20, 최대 30, 초당 3이며 유닛 배치 비용은 궁수 10, 전사 12, 치유사 11이다.
 
 체력·주기·사거리·속도·시간·격자 크기는 유한한 양수, 피해·치유량과 저지 수는 0 이상이다. 좌표는 정수 셀의 경우 절대값 10,000 이내, 격자는 최대 백만 셀로 제한해 잘못된 입력의 과도한 할당·순회를 막는다. 안전한 `res://...tscn` 경로와 파일 존재 여부를 확인한다.
 
