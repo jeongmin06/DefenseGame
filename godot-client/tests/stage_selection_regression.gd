@@ -27,7 +27,16 @@ func run():
     selector.SetSkillProfileStoragePathOverride("/tmp/defense-stage-selection-profile-%d-%d.json" % [OS.get_process_id(), Time.get_ticks_usec()])
     selector.SetStageSquadStoragePathOverride("/tmp/defense-stage-selection-squad-%d-%d.json" % [OS.get_process_id(), Time.get_ticks_usec()])
     check(selector.StageCount == 3, "Three selectable stages")
-    check(selector.get_node("UI/StagePanel/StageList").get_child_count() == 3, "Three generated buttons")
+    var background = selector.get_node("UI/Background")
+    check(background.texture != null and background.texture.resource_path.ends_with("stage_select_command_outpost.png"),
+        "Stage-select background texture is connected")
+    var stage_list = selector.get_node("UI/StagePanel/StageList")
+    check(stage_list.get_child_count() == 3, "Three generated buttons")
+    var first_button = stage_list.get_child(0)
+    var normal_style = first_button.get_theme_stylebox("normal")
+    check(normal_style is StyleBoxTexture and normal_style.texture == selector.StageButtonTexture,
+        "Generated stage buttons use the shared art texture")
+    check(first_button.custom_minimum_size.y == 96.0, "Art button keeps the intended readable height")
     check(selector.GetEnemyCount(0) == 21, "Stage 1 enemy count")
     check(selector.GetEnemyCount(1) == 30, "Stage 2 enemy count")
     check(selector.GetEnemyCount(2) == 42, "Stage 3 enemy count")

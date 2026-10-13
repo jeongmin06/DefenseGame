@@ -1,9 +1,35 @@
-[gd_scene load_steps=5 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/StageSelect.cs" id="1_select"]
 [ext_resource type="Resource" path="res://data/stages/catalog.tres" id="2_catalog"]
 
 [ext_resource type="Script" path="res://scripts/ui/BootSplash.cs" id="boot"]
+[ext_resource type="Texture2D" path="res://assets/backgrounds/stage_select_command_outpost.png" id="stage_bg"]
+[ext_resource type="Texture2D" path="res://assets/ui/stage_button_frame.png" id="stage_button"]
+
+[sub_resource type="StyleBoxFlat" id="HeaderStyle"]
+bg_color = Color(0.018, 0.067, 0.047, 0.82)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.761, 0.508, 0.224, 0.72)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
+
+[sub_resource type="StyleBoxFlat" id="HintStyle"]
+bg_color = Color(0.018, 0.067, 0.047, 0.8)
+border_width_left = 3
+border_width_top = 3
+border_width_right = 3
+border_width_bottom = 3
+border_color = Color(0.761, 0.508, 0.224, 0.72)
+corner_radius_top_left = 12
+corner_radius_top_right = 12
+corner_radius_bottom_right = 12
+corner_radius_bottom_left = 12
 
 [sub_resource type="StyleBoxFlat" id="PanelStyle"]
 bg_color = Color(0.027, 0.09, 0.063, 0.94)
@@ -20,8 +46,25 @@ corner_radius_bottom_left = 12
 [node name="StageSelect" type="Node2D"]
 script = ExtResource("1_select")
 Catalog = ExtResource("2_catalog")
+StageButtonTexture = ExtResource("stage_button")
 
 [node name="UI" type="CanvasLayer" parent="."]
+
+[node name="Background" type="TextureRect" parent="UI"]
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 2
+texture = ExtResource("stage_bg")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="HeaderPanel" type="Panel" parent="UI"]
+offset_left = 58.0
+offset_top = 48.0
+offset_right = 728.0
+offset_bottom = 222.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("HeaderStyle")
 
 [node name="Eyebrow" type="Label" parent="UI"]
 offset_left = 84.0
@@ -63,6 +106,14 @@ offset_top = 28.0
 offset_right = 598.0
 offset_bottom = 350.0
 theme_override_constants/separation = 18
+
+[node name="HintPanel" type="Panel" parent="UI"]
+offset_left = 770.0
+offset_top = 282.0
+offset_right = 1226.0
+offset_bottom = 482.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("HintStyle")
 
 [node name="MapHint" type="Label" parent="UI"]
 offset_left = 804.0
