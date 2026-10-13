@@ -113,3 +113,7 @@ dotnet build godot-client/DefenseGame.csproj
 8프레임 `cast`의 후반 프레임 5에 다시 대상을 탐색하고 `UnitHealth.Heal`로 회복한다. 최대 체력을 넘기거나 죽은 유닛을 부활시키지 않는다. 대상이 없으면 대기하고 주기를 새로 소비하지 않는다. 투사체는 생성하지 않으며 전투 종료·사망 시 치유를 취소한다.
 
 자동 검증은 `StageOne.SelectPlacementType(DeploymentGrid.PlacementType.Support)`와 `DeploymentGrid.SelectCell`로 힐러를 배치할 수 있다. 실제 화면에서는 HEALER 버튼, Ground 강조, 시안 가장자리, 좌우 치유 동작과 체력 바 회복을 확인한다.
+
+## 전투 배경과 로딩 화면
+
+`BattlefieldArt`는 기존 지형 위에 잔디·흙 질감과 차단 타일의 바위를 그리는 장식 노드다. 배치 규칙과 경로는 `DeploymentGrid`가 그대로 소유한다. 게임 첫 시작과 스킬 준비 완료 시 `loading_screen.tscn`의 일러스트·진행바를 표시하며, 로딩이 완료된 뒤 전투 타이머가 시작된다. 실패하면 재시도하거나 목록으로 돌아갈 수 있다. 아트 원본과 생성 프롬프트는 [배경 에셋 설명](assets/backgrounds/README.md)에 있다.

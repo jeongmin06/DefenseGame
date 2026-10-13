@@ -287,7 +287,7 @@ public partial class SkillLoadoutScreen : Node2D
         string firstCharacterId = _selectedProfiles.First().CharacterId;
         StageSelectionState.SelectedLoadout = _validation.GetLoadout(firstCharacterId);
         StageSelectionState.SelectedCharacterLoadouts = new Godot.Collections.Array<CharacterSkillLoadout>(_validation.CharacterLoadouts);
-        GetTree().ChangeSceneToFile("res://scenes/stage_one.tscn");
+        LoadingScreen.EnterBattle(this);
     }
 
     public void ReturnToFormation()
