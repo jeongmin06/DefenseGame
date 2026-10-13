@@ -38,6 +38,11 @@ public partial class RangedAttack : Node2D
 
     public void Fire(Enemy target, float damage, bool facingLeft)
     {
+        Fire(target, damage, facingLeft ? UnitFacing.Left : UnitFacing.Right);
+    }
+
+    public void Fire(Enemy target, float damage, UnitFacing facing)
+    {
         if (!GodotObject.IsInstanceValid(target) || !target.IsActive())
         {
             return;
@@ -51,8 +56,7 @@ public partial class RangedAttack : Node2D
 
         Node currentScene = GetTree().CurrentScene;
         Node projectileLayer = currentScene.GetNodeOrNull<Node>("Projectiles") ?? currentScene;
-        float horizontalOffset = facingLeft ? -SpawnOffset.X : SpawnOffset.X;
-        Vector2 basePosition = GlobalPosition + new Vector2(horizontalOffset, SpawnOffset.Y);
+        Vector2 basePosition = GlobalPosition + Rotate(SpawnOffset, facing);
         Vector2 direction = target.GlobalPosition - basePosition;
         Vector2 spreadAxis = direction.IsZeroApprox() ? Vector2.Down : direction.Normalized().Orthogonal();
         float damagePerHit = Mathf.Max(0.0f, damage + AddedHitDamage) * DamageMultiplier;
@@ -73,4 +77,13 @@ public partial class RangedAttack : Node2D
             projectile.SetupWithEffects(target, damagePerHit, ProjectileSpeed, _hitDistance, PierceCount, AttackTags);
         }
     }
+
+    private static Vector2 Rotate(Vector2 offset, UnitFacing facing) => facing switch
+    {
+        UnitFacing.Right => offset,
+        UnitFacing.Down => new Vector2(-offset.Y, offset.X),
+        UnitFacing.Left => new Vector2(-offset.X, -offset.Y),
+        UnitFacing.Up => new Vector2(offset.Y, -offset.X),
+        _ => offset
+    };
 }

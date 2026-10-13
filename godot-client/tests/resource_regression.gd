@@ -72,12 +72,14 @@ func run():
     for arg in OS.get_cmdline_user_args():
         if arg.begins_with("--expected-power="): expected_power = float(arg.split("=")[1])
     grid.SelectCell(Vector2i(4,2))
+    grid.SelectFacing(0)
     var archer = get_nodes_in_group("towers")[0]
     var archer_def = load("res://data/units/cat_archer.tres")
     check(archer_def.DeploymentCost == 10, "Unit deployment cost reaches generated resource")
     check(archer_def.Behavior == 0 and archer_def.Visual != null, "Ranged behavior and visual definition")
     check(archer_def.Visual.FrameSize == Vector2i(443, 443) and archer_def.Visual.Action.FrameCount == 8, "Visual frame metadata")
     check(archer_def.SkillTags == ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"], "Unit skill compatibility tags")
+    check(archer_def.AttackCellOffsets.size() == 7, "Ranged attack cells reach generated resource")
     check(archer.AttackDamage == expected_power and archer.AttackDamage == archer_def.ActionPower, "JSON power reaches runtime")
     check(archer.MaxHealth == archer_def.MaxHealth, "Archer health")
     var archer_sprite = archer.get_node("AnimatedSprite")
@@ -93,9 +95,10 @@ func run():
     check(await wait_until(func(): return current_scene.DeploymentPoints >= warrior_def.DeploymentCost), "Deployment points recover for warrior fixture")
     current_scene.SelectPlacementType(1)
     grid.SelectCell(Vector2i(6,2))
+    grid.SelectFacing(0)
     var warrior = get_nodes_in_group("warriors")[0]
     warrior.AttackCellOffsets.append(Vector2i(2,0))
-    check(warrior_def.AttackCellOffsets.size() == 0, "Offsets copied")
+    check(warrior_def.AttackCellOffsets.size() == 2, "Offsets copied")
     var mouse = load("res://data/units/mutant_mouse.tres")
     var enemy = mouse.Scene.instantiate()
     current_scene.get_node("EnemyPath").add_child(enemy)

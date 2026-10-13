@@ -173,6 +173,15 @@ sealed class Pipeline(string project)
         for (int i = 0; i < a.Count; i++) points.Add(Pair(a[i], $"{path}[{i}]", true));
         return points;
     }
+    static List<double[]> CellOffsets(JsonNode? node, string path)
+    {
+        List<double[]> points = Points(node, path);
+        if (points.Count == 0) Fail(path, "cannot be empty");
+        var seen = new HashSet<(double, double)>();
+        for (int i = 0; i < points.Count; i++)
+            if (!seen.Add((points[i][0], points[i][1]))) Fail($"{path}[{i}]", "duplicate cell offset");
+        return points;
+    }
     static string[] Tags(JsonNode? node, string path)
     {
         var a = Arr(node, path);
@@ -308,9 +317,9 @@ sealed class Pipeline(string project)
             string[] common = ["id", "displayName", "description", "role", "behavior", "visual", "skillTags", "placement", "deploymentCost", "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit"];
             string[] extra = role switch
             {
-                "ranged" => ["rangePixels", "projectileScenePath", "projectileSpeed", "projectileHitDistance", "projectileSpawnOffset"],
+                "ranged" => ["rangePixels", "attackCellOffsets", "projectileScenePath", "projectileSpeed", "projectileHitDistance", "projectileSpawnOffset"],
                 "melee" => ["rangeCells", "attackCellOffsets", "blockCount"],
-                "support" => ["rangePixels"],
+                "support" => ["rangePixels", "attackCellOffsets"],
                 _ => ["moveSpeed"]
             };
             Fields(o, p, [.. common, .. extra]);
@@ -329,6 +338,7 @@ sealed class Pipeline(string project)
             double limit = Num(o, "targetLimit", p, integer: true);
             if (role != "melee" && limit != 1) Fail(p + ".targetLimit", "current role supports exactly one target");
             if (role is "ranged" or "support") Num(o, "rangePixels", p, positive: true);
+            if (role != "enemy") CellOffsets(o["attackCellOffsets"], p + ".attackCellOffsets");
             if (role == "ranged")
             {
                 ScenePath(o, "projectileScenePath", p);
@@ -339,7 +349,6 @@ sealed class Pipeline(string project)
             {
                 Num(o, "rangeCells", p, integer: true, positive: true);
                 Num(o, "blockCount", p, integer: true);
-                if (o.ContainsKey("attackCellOffsets")) Points(o["attackCellOffsets"], p + ".attackCellOffsets");
             }
             if (role == "enemy") Num(o, "moveSpeed", p, positive: true);
         }

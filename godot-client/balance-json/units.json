@@ -26,6 +26,7 @@
       "actionFrame": 5,
       "targetLimit": 1,
       "rangePixels": 230,
+      "attackCellOffsets": [[1, -1], [1, 0], [1, 1], [2, -1], [2, 0], [2, 1], [3, 0]],
       "projectileScenePath": "res://scenes/arrow_projectile.tscn",
       "projectileSpeed": 620,
       "projectileHitDistance": 10,
@@ -59,7 +60,7 @@
       "actionFrame": 4,
       "targetLimit": 1,
       "rangeCells": 1,
-      "attackCellOffsets": [],
+      "attackCellOffsets": [[0, 0], [1, 0]],
       "blockCount": 1
     },
     {
@@ -86,7 +87,8 @@
       "actionInterval": 1,
       "actionFrame": 5,
       "targetLimit": 1,
-      "rangePixels": 230
+      "rangePixels": 230,
+      "attackCellOffsets": [[0, 0], [1, -1], [1, 0], [1, 1], [2, -1], [2, 0], [2, 1], [3, 0]]
     },
     {
       "id": "mutant_mouse",
@@ -138,6 +140,7 @@
       "actionFrame": 5,
       "targetLimit": 1,
       "rangePixels": 210,
+      "attackCellOffsets": [[1, -1], [1, 0], [1, 1], [2, -1], [2, 0], [2, 1], [3, 0]],
       "projectileScenePath": "res://scenes/arrow_projectile.tscn",
       "projectileSpeed": 660,
       "projectileHitDistance": 10,

@@ -1,6 +1,7 @@
 using Godot;
 using DefenseGame.Client.Data;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace DefenseGame.Client.Combat;
 
@@ -15,6 +16,10 @@ public partial class DeploymentGrid : Node2D
 
     [Signal]
     public delegate void CellSelectedEventHandler(Vector2I cell);
+    [Signal]
+    public delegate void FacingSelectedEventHandler(int facing);
+    [Signal]
+    public delegate void FacingSelectionCanceledEventHandler();
 
     private TileType[,] _tiles = new TileType[0, 0];
     private readonly Dictionary<PlacementType, PlacementRule> _rules = new();
@@ -29,7 +34,16 @@ public partial class DeploymentGrid : Node2D
 
     private bool _placementEnabled = true;
     public bool PlacementEnabled => _placementEnabled;
+    public bool IsChoosingFacing => _isChoosingFacing;
+    public Vector2I FacingOrigin => _facingOrigin;
+    public UnitFacing PreviewFacing => _previewFacing;
+    public Godot.Collections.Array<Vector2I> PreviewRangeCells => new(
+        GridAttackRange.Cells(_facingOrigin, _facingOffsets, _previewFacing).Where(ContainsCell));
     private Vector2I _hovered = new(-1, -1);
+    private bool _isChoosingFacing;
+    private Vector2I _facingOrigin = new(-1, -1);
+    private Vector2I[] _facingOffsets = [];
+    private UnitFacing _previewFacing = UnitFacing.Right;
 
     public bool ContainsCell(Vector2I cell) => cell.X >= 0 && cell.X < Columns && cell.Y >= 0 && cell.Y < Rows;
 
@@ -73,14 +87,57 @@ public partial class DeploymentGrid : Node2D
     public void SetPlacementEnabled(bool enabled)
     {
         _placementEnabled = enabled;
+        if (!enabled) CancelFacingSelection();
         QueueRedraw();
     }
 
     // Selection is a request; the stage owns the unit count and commits occupancy.
     public bool SelectCell(Vector2I cell)
     {
-        if (!_placementEnabled || !CanPlace(cell, SelectedProfile)) return false;
+        if (_isChoosingFacing || !_placementEnabled || !CanPlace(cell, SelectedProfile)) return false;
         EmitSignal(SignalName.CellSelected, cell);
+        return true;
+    }
+
+    public bool BeginFacingSelection(Vector2I cell, IEnumerable<Vector2I> canonicalOffsets)
+    {
+        if (!_placementEnabled || !CanPlace(cell, SelectedProfile)) return false;
+        Vector2I[] offsets = canonicalOffsets.Distinct().ToArray();
+        if (offsets.Length == 0) return false;
+        _isChoosingFacing = true;
+        _facingOrigin = cell;
+        _facingOffsets = offsets;
+        _previewFacing = UnitFacing.Right;
+        QueueRedraw();
+        return true;
+    }
+
+    public void SetPreviewFacing(UnitFacing facing)
+    {
+        if (!_isChoosingFacing) return;
+        _previewFacing = facing;
+        QueueRedraw();
+    }
+
+    public bool SelectFacing(UnitFacing facing)
+    {
+        if (!_isChoosingFacing) return false;
+        _previewFacing = facing;
+        _isChoosingFacing = false;
+        _facingOffsets = [];
+        QueueRedraw();
+        EmitSignal(SignalName.FacingSelected, (int)facing);
+        return true;
+    }
+
+    public bool CancelFacingSelection()
+    {
+        if (!_isChoosingFacing) return false;
+        _isChoosingFacing = false;
+        _facingOrigin = new Vector2I(-1, -1);
+        _facingOffsets = [];
+        QueueRedraw();
+        EmitSignal(SignalName.FacingSelectionCanceled);
         return true;
     }
 
@@ -97,6 +154,8 @@ public partial class DeploymentGrid : Node2D
         var pathCorners = new Godot.Collections.Array<Vector2I>(definition.PathCorners);
         var blockedCells = new Godot.Collections.Array<Vector2I>(definition.BlockedCells);
         _occupied.Clear();
+        _isChoosingFacing = false;
+        _facingOffsets = [];
         _placementEnabled = true;
         foreach (Vector2I cell in blockedCells)
         {
@@ -125,6 +184,27 @@ public partial class DeploymentGrid : Node2D
 
     public override void _UnhandledInput(InputEvent input)
     {
+        if (_isChoosingFacing)
+        {
+            if (input is InputEventMouseMotion motion)
+            {
+                SetPreviewFacing(FacingFromPosition(motion.GlobalPosition));
+                return;
+            }
+            if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
+            {
+                SelectFacing(FacingFromPosition(GetGlobalMousePosition()));
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+            if (input is InputEventMouseButton { ButtonIndex: MouseButton.Right, Pressed: true }
+                || input is InputEventKey { Keycode: Key.Escape, Pressed: true })
+            {
+                CancelFacingSelection();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+        }
         if (input is InputEventMouseMotion)
         {
             Vector2I cell = GlobalToCell(GetGlobalMousePosition());
@@ -141,6 +221,9 @@ public partial class DeploymentGrid : Node2D
 
     public override void _Draw()
     {
+        var previewCells = _isChoosingFacing
+            ? new HashSet<Vector2I>(GridAttackRange.Cells(_facingOrigin, _facingOffsets, _previewFacing).Where(ContainsCell))
+            : new HashSet<Vector2I>();
         for (int y = 0; y < Rows; y++)
         for (int x = 0; x < Columns; x++)
         {
@@ -164,13 +247,33 @@ public partial class DeploymentGrid : Node2D
                 DrawRect(rect.Grow(-4), new Color(0.85f, 0.94f, 0.6f, 0.16f), false, 1);
             if (_occupied.Contains(cell))
                 DrawRect(rect.Grow(-5), new Color(1, 0.85f, 0.5f, 0.35f), false, 2);
+            if (previewCells.Contains(cell))
+                DrawRect(rect.Grow(-5), new Color(0.35f, 0.88f, 0.82f, 0.32f), true);
+            if (_isChoosingFacing && cell == _facingOrigin)
+                DrawRect(rect.Grow(-3), new Color(1.0f, 0.75f, 0.25f, 0.85f), false, 4);
             DrawRect(rect, new Color(0.15f, 0.22f, 0.1f, 0.25f), false, 1);
-            if (_placementEnabled && cell == _hovered)
+            if (_placementEnabled && !_isChoosingFacing && cell == _hovered)
             {
                 Color highlight = CanPlace(cell, SelectedProfile)
                     ? new Color(1, 0.92f, 0.5f, 0.7f) : new Color(1, 0.3f, 0.2f, 0.6f);
                 DrawRect(rect.Grow(-2), highlight, false, 3);
             }
         }
+        if (_isChoosingFacing)
+        {
+            Vector2 center = CellCenter(_facingOrigin);
+            Vector2 direction = (Vector2)GridAttackRange.DirectionVector(_previewFacing);
+            Vector2 tip = center + direction * CellSize * 0.42f;
+            DrawLine(center, tip, new Color(1.0f, 0.82f, 0.35f), 6, true);
+            DrawCircle(tip, 8, new Color(1.0f, 0.82f, 0.35f));
+        }
+    }
+
+    private UnitFacing FacingFromPosition(Vector2 globalPosition)
+    {
+        Vector2 delta = globalPosition - CellToGlobal(_facingOrigin);
+        if (Mathf.Abs(delta.X) >= Mathf.Abs(delta.Y))
+            return delta.X < 0 ? UnitFacing.Left : UnitFacing.Right;
+        return delta.Y < 0 ? UnitFacing.Up : UnitFacing.Down;
     }
 }

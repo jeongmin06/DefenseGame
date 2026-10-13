@@ -15,6 +15,8 @@ public partial class Healer : Node2D
     public float MaxHealth => _health.MaxHealth;
     public bool IsAlive => _health.IsAlive;
     public string CharacterId { get; private set; } = "";
+    public UnitFacing Facing { get; private set; } = UnitFacing.Right;
+    public Godot.Collections.Array<Vector2I> AttackCellOffsets { get; private set; } = new();
     private UnitHealth _health = null!;
     private DirectionalAnimatedSprite _sprite = null!;
     private bool _battleActive;
@@ -22,6 +24,8 @@ public partial class Healer : Node2D
     private bool _applied;
     private float _cooldown;
     private int _healFrame;
+    private DeploymentGrid? _grid;
+    private Vector2I _cell;
 
     public override void _Ready()
     {
@@ -39,8 +43,35 @@ public partial class Healer : Node2D
 
     public void Setup(UnitDefinition definition, string characterId, SkillLoadout? loadout)
     {
+        SetupCore(definition, characterId, loadout, null, Vector2I.Zero, UnitFacing.Right);
+    }
+
+    public void Setup(
+        UnitDefinition definition,
+        string characterId,
+        SkillLoadout? loadout,
+        DeploymentGrid grid,
+        Vector2I cell,
+        UnitFacing facing)
+    {
+        SetupCore(definition, characterId, loadout, grid, cell, facing);
+    }
+
+    private void SetupCore(
+        UnitDefinition definition,
+        string characterId,
+        SkillLoadout? loadout,
+        DeploymentGrid? grid,
+        Vector2I cell,
+        UnitFacing facing)
+    {
         CharacterId = characterId;
+        Facing = facing;
+        _grid = grid;
+        _cell = cell;
+        AttackCellOffsets = new Godot.Collections.Array<Vector2I>(definition.AttackCellOffsets);
         UnitVisualConfigurator.Apply(_sprite, definition.Visual);
+        _sprite.SetFacingLeft(facing == UnitFacing.Left);
         _sprite.Play(UnitVisualConfigurator.IdleAnimation);
         UnitSkillEffectSettings effects = new UnitSkillEffectComposer().Compose(loadout);
         _health.Setup(definition.MaxHealth);
@@ -74,8 +105,7 @@ public partial class Healer : Node2D
         float lowestHealth = float.MaxValue;
         foreach (Node node in GetTree().GetNodesInGroup("allies"))
         {
-            if (node is not Node2D ally || ally.IsQueuedForDeletion()
-                || GlobalPosition.DistanceSquaredTo(ally.GlobalPosition) > HealRange * HealRange) continue;
+            if (node is not Node2D ally || ally.IsQueuedForDeletion() || !IsInHealingRange(ally)) continue;
             UnitHealth? health = ally.GetNodeOrNull<UnitHealth>("UnitHealth");
             if (health is null || !health.IsAlive || health.CurrentHealth >= health.MaxHealth) continue;
             if (health.CurrentHealth < lowestHealth || (health.CurrentHealth == lowestHealth
@@ -88,6 +118,10 @@ public partial class Healer : Node2D
         return best;
     }
 
+    public bool IsInHealingRange(Node2D ally) => _grid is not null && AttackCellOffsets.Count > 0
+        ? GridAttackRange.Contains(_cell, _grid.GlobalToCell(ally.GlobalPosition), AttackCellOffsets, Facing)
+        : GlobalPosition.DistanceSquaredTo(ally.GlobalPosition) <= HealRange * HealRange;
+
     public override void _PhysicsProcess(double delta)
     {
         if (!_battleActive) return;
@@ -95,7 +129,7 @@ public partial class Healer : Node2D
         if (_casting || _cooldown > 0) return;
         Node2D? target = FindHealingTarget();
         if (target is null) return;
-        _sprite.SetFacingLeft(target.GlobalPosition.X < GlobalPosition.X);
+        _sprite.SetFacingLeft(Facing == UnitFacing.Left);
         _casting = true;
         _applied = false;
         _cooldown = Mathf.Max(0.01f, HealInterval);
@@ -110,7 +144,6 @@ public partial class Healer : Node2D
         _applied = true;
         Node2D? target = FindHealingTarget();
         if (target is null) return;
-        _sprite.SetFacingLeft(target.GlobalPosition.X < GlobalPosition.X);
         target.GetNode<UnitHealth>("UnitHealth").Heal(HealAmount);
     }
 

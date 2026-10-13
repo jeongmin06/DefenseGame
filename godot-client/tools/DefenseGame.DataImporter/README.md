@@ -24,16 +24,16 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 
 | role | placement | 추가 필드 |
 |---|---|---|
-| ranged | ground | rangePixels, projectileScenePath, projectileSpeed, projectileHitDistance, projectileSpawnOffset |
-| melee | ground_or_path | rangeCells, blockCount, 선택 attackCellOffsets |
-| support | ground | rangePixels |
+| ranged | ground | rangePixels, attackCellOffsets, projectileScenePath, projectileSpeed, projectileHitDistance, projectileSpawnOffset |
+| melee | ground_or_path | rangeCells, attackCellOffsets, blockCount |
+| support | ground | rangePixels, attackCellOffsets |
 | enemy | none | moveSpeed |
 
 `behavior`는 임의 씬 경로가 아니라 검증된 공용 행동 타입을 선택한다. 현재 값은 `ranged_projectile`, `melee_blocker`, `single_target_healer`, `path_enemy_melee`이며 각각 역할과 `tower.tscn`, `warrior.tscn`, `healer.tscn`, `enemy.tscn`에 고정 매핑된다. 같은 행동 타입의 캐릭터는 씬을 복제하지 않고 새 유닛 JSON과 스프라이트 시트만 추가한다.
 
 `visual`은 `spriteSheetPath`, `frameSize`, `position`, `scale`, `sourceFacesLeft`, `useChromaKey`와 애니메이션 범위를 가진다. 아군은 `idle`과 `action`, 적은 `move`가 필수다. 각 애니메이션은 `startFrame`, `frameCount`, `fps`, `loop`를 사용한다. 변환기는 PNG 헤더의 실제 크기, 프레임 크기의 정확한 나눗셈, 애니메이션 범위와 `actionFrame`을 검사한다.
 
-벡터는 `[x, y]`, 셀 집합은 `[[x, y], ...]`로 표현한다. `attackCellOffsets` 생략 또는 빈 배열은 맨해튼 반경 `rangeCells`를 사용한다. 전사 `targetLimit=0`은 범위 내 전체 타격이다. 궁수·힐러·적은 현재 단일 대상 알고리즘이므로 반드시 1이어야 한다. 아군의 적용 프레임은 현재 8프레임 씬에 맞게 0~7, 별도 공격 애니메이션이 없는 적은 0이다.
+벡터는 `[x, y]`, 셀 집합은 `[[x, y], ...]`로 표현한다. 모든 아군의 `attackCellOffsets`는 오른쪽을 보는 상태를 기준으로 작성하며 빈 배열과 중복 셀을 허용하지 않는다. 런타임은 배치 방향에 따라 이 범위를 90도 단위로 회전한다. 전사 `targetLimit=0`은 범위 내 전체 타격이다. 궁수·힐러·적은 현재 단일 대상 알고리즘이므로 반드시 1이어야 한다. 아군의 적용 프레임은 현재 8프레임 씬에 맞게 0~7, 별도 공격 애니메이션이 없는 적은 0이다.
 
 스테이지 필드:
 

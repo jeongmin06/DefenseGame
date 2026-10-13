@@ -142,8 +142,13 @@ public partial class CombatHud : CanvasLayer
         _deploymentPointsLabel.Text = $"배치 포인트 {current} / {maximum}";
     }
 
-    public void UpdatePlacement(CatProfile? selectedProfile, int remainingCount)
+    public void UpdatePlacement(CatProfile? selectedProfile, int remainingCount, bool choosingFacing = false)
     {
+        if (choosingFacing)
+        {
+            _placementLabel.Text = "배치 방향 선택 // 범위를 확인하고 다시 클릭 · ESC 취소";
+            return;
+        }
         if (remainingCount == 0)
         {
             _placementLabel.Text = "모든 고양이 배치 완료";

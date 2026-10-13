@@ -59,6 +59,7 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
     assert 'path="res://scenes/tower.tscn"' in archer and 'path="res://scenes/tower.tscn"' in scout
     assert 'Behavior = 0' in scout and 'SpriteScale = Vector2(0.22, 0.22)' in scout
     assert 'FrameCount = 8' in scout and 'Action = SubResource("visual_action")' in scout
+    assert 'AttackCellOffsets = Array[Vector2i]([Vector2i(1, -1)' in archer
     for index, cap in enumerate((3, 4, 5), start=1):
         stage = (output / f'stages/stage_0{index}.tres').read_text()
         assert f'StageCap = {cap}' in stage and 'HasStageCap = true' in stage and 'MaxSquadUnits = 10' in stage
@@ -85,6 +86,9 @@ with tempfile.TemporaryDirectory(prefix='balance-importer-') as temp:
         ('missing field', 'units', lambda d: d['units'][0].pop('projectileSpeed'), '.projectileSpeed'),
         ('frame', 'units', lambda d: d['units'][0].update(actionFrame=8), '.actionFrame'),
         ('target support', 'units', lambda d: d['units'][2].update(targetLimit=0), '.targetLimit'),
+        ('empty attack cells', 'units', lambda d: d['units'][0].update(attackCellOffsets=[]), '.attackCellOffsets'),
+        ('duplicate attack cell', 'units', lambda d: d['units'][0]['attackCellOffsets'].append([1, 0]), 'duplicate cell offset'),
+        ('enemy attack cells', 'units', lambda d: d['units'][3].update(attackCellOffsets=[[1, 0]]), '.attackCellOffsets'),
         ('placement', 'units', lambda d: d['units'][0].update(placement='ground_or_path'), '.placement'),
         ('allied deployment cost', 'units', lambda d: d['units'][0].update(deploymentCost=0), '.deploymentCost'),
         ('enemy deployment cost', 'units', lambda d: d['units'][3].update(deploymentCost=1), '.deploymentCost'),

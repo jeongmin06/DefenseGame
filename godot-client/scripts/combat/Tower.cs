@@ -12,6 +12,8 @@ public partial class Tower : Node2D
     public float MaxHealth => _health.MaxHealth;
     public bool IsAlive => _health.IsAlive;
     public string CharacterId { get; private set; } = "";
+    public UnitFacing Facing { get; private set; } = UnitFacing.Right;
+    public Godot.Collections.Array<Vector2I> AttackCellOffsets { get; private set; } = new();
 
     public void TakeDamage(float amount)
     {
@@ -38,6 +40,8 @@ public partial class Tower : Node2D
     private bool _facingLeft;
     private Enemy? _pendingTarget;
     private DirectionalAnimatedSprite _sprite = null!;
+    private DeploymentGrid? _grid;
+    private Vector2I _cell;
 
     private int _releaseFrame;
     private RangedAttack _rangedAttack = null!;
@@ -65,8 +69,36 @@ public partial class Tower : Node2D
 
     public void SetupRanged(UnitDefinition definition, RangedAttackSettings settings, string characterId)
     {
+        SetupRangedCore(definition, settings, characterId, null, Vector2I.Zero, UnitFacing.Right);
+    }
+
+    public void SetupRanged(
+        UnitDefinition definition,
+        RangedAttackSettings settings,
+        string characterId,
+        DeploymentGrid grid,
+        Vector2I cell,
+        UnitFacing facing)
+    {
+        SetupRangedCore(definition, settings, characterId, grid, cell, facing);
+    }
+
+    private void SetupRangedCore(
+        UnitDefinition definition,
+        RangedAttackSettings settings,
+        string characterId,
+        DeploymentGrid? grid,
+        Vector2I cell,
+        UnitFacing facing)
+    {
         CharacterId = characterId;
+        Facing = facing;
+        _grid = grid;
+        _cell = cell;
+        AttackCellOffsets = new Godot.Collections.Array<Vector2I>(definition.AttackCellOffsets);
         UnitVisualConfigurator.Apply(_sprite, definition.Visual);
+        _facingLeft = facing == UnitFacing.Left;
+        _sprite.SetFacingLeft(_facingLeft);
         _sprite.Play(UnitVisualConfigurator.IdleAnimation);
         _health.Setup(definition.MaxHealth);
         AttackRange = definition.RangePixels;
@@ -114,12 +146,15 @@ public partial class Tower : Node2D
         }
     }
 
-    private Enemy? FindFrontmostTarget(bool? facingLeft = null)
+    public bool IsInAttackRange(Vector2I cell) => _grid is not null && AttackCellOffsets.Count > 0
+        ? GridAttackRange.Contains(_cell, cell, AttackCellOffsets, Facing)
+        : _grid is null;
+
+    private Enemy? FindFrontmostTarget()
     {
         Enemy? bestTarget = null;
         float bestProgress = -1.0f;
         ulong bestInstanceId = ulong.MaxValue;
-        float rangeSquared = AttackRange * AttackRange;
 
         foreach (Node candidateNode in GetTree().GetNodesInGroup("enemies"))
         {
@@ -128,13 +163,10 @@ public partial class Tower : Node2D
                 continue;
             }
 
-            if (GlobalPosition.DistanceSquaredTo(candidate.GlobalPosition) > rangeSquared)
-            {
-                continue;
-            }
-
-            bool candidateIsLeft = candidate.GlobalPosition.X < GlobalPosition.X;
-            if (facingLeft.HasValue && candidateIsLeft != facingLeft.Value)
+            bool inRange = _grid is not null
+                ? IsInAttackRange(_grid.GlobalToCell(candidate.GlobalPosition))
+                : GlobalPosition.DistanceSquaredTo(candidate.GlobalPosition) <= AttackRange * AttackRange;
+            if (!inRange)
             {
                 continue;
             }
@@ -160,7 +192,6 @@ public partial class Tower : Node2D
         _pendingTarget = target;
         _projectileReleased = false;
         _attackInProgress = true;
-        _facingLeft = target.GlobalPosition.X < GlobalPosition.X;
         _sprite.SetFacingLeft(_facingLeft);
 
         int frameCount = _sprite.SpriteFrames.GetFrameCount(UnitVisualConfigurator.ActionAnimation);
@@ -182,12 +213,12 @@ public partial class Tower : Node2D
         Enemy? target = _pendingTarget;
         if (target is null || !GodotObject.IsInstanceValid(target) || !target.IsActive())
         {
-            target = FindFrontmostTarget(_facingLeft);
+            target = FindFrontmostTarget();
         }
 
         if (target is not null)
         {
-            _rangedAttack.Fire(target, AttackDamage, _facingLeft);
+            _rangedAttack.Fire(target, AttackDamage, Facing);
         }
     }
 
@@ -208,8 +239,4 @@ public partial class Tower : Node2D
         _sprite.Play(UnitVisualConfigurator.IdleAnimation);
     }
 
-    public override void _Draw()
-    {
-        DrawArc(Vector2.Zero, AttackRange, 0.0f, Mathf.Tau, 64, new Color(1.0f, 0.78f, 0.28f, 0.12f), 2.0f);
-    }
 }

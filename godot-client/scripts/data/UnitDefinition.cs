@@ -5,6 +5,7 @@ namespace DefenseGame.Client.Data;
 public enum UnitRole { Ranged, Melee, Support, Enemy }
 public enum PlacementRule { Ground, GroundOrPath, None }
 public enum UnitBehavior { RangedProjectile, MeleeBlocker, SingleTargetHealer, PathEnemyMelee }
+public enum UnitFacing { Right, Down, Left, Up }
 
 // Generated data is shared read-only configuration; copy values into runtime state.
 [GlobalClass]

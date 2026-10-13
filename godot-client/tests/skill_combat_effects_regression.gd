@@ -98,6 +98,7 @@ func run():
 
     var grid = current_scene.get_node("DeploymentGrid")
     grid.SelectCell(Vector2i(4, 2))
+    grid.SelectFacing(0)
     var tower = get_nodes_in_group("towers")[0]
     tower.SetBattleActive(false)
     var ranged = tower.get_node("RangedAttack")

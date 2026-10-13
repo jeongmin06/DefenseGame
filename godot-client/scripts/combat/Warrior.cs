@@ -14,6 +14,7 @@ public partial class Warrior : Node2D
     public float MaxHealth => _health.MaxHealth;
     public bool IsAlive => _health.IsAlive;
     public string CharacterId { get; private set; } = "";
+    public UnitFacing Facing { get; private set; } = UnitFacing.Right;
 
     public void TakeDamage(float amount)
     {
@@ -61,8 +62,21 @@ public partial class Warrior : Node2D
 
     public void Setup(UnitDefinition definition, DeploymentGrid grid, Vector2I cell, string characterId, SkillLoadout? loadout)
     {
+        Setup(definition, grid, cell, characterId, loadout, UnitFacing.Right);
+    }
+
+    public void Setup(
+        UnitDefinition definition,
+        DeploymentGrid grid,
+        Vector2I cell,
+        string characterId,
+        SkillLoadout? loadout,
+        UnitFacing facing)
+    {
         CharacterId = characterId;
+        Facing = facing;
         UnitVisualConfigurator.Apply(_sprite, definition.Visual);
+        _sprite.SetFacingLeft(facing == UnitFacing.Left);
         _sprite.Play(UnitVisualConfigurator.IdleAnimation);
         UnitSkillEffectSettings effects = new UnitSkillEffectComposer().Compose(loadout);
         _health.Setup(definition.MaxHealth);
@@ -90,7 +104,8 @@ public partial class Warrior : Node2D
     public bool IsInAttackRange(Vector2I cell)
     {
         Vector2I offset = cell - _cell;
-        return AttackCellOffsets.Count > 0 ? AttackCellOffsets.Contains(offset)
+        return AttackCellOffsets.Count > 0
+            ? GridAttackRange.Contains(_cell, cell, AttackCellOffsets, Facing)
             : Mathf.Abs(offset.X) + Mathf.Abs(offset.Y) <= AttackRangeCells;
     }
 
@@ -123,7 +138,7 @@ public partial class Warrior : Node2D
         }
         _cooldown -= (float)delta;
         if (_attacking || _cooldown > 0 || targets.Count == 0) return;
-        _sprite.SetFacingLeft(targets[0].GlobalPosition.X < GlobalPosition.X);
+        _sprite.SetFacingLeft(Facing == UnitFacing.Left);
         _attacking = true;
         _hitApplied = false;
         _cooldown = Mathf.Max(0.01f, AttackInterval);

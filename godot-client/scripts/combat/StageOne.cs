@@ -18,6 +18,8 @@ public partial class StageOne : Node2D
     public float SecondsUntilFirstWave => _firstWaveCountdown;
     public float DeploymentPoints => _deploymentPoints;
     public int MaxDeploymentPoints => Definition.MaxDeploymentPoints;
+    public bool IsChoosingDeploymentFacing => _grid is not null && _grid.IsChoosingFacing;
+    public Vector2I PendingDeploymentCell => _pendingDeploymentCell;
     public string NextArcherCharacterId => _deploymentOrder.FirstOrDefault(deployment =>
         deployment.Profile.Unit?.Role == UnitRole.Ranged && _availableDeployments.ContainsKey(deployment.Profile.CharacterId))
         ?.Profile.CharacterId ?? "";
@@ -31,6 +33,8 @@ public partial class StageOne : Node2D
     private readonly List<string> _placedWarriorCharacterIds = new();
     private readonly List<string> _placedHealerCharacterIds = new();
     private string _selectedCharacterId = "";
+    private string _pendingDeploymentCharacterId = "";
+    private Vector2I _pendingDeploymentCell = new(-1, -1);
     private float _firstWaveDelay;
     private float _firstWaveCountdown;
     private float _waveGap;
@@ -81,6 +85,8 @@ public partial class StageOne : Node2D
         AddChild(_grid);
         _grid.Configure(Definition);
         _grid.CellSelected += OnCellSelected;
+        _grid.FacingSelected += OnFacingSelected;
+        _grid.FacingSelectionCanceled += OnFacingSelectionCanceled;
         _hud.CharacterSelected += characterId => SelectDeploymentCharacter(characterId);
         _hud.CharacterDropped += (characterId, globalPosition) =>
             TryDeployCharacterAtGlobalPosition(characterId, globalPosition);
@@ -150,6 +156,7 @@ public partial class StageOne : Node2D
     {
         if (_battleEnded || !_availableDeployments.TryGetValue(characterId, out UnitDeployment? deployment)
             || deployment.Profile.Unit is null || !CanAfford(deployment.Profile.Unit)) return false;
+        if (_grid.IsChoosingFacing) _grid.CancelFacingSelection();
         _selectedCharacterId = characterId;
         _selectedType = ToPlacementType(deployment.Profile.Unit.Role);
         _grid.SetPlacementType(_selectedType);
@@ -160,7 +167,7 @@ public partial class StageOne : Node2D
     public bool TryDeployCharacterAtGlobalPosition(string characterId, Vector2 globalPosition)
     {
         if (!SelectDeploymentCharacter(characterId)) return false;
-        return TryDeploySelectedCharacter(_grid.GlobalToCell(globalPosition));
+        return BeginPendingDeployment(_grid.GlobalToCell(globalPosition));
     }
 
     private int RemainingFor(DeploymentGrid.PlacementType type) => _availableDeployments.Values.Count(deployment =>
@@ -171,28 +178,65 @@ public partial class StageOne : Node2D
         CatProfile? selected = _availableDeployments.TryGetValue(_selectedCharacterId, out UnitDeployment? deployment)
             ? deployment.Profile : null;
         _hud.UpdateDeploymentCards(_availableDeployments.Keys, _selectedCharacterId, _deploymentPoints);
-        _hud.UpdatePlacement(selected, _availableDeployments.Count);
+        _hud.UpdatePlacement(selected, _availableDeployments.Count, _grid.IsChoosingFacing);
         _hud.UpdateDeploymentPoints(Mathf.FloorToInt(_deploymentPoints), Definition.MaxDeploymentPoints);
     }
 
-    private void OnCellSelected(Vector2I cell) => TryDeploySelectedCharacter(cell);
+    private void OnCellSelected(Vector2I cell) => BeginPendingDeployment(cell);
 
-    private bool TryDeploySelectedCharacter(Vector2I cell)
+    private bool BeginPendingDeployment(Vector2I cell)
     {
         if (_battleEnded || !_availableDeployments.TryGetValue(_selectedCharacterId, out UnitDeployment? deployment)
             || deployment.Profile.Unit is null || !CanAfford(deployment.Profile.Unit)
-            || !_grid.TryOccupy(cell, _selectedType)) return false;
+            || !_grid.CanPlace(cell, _selectedType)) return false;
+        _pendingDeploymentCharacterId = deployment.Profile.CharacterId;
+        _pendingDeploymentCell = cell;
+        if (!_grid.BeginFacingSelection(cell, deployment.Profile.Unit.AttackCellOffsets))
+        {
+            ClearPendingDeployment();
+            return false;
+        }
+        UpdatePlacementHud();
+        return true;
+    }
+
+    private void OnFacingSelected(int facing) => CommitPendingDeployment((UnitFacing)facing);
+
+    private void OnFacingSelectionCanceled()
+    {
+        ClearPendingDeployment();
+        UpdatePlacementHud();
+    }
+
+    private bool CommitPendingDeployment(UnitFacing facing)
+    {
+        string pendingCharacterId = _pendingDeploymentCharacterId;
+        Vector2I cell = _pendingDeploymentCell;
+        ClearPendingDeployment();
+        if (_battleEnded || !_availableDeployments.TryGetValue(pendingCharacterId, out UnitDeployment? deployment)
+            || deployment.Profile.Unit is null || !CanAfford(deployment.Profile.Unit))
+        {
+            UpdatePlacementHud();
+            return false;
+        }
         string characterId = deployment.Profile.CharacterId;
         UnitDefinition unit = deployment.Profile.Unit;
+        DeploymentGrid.PlacementType placementType = ToPlacementType(unit.Role);
+        if (!_grid.TryOccupy(cell, placementType))
+        {
+            UpdatePlacementHud();
+            return false;
+        }
         _deploymentPoints -= unit.DeploymentCost;
         if (unit.Behavior == UnitBehavior.RangedProjectile)
         {
             Tower tower = unit.Scene.Instantiate<Tower>();
             AddChild(tower);
-            tower.SetupRanged(unit, deployment.RangedSettings ?? new RangedAttackSettings(), characterId);
+            tower.GlobalPosition = _grid.CellToGlobal(cell);
+            tower.SetupRanged(unit, deployment.RangedSettings ?? new RangedAttackSettings(), characterId,
+                _grid, cell, facing);
             tower.SetBattleActive(_combatTimelineStarted);
             _placedArcherCharacterIds.Add(tower.CharacterId);
-            tower.GlobalPosition = _grid.CellToGlobal(cell);
             tower.Defeated += _ => _grid.ReleaseCell(cell);
         }
         else if (unit.Behavior == UnitBehavior.MeleeBlocker)
@@ -200,7 +244,7 @@ public partial class StageOne : Node2D
             Warrior warrior = unit.Scene.Instantiate<Warrior>();
             AddChild(warrior);
             warrior.GlobalPosition = _grid.CellToGlobal(cell);
-            warrior.Setup(unit, _grid, cell, characterId, deployment.Loadout);
+            warrior.Setup(unit, _grid, cell, characterId, deployment.Loadout, facing);
             warrior.SetBattleActive(_combatTimelineStarted);
             _placedWarriorCharacterIds.Add(warrior.CharacterId);
             warrior.Defeated += _ => _grid.ReleaseCell(cell);
@@ -209,10 +253,10 @@ public partial class StageOne : Node2D
         {
             Healer healer = unit.Scene.Instantiate<Healer>();
             AddChild(healer);
-            healer.Setup(unit, characterId, deployment.Loadout);
+            healer.GlobalPosition = _grid.CellToGlobal(cell);
+            healer.Setup(unit, characterId, deployment.Loadout, _grid, cell, facing);
             healer.SetBattleActive(_combatTimelineStarted);
             _placedHealerCharacterIds.Add(healer.CharacterId);
-            healer.GlobalPosition = _grid.CellToGlobal(cell);
             healer.Defeated += _ => _grid.ReleaseCell(cell);
         }
         else
@@ -225,6 +269,12 @@ public partial class StageOne : Node2D
         SelectNextAffordableCharacter();
         UpdatePlacementHud();
         return true;
+    }
+
+    private void ClearPendingDeployment()
+    {
+        _pendingDeploymentCharacterId = "";
+        _pendingDeploymentCell = new Vector2I(-1, -1);
     }
 
     private void SelectNextAffordableCharacter()

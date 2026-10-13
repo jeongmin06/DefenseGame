@@ -57,5 +57,6 @@ TargetLimit = 1
 RangePixels = 230
 ProjectileSpeed = 620
 ProjectileHitDistance = 10
+AttackCellOffsets = Array[Vector2i]([Vector2i(1, -1), Vector2i(1, 0), Vector2i(1, 1), Vector2i(2, -1), Vector2i(2, 0), Vector2i(2, 1), Vector2i(3, 0)])
 ProjectileScene = ExtResource("projectile")
 ProjectileSpawnOffset = Vector2(28, -28)
