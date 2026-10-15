@@ -25,8 +25,10 @@ func run():
         "godot-integration-%d-%d" % [OS.get_process_id(), Time.get_ticks_usec()])
 
     change_scene_to_file("res://scenes/stage_select.tscn")
-    await ticks(5)
-    current_scene.SelectStage(0)
+    var progress_loaded := await wait_for(func(): return current_scene != null \
+        and current_scene.name == "StageSelect" and current_scene.IsProgressReady)
+    check(progress_loaded, "Stage selection loads server progress")
+    check(progress_loaded and current_scene.SelectStage(0), "Unlocked first stage enters formation")
     var loaded := await wait_for(func(): return current_scene != null \
         and current_scene.name == "SquadFormation" and current_scene.IsServerReady)
     check(loaded, "Formation loads server state")
@@ -58,8 +60,10 @@ func run():
     skills.ReturnToFormation()
     await ticks(5)
     current_scene.ReturnToStageList()
-    await ticks(5)
-    current_scene.SelectStage(0)
+    progress_loaded = await wait_for(func(): return current_scene != null \
+        and current_scene.name == "StageSelect" and current_scene.IsProgressReady)
+    check(progress_loaded, "Stage selection reloads server progress")
+    check(progress_loaded and current_scene.SelectStage(0), "First stage remains replayable")
     var reloaded := await wait_for(func(): return current_scene != null \
         and current_scene.name == "SquadFormation" and current_scene.IsServerReady)
     check(reloaded, "Re-entry reloads formation from the server")

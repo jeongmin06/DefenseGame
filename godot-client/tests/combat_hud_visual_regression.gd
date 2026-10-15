@@ -65,6 +65,19 @@ func run():
     check(hud.get_node("ResultPanel/ResultTitle").text == "작전 성공", "Victory result remains Korean")
     check(hud.get_node("ResultPanel/ResultTitle").modulate.g > hud.get_node("ResultPanel/ResultTitle").modulate.r,
         "Victory result uses the teal success color")
+    check(hud.ResultSyncStatus == "Saving", "Result report starts in server-saving state")
+    check(hud.get_node("ResultPanel/RestartButton").disabled \
+        and hud.get_node("ResultPanel/StageListButton").disabled,
+        "Result navigation stays locked before server confirmation")
+    hud.ShowResultSyncFailed("server_unavailable")
+    check(hud.ResultSyncStatus == "server_unavailable" \
+        and hud.get_node("ResultPanel/ResultSyncRetryButton").visible,
+        "Failed result save exposes retry without enabling navigation")
+    hud.ShowResultSyncSucceeded("서버 저장 완료 // 첫 클리어")
+    check(hud.ResultSyncStatus == "Saved" \
+        and not hud.get_node("ResultPanel/RestartButton").disabled \
+        and not hud.get_node("ResultPanel/StageListButton").disabled,
+        "Successful result save enables result navigation")
 
     print("COMBAT HUD VISUAL QA failures=", failures)
     quit(0 if failures == 0 else 1)

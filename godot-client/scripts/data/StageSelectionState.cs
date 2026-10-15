@@ -13,6 +13,7 @@ public static class StageSelectionState
     public static int ActiveSquadRevision { get; set; }
     public static string SkillProfileStoragePathOverride { get; set; } = "";
     public static string StageSquadStoragePathOverride { get; set; } = "";
+    public static bool UseLocalProgressionForTests { get; set; }
 
     public static void BeginStage(StageDefinition stage)
     {

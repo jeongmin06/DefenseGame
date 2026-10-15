@@ -112,11 +112,19 @@ autowrap_mode = 2
 offset_left = 748.0
 offset_top = 512.0
 offset_right = 1204.0
-offset_bottom = 550.0
+offset_bottom = 538.0
 theme_override_colors/font_color = Color(0.91, 0.66, 0.31, 1)
 theme_override_font_sizes/font_size = 15
 text = "선택됨  //  버튼을 누르면 편성으로 이동"
 horizontal_alignment = 1
+
+[node name="ProgressRetryButton" type="Button" parent="UI"]
+visible = false
+offset_left = 866.0
+offset_top = 540.0
+offset_right = 1086.0
+offset_bottom = 576.0
+text = "서버 다시 확인"
 
 [node name="RoutePanel" type="Panel" parent="UI"]
 offset_left = 716.0

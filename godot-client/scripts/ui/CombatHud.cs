@@ -13,6 +13,7 @@ public partial class CombatHud : CanvasLayer
     [Signal] public delegate void CharacterDroppedEventHandler(string characterId, Vector2 globalPosition);
     [Signal] public delegate void RetryRequestedEventHandler();
     [Signal] public delegate void StageListRequestedEventHandler();
+    [Signal] public delegate void ResultSyncRetryRequestedEventHandler();
     private readonly Dictionary<string, Button> _deploymentCards = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CatProfile> _profiles = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _cardVisualStates = new(StringComparer.Ordinal);
@@ -26,6 +27,8 @@ public partial class CombatHud : CanvasLayer
     private Panel _resultPanel = null!;
     private Label _resultTitle = null!;
     private Label _resultDetail = null!;
+    private Label _resultSyncLabel = null!;
+    private Button _resultSyncRetryButton = null!;
     private Button _restartButton = null!;
     private Button _stageListButton = null!;
     private Label _title = null!;
@@ -39,6 +42,7 @@ public partial class CombatHud : CanvasLayer
     public string[] DeploymentCardCharacterIds => _deploymentCards.Keys.ToArray();
     public bool IsDraggingCharacter => !string.IsNullOrEmpty(_draggedCharacterId);
     public string DraggedCharacterId => _draggedCharacterId;
+    public string ResultSyncStatus { get; private set; } = "Idle";
 
     public override void _Ready()
     {
@@ -53,6 +57,9 @@ public partial class CombatHud : CanvasLayer
         _resultPanel = GetNode<Panel>("ResultPanel");
         _resultTitle = GetNode<Label>("ResultPanel/ResultTitle");
         _resultDetail = GetNode<Label>("ResultPanel/ResultDetail");
+        _resultSyncLabel = GetNode<Label>("ResultPanel/ResultSyncLabel");
+        _resultSyncRetryButton = GetNode<Button>("ResultPanel/ResultSyncRetryButton");
+        _resultSyncRetryButton.Pressed += () => EmitSignal(SignalName.ResultSyncRetryRequested);
         _restartButton = GetNode<Button>("ResultPanel/RestartButton");
         _restartButton.Pressed += () => EmitSignal(SignalName.RetryRequested);
         _stageListButton = GetNode<Button>("ResultPanel/StageListButton");
@@ -209,7 +216,40 @@ public partial class CombatHud : CanvasLayer
             strong: true,
             border: victory ? OperationUiStyle.Teal : OperationUiStyle.Red);
         _resultDetail.Text = $"처치 {defeated}  /  탈출 {escaped}";
+        ShowResultSyncPending();
+    }
+
+    public void ShowResultSyncPending()
+    {
+        ResultSyncStatus = "Saving";
+        _resultSyncLabel.Text = "서버에 전투 결과를 저장하고 있습니다...";
+        _resultSyncLabel.Modulate = OperationUiStyle.Amber;
+        _resultSyncRetryButton.Visible = false;
+        _restartButton.Disabled = true;
+        _stageListButton.Disabled = true;
+    }
+
+    public void ShowResultSyncSucceeded(string message)
+    {
+        ResultSyncStatus = "Saved";
+        _resultSyncLabel.Text = message;
+        _resultSyncLabel.Modulate = OperationUiStyle.Teal;
+        _resultSyncRetryButton.Visible = false;
+        _restartButton.Disabled = false;
+        _stageListButton.Disabled = false;
         _restartButton.GrabFocus();
+    }
+
+    public void ShowResultSyncFailed(string errorCode)
+    {
+        ResultSyncStatus = errorCode;
+        _resultSyncLabel.Text = $"저장 실패 // {errorCode}\n서버 연결을 확인하고 다시 시도하세요.";
+        _resultSyncLabel.Modulate = OperationUiStyle.Red;
+        _resultSyncRetryButton.Visible = true;
+        _resultSyncRetryButton.Disabled = false;
+        _restartButton.Disabled = true;
+        _stageListButton.Disabled = true;
+        _resultSyncRetryButton.GrabFocus();
     }
 
     public bool IsDeploymentCardDisabled(string characterId) =>
@@ -282,6 +322,7 @@ public partial class CombatHud : CanvasLayer
         OperationUiStyle.ApplyPanel(GetNode<Panel>("TopPanel"), strong: true);
         OperationUiStyle.ApplyPanel(GetNode<Panel>("DeploymentPanel"), strong: true, border: OperationUiStyle.Teal);
         OperationUiStyle.ApplyPanel(_resultPanel, strong: true, border: OperationUiStyle.Amber);
+        OperationUiStyle.ApplyButton(_resultSyncRetryButton, OperationUiTone.Danger, fontSize: 15);
         OperationUiStyle.ApplyButton(_restartButton, OperationUiTone.Primary, fontSize: 17);
         OperationUiStyle.ApplyButton(_stageListButton, fontSize: 17);
     }

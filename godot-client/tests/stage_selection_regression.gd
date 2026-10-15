@@ -44,6 +44,16 @@ func run():
         "Previous grassland-era stage background remains preserved")
     check(FileAccess.file_exists("res://assets/ui/stage_button_frame.png"),
         "Previous stage button art remains preserved")
+    selector.ApplyProgressForTests(1, [])
+    check(selector.IsProgressReady and not selector.IsStageLocked(0), "New player can enter stage one")
+    check(selector.IsStageLocked(1) and "잠김" in selector.GetStageButtonText(1),
+        "New player sees stage two as locked")
+    check(not selector.SelectStage(1) and current_scene == selector,
+        "Locked stage cannot enter squad formation")
+    selector.ApplyProgressForTests(2, [1])
+    check("클리어" in selector.GetStageButtonText(0), "Cleared stage is written on its button")
+    check(not selector.IsStageLocked(1) and "도전 가능" in selector.GetStageButtonText(1),
+        "Clearing stage one unlocks stage two")
     check(selector.GetEnemyCount(0) == 21, "Stage 1 enemy count")
     check(selector.GetEnemyCount(1) == 30, "Stage 2 enemy count")
     check(selector.GetEnemyCount(2) == 42, "Stage 3 enemy count")
@@ -54,7 +64,7 @@ func run():
     ProjectSettings.set_setting("defense_game/ui/locale", "ko")
     selector.ShowStageDescription(0)
 
-    selector.SelectStage(1)
+    check(selector.SelectStage(1), "Unlocked stage can enter squad formation")
     await ticks(5)
     check(current_scene.name == "SquadFormation", "Selection enters squad formation")
     check(current_scene.ContinueToSkills(), "Valid formation enters skill loadout")

@@ -1,9 +1,11 @@
 using Godot;
 using DefenseGame.Client.Data;
+using DefenseGame.Client.Network;
 using DefenseGame.Client.Skills;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace DefenseGame.Client.Combat;
 
@@ -24,6 +26,9 @@ public partial class StageOne : Node2D
         deployment.Profile.Unit?.Role == UnitRole.Ranged && _availableDeployments.ContainsKey(deployment.Profile.CharacterId))
         ?.Profile.CharacterId ?? "";
     public string[] PlacedArcherCharacterIds => _placedArcherCharacterIds.ToArray();
+    public string ResultSyncStatusCode { get; private set; } = "Idle";
+    private readonly StageProgressServerClient _progressClient = new();
+    private readonly System.Threading.CancellationTokenSource _progressCancellation = new();
     private DeploymentGrid _grid = null!;
     private Vector2I[] _pathCorners = [];
     private WaveSpec[] _waves = [];
@@ -52,6 +57,8 @@ public partial class StageOne : Node2D
     private int _baseHealth;
     private bool _allWavesSpawned;
     private bool _battleEnded;
+    private bool _battleVictory;
+    private bool _resultSyncBusy;
 
     private Path2D _enemyPath = null!;
     private Timer _spawnTimer = null!;
@@ -92,6 +99,7 @@ public partial class StageOne : Node2D
             TryDeployCharacterAtGlobalPosition(characterId, globalPosition);
         _hud.RetryRequested += RestartStage;
         _hud.StageListRequested += ReturnToStageList;
+        _hud.ResultSyncRetryRequested += RetryBattleResultSync;
         _hud.UpdateStage(Definition.DisplayName, Definition.Id);
         _hud.ConfigureDeploymentCards(_deploymentOrder.Select(deployment => deployment.Profile));
         SelectNextAffordableCharacter();
@@ -469,8 +477,71 @@ public partial class StageOne : Node2D
 
         UpdateHud();
         _hud.ShowResult(victory, _defeatedEnemies, _escapedEnemies);
+        _battleVictory = victory;
+        ResultSyncStatusCode = "Saving";
+        if (UseLocalResultSync())
+        {
+            ResultSyncStatusCode = "Saved";
+            _hud.ShowResultSyncSucceeded("테스트 진행도 // 서버 제출 생략");
+        }
+        else
+        {
+            _ = SubmitBattleResultAsync();
+        }
         GD.Print($"Battle finished: {(victory ? "victory" : "defeat")}, defeated={_defeatedEnemies}, escaped={_escapedEnemies}");
     }
+
+    public void RetryBattleResultSync()
+    {
+        if (!_battleEnded || _resultSyncBusy || ResultSyncStatusCode == "Saved") return;
+        _ = SubmitBattleResultAsync();
+    }
+
+    private async Task SubmitBattleResultAsync()
+    {
+        if (_resultSyncBusy) return;
+        if (!StageProgressionId.TryParse(Definition.Id, out int progressionId))
+        {
+            ResultSyncStatusCode = "invalid_stage_id";
+            _hud.ShowResultSyncFailed(ResultSyncStatusCode);
+            return;
+        }
+
+        _resultSyncBusy = true;
+        ResultSyncStatusCode = "Saving";
+        _hud.ShowResultSyncPending();
+        StageResultSubmitResult result = await _progressClient.SubmitResultAsync(
+            ServerBaseUrl(), PlayerId(), progressionId, _battleVictory, _progressCancellation.Token);
+        if (!IsInsideTree()) return;
+        _resultSyncBusy = false;
+        if (!result.IsSuccess || result.Payload is null || result.Payload.StageId != progressionId)
+        {
+            ResultSyncStatusCode = result.IsSuccess ? "invalid_response" : result.ErrorCode;
+            _hud.ShowResultSyncFailed(ResultSyncStatusCode);
+            return;
+        }
+
+        ResultSyncStatusCode = "Saved";
+        string message = !_battleVictory ? "서버 확인 완료 // 패배 기록 · 진행도 변경 없음"
+            : result.Payload.ProgressUpdated
+                ? "서버 저장 완료 // 첫 클리어 · 다음 작전 해금"
+                : "서버 저장 완료 // 기존 클리어 기록 유지";
+        _hud.ShowResultSyncSucceeded(message);
+    }
+
+    private static bool UseLocalResultSync()
+    {
+        if (StageSelectionState.UseLocalProgressionForTests) return true;
+        bool submitInHeadless = (bool)ProjectSettings.GetSetting(
+            "defense_game/progress/submit_in_headless", false);
+        return DisplayServer.GetName() == "headless" && !submitInHeadless;
+    }
+
+    private static string ServerBaseUrl() => (string)ProjectSettings.GetSetting(
+        "defense_game/server/base_url", "http://127.0.0.1:5080");
+
+    private static string PlayerId() => (string)ProjectSettings.GetSetting(
+        "defense_game/player/development_user_id", "local-development-user");
 
     private void UpdateHud()
     {
@@ -511,6 +582,12 @@ public partial class StageOne : Node2D
         }
         foreach (UnitDeployment deployment in _deploymentOrder)
             _availableDeployments.Add(deployment.Profile.CharacterId, deployment);
+    }
+
+    public override void _ExitTree()
+    {
+        _progressCancellation.Cancel();
+        _progressCancellation.Dispose();
     }
 
     private readonly record struct WaveSpec(UnitDefinition Enemy, int Count, float Health, float Speed, double Interval);
