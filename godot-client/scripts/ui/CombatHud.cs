@@ -15,6 +15,7 @@ public partial class CombatHud : CanvasLayer
     [Signal] public delegate void StageListRequestedEventHandler();
     private readonly Dictionary<string, Button> _deploymentCards = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CatProfile> _profiles = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _cardVisualStates = new(StringComparer.Ordinal);
     private HBoxContainer _deploymentCardList = null!;
     private Label _placementLabel = null!;
     private Label _deploymentPointsLabel = null!;
@@ -56,6 +57,7 @@ public partial class CombatHud : CanvasLayer
         _restartButton.Pressed += () => EmitSignal(SignalName.RetryRequested);
         _stageListButton = GetNode<Button>("ResultPanel/StageListButton");
         _stageListButton.Pressed += () => EmitSignal(SignalName.StageListRequested);
+        ApplyOperationStyle();
         CreateDragPreview();
     }
 
@@ -89,6 +91,7 @@ public partial class CombatHud : CanvasLayer
         foreach (Node child in _deploymentCardList.GetChildren()) child.QueueFree();
         _deploymentCards.Clear();
         _profiles.Clear();
+        _cardVisualStates.Clear();
         foreach (CatProfile profile in profiles)
         {
             if (profile.Unit is null) continue;
@@ -96,14 +99,10 @@ public partial class CombatHud : CanvasLayer
             var button = new Button
             {
                 Name = $"Card_{characterId}",
-                CustomMinimumSize = new Vector2(220, 66),
+                CustomMinimumSize = new Vector2(218, 70),
                 Alignment = HorizontalAlignment.Left
             };
-            button.AddThemeFontSizeOverride("font_size", 15);
-            button.AddThemeColorOverride("font_color", new Color("fff0c2"));
-            button.AddThemeStyleboxOverride("normal", CardStyle("3b4938", "8f6d38"));
-            button.AddThemeStyleboxOverride("hover", CardStyle("536344", "f1bb55"));
-            button.AddThemeStyleboxOverride("focus", CardStyle("536344", "fff0c2"));
+            OperationUiStyle.ApplyButton(button, fontSize: 14, leftPadding: 12);
             button.TooltipText = UiLocalization.Description(profile.Description);
             button.ButtonDown += () => PrepareCharacterDrag(characterId);
             button.Pressed += () => EmitSignal(SignalName.CharacterSelected, characterId);
@@ -126,12 +125,29 @@ public partial class CombatHud : CanvasLayer
             bool available = remaining.Contains(characterId);
             bool affordable = available && deploymentPoints >= unit.DeploymentCost;
             bool selected = affordable && characterId == selectedCharacterId;
+            string visualState = !available ? "placed" : selected ? "selected" : affordable ? "ready" : "insufficient";
+            if (!_cardVisualStates.TryGetValue(characterId, out string? previousState) || previousState != visualState)
+            {
+                OperationUiStyle.ApplyButton(
+                    button,
+                    visualState switch
+                    {
+                        "placed" => OperationUiTone.Success,
+                        "selected" => OperationUiTone.Primary,
+                        "insufficient" => OperationUiTone.Danger,
+                        _ => OperationUiTone.Neutral
+                    },
+                    selected,
+                    fontSize: 14,
+                    leftPadding: 12);
+                _cardVisualStates[characterId] = visualState;
+            }
             button.Disabled = !affordable;
             button.Text = available
                 ? $"{(selected ? "▶ " : "  ")}{profile.DisplayName}\n  {KoreanUiText.Role(unit.Role)} · 비용 {unit.DeploymentCost}{(affordable ? "" : " · 부족")}\n  {characterId}"
                 : $"✓ {profile.DisplayName}\n  {characterId} · 배치 완료";
-            button.Modulate = selected ? Colors.White : affordable ? new Color("d6dfca")
-                : available ? new Color("a08362") : new Color("788275");
+            button.Modulate = selected ? Colors.White : affordable ? new Color("dce7ea")
+                : available ? new Color("d99a94") : new Color("80bdb4");
             if (!available && (_dragCandidateId == characterId || _draggedCharacterId == characterId))
                 CancelCharacterDrag();
         }
@@ -187,7 +203,11 @@ public partial class CombatHud : CanvasLayer
         foreach (Button button in _deploymentCards.Values) button.Disabled = true;
         _resultPanel.Visible = true;
         _resultTitle.Text = victory ? "작전 성공" : "기지 함락";
-        _resultTitle.Modulate = victory ? Rgb(255, 209, 102) : Rgb(255, 107, 94);
+        _resultTitle.Modulate = victory ? OperationUiStyle.Teal : OperationUiStyle.Red;
+        OperationUiStyle.ApplyPanel(
+            _resultPanel,
+            strong: true,
+            border: victory ? OperationUiStyle.Teal : OperationUiStyle.Red);
         _resultDetail.Text = $"처치 {defeated}  /  탈출 {escaped}";
         _restartButton.GrabFocus();
     }
@@ -249,24 +269,20 @@ public partial class CombatHud : CanvasLayer
             ZIndex = 100,
             CustomMinimumSize = new Vector2(180, 52)
         };
-        _dragPreview.AddThemeStyleboxOverride("panel", CardStyle("3b4938", "f1bb55"));
+        _dragPreview.AddThemeStyleboxOverride("panel", OperationUiStyle.PanelStyle(strong: true, border: OperationUiStyle.Amber));
         _dragPreviewLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
         _dragPreviewLabel.AddThemeFontSizeOverride("font_size", 15);
-        _dragPreviewLabel.AddThemeColorOverride("font_color", new Color("fff0c2"));
+        _dragPreviewLabel.AddThemeColorOverride("font_color", OperationUiStyle.Text);
         _dragPreview.AddChild(_dragPreviewLabel);
         AddChild(_dragPreview);
     }
 
-    private static StyleBoxFlat CardStyle(string background, string border) => new()
+    private void ApplyOperationStyle()
     {
-        BgColor = new Color(background), BorderColor = new Color(border),
-        BorderWidthLeft = 2, BorderWidthTop = 2, BorderWidthRight = 2, BorderWidthBottom = 2,
-        CornerRadiusTopLeft = 5, CornerRadiusTopRight = 5, CornerRadiusBottomLeft = 5, CornerRadiusBottomRight = 5,
-        ContentMarginLeft = 12
-    };
-
-    private static Color Rgb(byte red, byte green, byte blue, byte alpha = 255)
-    {
-        return new Color(red / 255.0f, green / 255.0f, blue / 255.0f, alpha / 255.0f);
+        OperationUiStyle.ApplyPanel(GetNode<Panel>("TopPanel"), strong: true);
+        OperationUiStyle.ApplyPanel(GetNode<Panel>("DeploymentPanel"), strong: true, border: OperationUiStyle.Teal);
+        OperationUiStyle.ApplyPanel(_resultPanel, strong: true, border: OperationUiStyle.Amber);
+        OperationUiStyle.ApplyButton(_restartButton, OperationUiTone.Primary, fontSize: 17);
+        OperationUiStyle.ApplyButton(_stageListButton, fontSize: 17);
     }
 }

@@ -55,7 +55,13 @@ public static class OperationUiStyle
         button.AddThemeStyleboxOverride("hover", Box(hover, accent.Lightened(0.12f), 2, 6, leftPadding));
         button.AddThemeStyleboxOverride("pressed", Box(hover.Darkened(0.08f), accent, 2, 6, leftPadding));
         button.AddThemeStyleboxOverride("focus", Box(new Color("314a58f5"), Amber, 2, 6, leftPadding));
-        button.AddThemeStyleboxOverride("disabled", Box(Disabled, new Color("3b4a50aa"), 1, 6, leftPadding));
+        Color disabledBorder = repairRequired || tone == OperationUiTone.Danger
+            ? Red.Darkened(0.35f)
+            : tone == OperationUiTone.Success ? Teal.Darkened(0.35f) : new Color("3b4a50aa");
+        Color disabledBackground = repairRequired || tone == OperationUiTone.Danger
+            ? new Color("352329cc")
+            : tone == OperationUiTone.Success ? new Color("183836cc") : Disabled;
+        button.AddThemeStyleboxOverride("disabled", Box(disabledBackground, disabledBorder, 1, 6, leftPadding));
     }
 
     public static void ApplyPanel(Panel panel, bool strong = false, Color? border = null)
