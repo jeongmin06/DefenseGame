@@ -1,22 +1,25 @@
 using Godot;
 using DefenseGame.Client.Data;
+using System.Collections.Generic;
 
 namespace DefenseGame.Client.UI;
 
 public partial class StageSelect : Node2D
 {
     [Export] public StageCatalog Catalog { get; set; } = null!;
-    [Export] public Texture2D StageButtonTexture { get; set; } = null!;
 
     public int StageCount => Catalog?.Stages.Count ?? 0;
 
+    private readonly List<Button> _stageButtons = [];
     private VBoxContainer _stageList = null!;
     private Label _stageDescription = null!;
+    private int _previewedStageIndex;
 
     public override void _Ready()
     {
         _stageList = GetNode<VBoxContainer>("UI/StagePanel/StageList");
         _stageDescription = GetNode<Label>("UI/MapHint");
+        ApplyOperationStyle();
         BuildStageButtons();
         ShowStageDescription(0);
     }
@@ -46,8 +49,10 @@ public partial class StageSelect : Node2D
     {
         if (Catalog is null || index < 0 || index >= Catalog.Stages.Count) return;
         StageDefinition stage = Catalog.Stages[index];
+        _previewedStageIndex = index;
         _stageDescription.Text = $"{stage.DisplayName}\n\n{UiLocalization.Description(stage.Description)}"
             + $"\n\n{stage.Waves.Count} 웨이브  ·  적 {GetEnemyCount(index)}마리";
+        RefreshStageButtons();
     }
 
     private void BuildStageButtons()
@@ -59,20 +64,14 @@ public partial class StageSelect : Node2D
             var button = new Button
             {
                 Name = $"StageButton{i + 1}",
-                Text = $"{i + 1:00}   {stage.DisplayName}\n       {stage.Waves.Count} 웨이브   //   적 {GetEnemyCount(i)}마리",
-                CustomMinimumSize = new Vector2(560, 96),
+                CustomMinimumSize = new Vector2(608, 112),
                 Alignment = HorizontalAlignment.Left,
                 TooltipText = UiLocalization.Description(stage.Description)
             };
-            button.AddThemeFontSizeOverride("font_size", 20);
-            button.AddThemeColorOverride("font_color", new Color("fff0c2"));
-            button.AddThemeColorOverride("font_hover_color", Colors.White);
-            button.AddThemeStyleboxOverride("normal", CardStyle(new Color("e5e0d8")));
-            button.AddThemeStyleboxOverride("hover", CardStyle(new Color("fff0c2")));
-            button.AddThemeStyleboxOverride("focus", CardStyle(new Color("ffd166")));
             button.Pressed += () => SelectStage(index);
             button.MouseEntered += () => ShowStageDescription(index);
             button.FocusEntered += () => ShowStageDescription(index);
+            _stageButtons.Add(button);
             _stageList.AddChild(button);
         }
 
@@ -80,16 +79,28 @@ public partial class StageSelect : Node2D
             _stageList.GetChild<Control>(0).GrabFocus();
     }
 
-    private StyleBoxTexture CardStyle(Color modulate)
+    private void RefreshStageButtons()
     {
-        return new StyleBoxTexture
+        for (int i = 0; i < _stageButtons.Count; i++)
         {
-            Texture = StageButtonTexture,
-            ModulateColor = modulate,
-            ContentMarginLeft = 34,
-            ContentMarginRight = 24,
-            ContentMarginTop = 10,
-            ContentMarginBottom = 10
-        };
+            StageDefinition stage = Catalog.Stages[i];
+            bool selected = i == _previewedStageIndex;
+            _stageButtons[i].Text = $"{(selected ? "선택됨" : "대기")}   //   작전 {i + 1:00}\n"
+                + $"{stage.DisplayName}     {stage.Waves.Count} 웨이브 · 적 {GetEnemyCount(i)}마리";
+            OperationUiStyle.ApplyButton(
+                _stageButtons[i],
+                selected ? OperationUiTone.Primary : OperationUiTone.Neutral,
+                selected,
+                fontSize: 18,
+                leftPadding: 22);
+        }
+    }
+
+    private void ApplyOperationStyle()
+    {
+        OperationUiStyle.ApplyPanel(GetNode<Panel>("UI/HeaderPanel"), strong: true);
+        OperationUiStyle.ApplyPanel(GetNode<Panel>("UI/StagePanel"), strong: true, border: OperationUiStyle.Amber);
+        OperationUiStyle.ApplyPanel(GetNode<Panel>("UI/BriefingPanel"), border: OperationUiStyle.Teal);
+        OperationUiStyle.ApplyPanel(GetNode<Panel>("UI/RoutePanel"));
     }
 }

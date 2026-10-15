@@ -1,52 +1,13 @@
-[gd_scene load_steps=9 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/StageSelect.cs" id="1_select"]
 [ext_resource type="Resource" path="res://data/stages/catalog.tres" id="2_catalog"]
-
 [ext_resource type="Script" path="res://scripts/ui/BootSplash.cs" id="boot"]
-[ext_resource type="Texture2D" path="res://assets/backgrounds/stage_select_command_outpost.png" id="stage_bg"]
-[ext_resource type="Texture2D" path="res://assets/ui/stage_button_frame.png" id="stage_button"]
-
-[sub_resource type="StyleBoxFlat" id="HeaderStyle"]
-bg_color = Color(0.018, 0.067, 0.047, 0.82)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.761, 0.508, 0.224, 0.72)
-corner_radius_top_left = 12
-corner_radius_top_right = 12
-corner_radius_bottom_right = 12
-corner_radius_bottom_left = 12
-
-[sub_resource type="StyleBoxFlat" id="HintStyle"]
-bg_color = Color(0.018, 0.067, 0.047, 0.8)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(0.761, 0.508, 0.224, 0.72)
-corner_radius_top_left = 12
-corner_radius_top_right = 12
-corner_radius_bottom_right = 12
-corner_radius_bottom_left = 12
-
-[sub_resource type="StyleBoxFlat" id="PanelStyle"]
-bg_color = Color(0.027, 0.09, 0.063, 0.94)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0.882, 0.604, 0.251, 1)
-corner_radius_top_left = 12
-corner_radius_top_right = 12
-corner_radius_bottom_right = 12
-corner_radius_bottom_left = 12
+[ext_resource type="Texture2D" path="res://assets/backgrounds/operation_preparation_ruined_city.png" id="stage_bg"]
 
 [node name="StageSelect" type="Node2D"]
 script = ExtResource("1_select")
 Catalog = ExtResource("2_catalog")
-StageButtonTexture = ExtResource("stage_button")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
@@ -58,73 +19,122 @@ texture = ExtResource("stage_bg")
 expand_mode = 1
 stretch_mode = 6
 
-[node name="HeaderPanel" type="Panel" parent="UI"]
-offset_left = 58.0
-offset_top = 48.0
-offset_right = 728.0
-offset_bottom = 222.0
+[node name="ReadabilityOverlay" type="ColorRect" parent="UI"]
+offset_right = 1280.0
+offset_bottom = 720.0
 mouse_filter = 2
-theme_override_styles/panel = SubResource("HeaderStyle")
+color = Color(0.025, 0.055, 0.075, 0.66)
+
+[node name="HeaderPanel" type="Panel" parent="UI"]
+offset_left = 44.0
+offset_top = 32.0
+offset_right = 1236.0
+offset_bottom = 168.0
+mouse_filter = 2
 
 [node name="Eyebrow" type="Label" parent="UI"]
-offset_left = 84.0
-offset_top = 72.0
-offset_right = 500.0
-offset_bottom = 102.0
-theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
-theme_override_font_sizes/font_size = 18
-text = "작전 지휘  //  고양이 부대"
+offset_left = 72.0
+offset_top = 52.0
+offset_right = 520.0
+offset_bottom = 78.0
+theme_override_colors/font_color = Color(0.91, 0.66, 0.31, 1)
+theme_override_font_sizes/font_size = 16
+text = "작전 통제실  //  지상 수복 전선"
 
 [node name="Title" type="Label" parent="UI"]
-offset_left = 80.0
-offset_top = 102.0
-offset_right = 680.0
-offset_bottom = 174.0
-theme_override_colors/font_color = Color(1, 0.949, 0.78, 1)
-theme_override_font_sizes/font_size = 48
-text = "스테이지 선택"
+offset_left = 68.0
+offset_top = 77.0
+offset_right = 620.0
+offset_bottom = 128.0
+theme_override_colors/font_color = Color(0.91, 0.93, 0.94, 1)
+theme_override_font_sizes/font_size = 38
+text = "출전 작전 선택"
 
 [node name="Description" type="Label" parent="UI"]
-offset_left = 84.0
-offset_top = 176.0
-offset_right = 700.0
-offset_bottom = 214.0
-theme_override_colors/font_color = Color(0.78, 0.85, 0.71, 1)
-theme_override_font_sizes/font_size = 17
-text = "출전할 작전을 선택하세요. 현재는 적 수로 난이도를 구분합니다."
+offset_left = 70.0
+offset_top = 128.0
+offset_right = 1170.0
+offset_bottom = 155.0
+theme_override_colors/font_color = Color(0.61, 0.69, 0.72, 1)
+theme_override_font_sizes/font_size = 15
+text = "작전 구역을 검토한 뒤 출전 준비로 이동하세요. 현재 난이도는 적 규모로 구분합니다."
 
 [node name="StagePanel" type="Panel" parent="UI"]
-offset_left = 78.0
-offset_top = 242.0
-offset_right = 704.0
-offset_bottom = 620.0
-theme_override_styles/panel = SubResource("PanelStyle")
+offset_left = 44.0
+offset_top = 188.0
+offset_right = 696.0
+offset_bottom = 684.0
+
+[node name="ListCaption" type="Label" parent="UI/StagePanel"]
+offset_left = 22.0
+offset_top = 18.0
+offset_right = 600.0
+offset_bottom = 46.0
+theme_override_colors/font_color = Color(0.91, 0.66, 0.31, 1)
+theme_override_font_sizes/font_size = 16
+text = "작전 목록  //  OPERATION INDEX"
 
 [node name="StageList" type="VBoxContainer" parent="UI/StagePanel"]
-offset_left = 28.0
-offset_top = 28.0
-offset_right = 598.0
-offset_bottom = 350.0
-theme_override_constants/separation = 18
+offset_left = 22.0
+offset_top = 62.0
+offset_right = 630.0
+offset_bottom = 474.0
+theme_override_constants/separation = 14
 
-[node name="HintPanel" type="Panel" parent="UI"]
-offset_left = 770.0
-offset_top = 282.0
-offset_right = 1226.0
-offset_bottom = 482.0
+[node name="BriefingPanel" type="Panel" parent="UI"]
+offset_left = 716.0
+offset_top = 188.0
+offset_right = 1236.0
+offset_bottom = 584.0
 mouse_filter = 2
-theme_override_styles/panel = SubResource("HintStyle")
+
+[node name="BriefingCaption" type="Label" parent="UI"]
+offset_left = 744.0
+offset_top = 210.0
+offset_right = 1188.0
+offset_bottom = 240.0
+theme_override_colors/font_color = Color(0.33, 0.84, 0.76, 1)
+theme_override_font_sizes/font_size = 16
+text = "선택 작전 브리핑  //  FIELD REPORT"
 
 [node name="MapHint" type="Label" parent="UI"]
-offset_left = 804.0
-offset_top = 318.0
-offset_right = 1192.0
-offset_bottom = 446.0
-theme_override_colors/font_color = Color(0.965, 0.87, 0.61, 1)
-theme_override_font_sizes/font_size = 21
-text = "초원 구역\n\n현재 스테이지는 같은 경로를 사용합니다.\n후반 스테이지일수록 적이 더 많이 등장합니다."
-horizontal_alignment = 1
+offset_left = 748.0
+offset_top = 260.0
+offset_right = 1204.0
+offset_bottom = 488.0
+theme_override_colors/font_color = Color(0.91, 0.93, 0.94, 1)
+theme_override_font_sizes/font_size = 20
+text = "초원 방어선 1\n\n첫 방어 작전입니다.\n\n3 웨이브  ·  적 21마리"
+vertical_alignment = 1
 autowrap_mode = 2
+
+[node name="SelectionStatus" type="Label" parent="UI"]
+offset_left = 748.0
+offset_top = 512.0
+offset_right = 1204.0
+offset_bottom = 550.0
+theme_override_colors/font_color = Color(0.91, 0.66, 0.31, 1)
+theme_override_font_sizes/font_size = 15
+text = "선택됨  //  버튼을 누르면 편성으로 이동"
+horizontal_alignment = 1
+
+[node name="RoutePanel" type="Panel" parent="UI"]
+offset_left = 716.0
+offset_top = 604.0
+offset_right = 1236.0
+offset_bottom = 684.0
+mouse_filter = 2
+
+[node name="RouteLabel" type="Label" parent="UI"]
+offset_left = 744.0
+offset_top = 624.0
+offset_right = 1208.0
+offset_bottom = 665.0
+theme_override_colors/font_color = Color(0.61, 0.69, 0.72, 1)
+theme_override_font_sizes/font_size = 14
+text = "작전 선택  >  부대 편성  >  스킬 준비  >  전투"
+horizontal_alignment = 1
+vertical_alignment = 1
 
 [node name="BootSplash" type="Node" parent="."]
 script = ExtResource("boot")

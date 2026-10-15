@@ -28,15 +28,22 @@ func run():
     selector.SetStageSquadStoragePathOverride("/tmp/defense-stage-selection-squad-%d-%d.json" % [OS.get_process_id(), Time.get_ticks_usec()])
     check(selector.StageCount == 3, "Three selectable stages")
     var background = selector.get_node("UI/Background")
-    check(background.texture != null and background.texture.resource_path.ends_with("stage_select_command_outpost.png"),
-        "Stage-select background texture is connected")
+    check(background.texture != null and background.texture.resource_path.ends_with("operation_preparation_ruined_city.png"),
+        "Stage-select background shares the approved ruined-city operation art")
+    check(selector.get_node("UI/ReadabilityOverlay").color.a >= 0.60,
+        "Stage-select background has a readable operation overlay")
     var stage_list = selector.get_node("UI/StagePanel/StageList")
     check(stage_list.get_child_count() == 3, "Three generated buttons")
     var first_button = stage_list.get_child(0)
-    var normal_style = first_button.get_theme_stylebox("normal")
-    check(normal_style is StyleBoxTexture and normal_style.texture == selector.StageButtonTexture,
-        "Generated stage buttons use the shared art texture")
-    check(first_button.custom_minimum_size.y == 96.0, "Art button keeps the intended readable height")
+    for state in ["normal", "hover", "focus", "pressed", "disabled"]:
+        check(first_button.get_theme_stylebox(state) is StyleBoxFlat,
+            "Generated stage button has %s operation style" % state)
+    check(first_button.custom_minimum_size.y == 112.0, "Operation button keeps the intended readable height")
+    check("선택됨" in first_button.text, "Previewed stage writes its selected state")
+    check(FileAccess.file_exists("res://assets/backgrounds/stage_select_command_outpost.png"),
+        "Previous grassland-era stage background remains preserved")
+    check(FileAccess.file_exists("res://assets/ui/stage_button_frame.png"),
+        "Previous stage button art remains preserved")
     check(selector.GetEnemyCount(0) == 21, "Stage 1 enemy count")
     check(selector.GetEnemyCount(1) == 30, "Stage 2 enemy count")
     check(selector.GetEnemyCount(2) == 42, "Stage 3 enemy count")
