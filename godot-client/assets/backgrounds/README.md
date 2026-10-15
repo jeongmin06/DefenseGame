@@ -1,6 +1,7 @@
 # Grassland presentation art
 
 - `grassland_expedition.png`: loading illustration generated with the built-in ImageGen tool on 2026-10-13. The original is kept at its generated resolution; Godot fits it to the 1280×720 viewport with nearest filtering. Text and progress remain separate UI nodes.
+- `operation_preparation_ruined_city.png`: approved ruined-city expedition concept reused as the shared formation and skill-preparation background. The original grassland illustrations remain unchanged. Dark blue-gray overlays and UI panels own readability; the image itself contains no UI text.
 - `../../scripts/visuals/BattlefieldArt.cs`: deterministic, code-native pixel decoration for the existing terrain. Reads the grid's tile classification, draws sparse grass, dirt flecks, blocked-cell rocks and outer shrubs, and never owns collision or deployment rules. Cell interiors keep a 13-pixel decoration inset. Z-index 1 remains below units (3+) and projectiles.
 - `../../scenes/loading_screen.tscn`: standalone preview scene and production overlay. The initial selector preloads the battlefield once per process; confirmed skill preparation uses the same overlay before entering combat. Progress comes from Godot's threaded resource loader. Visible runs retain it for at least 1.1 seconds; headless runs complete immediately when ready.
 

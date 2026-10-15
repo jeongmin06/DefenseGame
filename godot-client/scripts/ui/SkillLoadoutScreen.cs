@@ -71,7 +71,7 @@ public partial class SkillLoadoutScreen : Node2D
 
     public override void _Ready()
     {
-        _characterList = GetNode<HBoxContainer>("UI/MainPanel/CharacterList");
+        _characterList = GetNode<HBoxContainer>("UI/MainPanel/CharacterScroll/CharacterList");
         _activeList = GetNode<HBoxContainer>("UI/MainPanel/ActiveCard/ActiveList");
         _candidateList = GetNode<VBoxContainer>("UI/MainPanel/SupportScroll/CandidateList");
         _activeLabel = GetNode<Label>("UI/MainPanel/ActiveCard/ActiveLabel");
@@ -80,10 +80,15 @@ public partial class SkillLoadoutScreen : Node2D
         _saveButton = GetNode<Button>("UI/MainPanel/Actions/SaveButton");
         _migrationButton = GetNode<Button>("UI/MainPanel/Actions/MigrationButton");
         _startButton = GetNode<Button>("UI/MainPanel/Actions/StartButton");
-        GetNode<Button>("UI/MainPanel/Actions/BackButton").Pressed += ReturnToFormation;
+        Button backButton = GetNode<Button>("UI/MainPanel/Actions/BackButton");
+        backButton.Pressed += ReturnToFormation;
         _saveButton.Pressed += () => SaveProfile();
         _migrationButton.Pressed += () => MigrateLocalProfile();
         _startButton.Pressed += () => StartBattle();
+        OperationUiStyle.ApplyButton(backButton);
+        OperationUiStyle.ApplyButton(_saveButton, OperationUiTone.Success);
+        OperationUiStyle.ApplyButton(_migrationButton, OperationUiTone.Primary);
+        OperationUiStyle.ApplyButton(_startButton, OperationUiTone.Primary, fontSize: 16);
 
         StageDefinition? stage = StageSelectionState.SelectedStage;
         GetNode<Label>("UI/StageLabel").Text = stage is null
@@ -97,7 +102,6 @@ public partial class SkillLoadoutScreen : Node2D
         Refresh();
         _characterButtons.GetValueOrDefault(_selectedCharacterId)?.GrabFocus();
         if (!_usingLocalTestStorage) _ = LoadFromServerAsync();
-        QueueRedraw();
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -107,14 +111,6 @@ public partial class SkillLoadoutScreen : Node2D
             GetViewport().SetInputAsHandled();
             ReturnToStageList();
         }
-    }
-
-    public override void _Draw()
-    {
-        DrawRect(new Rect2(0, 0, 1280, 720), new Color("102a24"));
-        DrawCircle(new Vector2(1130, 110), 190, new Color("6d3425"));
-        DrawCircle(new Vector2(1130, 110), 145, new Color("d98e3d"));
-        DrawLine(new Vector2(760, 0), new Vector2(1280, 520), new Color("2f5f43"), 90);
     }
 
     public bool SelectCharacter(string characterId)
@@ -372,12 +368,13 @@ public partial class SkillLoadoutScreen : Node2D
         foreach (CatProfile profile in _selectedProfiles)
         {
             string characterId = profile.CharacterId;
-            var button = new Button { Name = $"Character_{characterId}", CustomMinimumSize = new Vector2(300, 44) };
-            button.AddThemeFontSizeOverride("font_size", 16);
-            button.AddThemeColorOverride("font_color", new Color("fff0c2"));
-            button.AddThemeStyleboxOverride("normal", CardStyle("3b4938", "8f6d38"));
-            button.AddThemeStyleboxOverride("hover", CardStyle("536344", "f1bb55"));
-            button.AddThemeStyleboxOverride("focus", CardStyle("536344", "fff0c2"));
+            var button = new Button
+            {
+                Name = $"Character_{characterId}",
+                CustomMinimumSize = new Vector2(267, 40),
+                Alignment = HorizontalAlignment.Left
+            };
+            OperationUiStyle.ApplyButton(button, fontSize: 14, leftPadding: 10);
             button.Pressed += () => SelectCharacter(characterId);
             _characterList.AddChild(button);
             _characterButtons.Add(characterId, button);
@@ -393,15 +390,13 @@ public partial class SkillLoadoutScreen : Node2D
             string id = skill.Id;
             var button = new Button
             {
-                Name = $"Active_{id}", Text = CurrentPreset?.ActiveSkillId == id ? "선택됨" : "선택",
-                CustomMinimumSize = new Vector2(130, 42),
+                Name = $"Active_{id}", Text = CurrentPreset?.ActiveSkillId == id ? "[장착됨]" : "장착",
+                CustomMinimumSize = new Vector2(150, 42),
                 Disabled = !_progress.OwnedSkillIds.Contains(id) || (!_usingLocalTestStorage && (!_serverReady || _serverBusy)),
                 TooltipText = UiLocalization.Description(skill.Description)
             };
-            button.AddThemeFontSizeOverride("font_size", 14);
-            button.AddThemeColorOverride("font_color", new Color("fff0c2"));
-            button.AddThemeStyleboxOverride("normal", CardStyle("6f3424", "d8943f"));
-            button.AddThemeStyleboxOverride("hover", CardStyle("8d4429", "ffd166"));
+            bool selected = CurrentPreset?.ActiveSkillId == id;
+            OperationUiStyle.ApplyButton(button, OperationUiTone.Primary, selected, fontSize: 14, leftPadding: 10);
             button.Pressed += () => TrySelectActive(id);
             _activeList.AddChild(button);
         }
@@ -425,14 +420,16 @@ public partial class SkillLoadoutScreen : Node2D
             {
                 Name = $"Support_{support.Id}",
                 Text = $"{(selected ? "[X]" : "[ ]")}  {support.DisplayName}   //   {CompatibilityText(support)}{(repair ? "   //   수정 필요" : "")}\n     {description}",
-                CustomMinimumSize = new Vector2(900, 64), Alignment = HorizontalAlignment.Left,
+                CustomMinimumSize = new Vector2(1108, 64), Alignment = HorizontalAlignment.Left,
                 TooltipText = description,
                 Disabled = !_usingLocalTestStorage && (!_serverReady || _serverBusy)
             };
-            button.AddThemeFontSizeOverride("font_size", 16);
-            button.AddThemeColorOverride("font_color", new Color(repair ? "ff8e78" : "fff0c2"));
-            button.AddThemeStyleboxOverride("normal", CardStyle("3b4938", repair ? "d45d4c" : "8f6d38"));
-            button.AddThemeStyleboxOverride("hover", CardStyle("536344", "f1bb55"));
+            OperationUiStyle.ApplyButton(
+                button,
+                selected ? OperationUiTone.Primary : OperationUiTone.Neutral,
+                selected,
+                repair,
+                15);
             string id = support.Id;
             button.Pressed += () => TryToggleSupport(id);
             _candidateList.AddChild(button);
@@ -451,11 +448,9 @@ public partial class SkillLoadoutScreen : Node2D
             {
                 Name = $"InvalidSupport_{index}",
                 Text = $"[X]  {id}   //   수정 필요: {reason}   //   제거",
-                CustomMinimumSize = new Vector2(900, 44), Alignment = HorizontalAlignment.Left
+                CustomMinimumSize = new Vector2(1108, 44), Alignment = HorizontalAlignment.Left
             };
-            invalid.AddThemeFontSizeOverride("font_size", 15);
-            invalid.AddThemeColorOverride("font_color", new Color("ff8e78"));
-            invalid.AddThemeStyleboxOverride("normal", CardStyle("4b2b28", "d45d4c"));
+            OperationUiStyle.ApplyButton(invalid, OperationUiTone.Danger, repairRequired: true, fontSize: 14);
             invalid.Pressed += () => RemoveSupportAt(slotIndex);
             _candidateList.AddChild(invalid);
         }
@@ -471,8 +466,15 @@ public partial class SkillLoadoutScreen : Node2D
             CatProfile profile = _profilesById[id];
             bool selected = id == _selectedCharacterId;
             bool repair = IsRepairRequired(id);
-            button.Text = $"{(selected ? ">" : " ")} {profile.DisplayName}  //  {KoreanUiText.Role(profile.Unit?.Role ?? UnitRole.Ranged)} · {id}{(repair ? "  //  수정 필요" : "")}";
-            button.Modulate = new Color(repair ? "ffb09e" : selected ? "ffffff" : "c9d8bc");
+            string state = repair ? "수정 필요" : selected ? "선택됨" : "대기";
+            button.Text = $"[{state}] {profile.DisplayName}\n{KoreanUiText.Role(profile.Unit?.Role ?? UnitRole.Ranged)} · {id}";
+            OperationUiStyle.ApplyButton(
+                button,
+                selected ? OperationUiTone.Primary : OperationUiTone.Neutral,
+                selected,
+                repair,
+                14,
+                10);
         }
 
         CatSkillPreset? preset = CurrentPreset;
@@ -481,13 +483,21 @@ public partial class SkillLoadoutScreen : Node2D
         bool activeRepair = HasActiveIssue();
         _activeLabel.Text = $"액티브  //  {(string.IsNullOrEmpty(activeName) ? "누락" : activeName)}\n{(active is null ? activeId : KoreanUiText.Tags(active.Tags, "  ·  "))}{(activeRepair ? "   //   수정 필요" : "")}";
         _activeLabel.TooltipText = active is null ? "" : UiLocalization.Description(active.Description);
-        _activeLabel.Modulate = new Color(activeRepair ? "ff8e78" : "fff0c2");
+        _activeLabel.Modulate = activeRepair ? OperationUiStyle.Red : OperationUiStyle.Text;
+        OperationUiStyle.ApplyPanel(
+            GetNode<Panel>("UI/MainPanel/ActiveCard"),
+            true,
+            activeRepair ? OperationUiStyle.Red : OperationUiStyle.Amber);
 
         StageSkillBudget? budget = StageSelectionState.SelectedStage?.SkillBudget;
         string cap = budget is null || !budget.HasStageCap ? "없음" : budget.StageCap.ToString();
         bool budgetRepair = _validation.Issues.Any(issue => string.IsNullOrEmpty(issue.CharacterId));
         _budgetLabel.Text = $"포인트   사용 가능 {UsablePoints}   사용 {UsedPoints}   남음 {RemainingPoints}   //   스테이지 상한 {cap}{(budgetRepair ? "   //   수정 필요" : "")}";
-        _budgetLabel.Modulate = new Color(budgetRepair ? "ff8e78" : "ffd66b");
+        _budgetLabel.Modulate = budgetRepair ? OperationUiStyle.Red : OperationUiStyle.Amber;
+        OperationUiStyle.ApplyPanel(
+            GetNode<Panel>("UI/MainPanel/BudgetPanel"),
+            true,
+            budgetRepair ? OperationUiStyle.Red : OperationUiStyle.Amber);
 
         RebuildActiveButtons();
         RebuildSupportButtons();
@@ -500,9 +510,13 @@ public partial class SkillLoadoutScreen : Node2D
                     ? $"수정 필요 // 서버 {_remoteLoadStatus}: 서버를 실행한 뒤 이 화면을 다시 열어주세요"
                     : $"서버 프리셋 {_remoteLoadStatus} // revision {_serverRevision}";
         _statusLabel.Text = string.IsNullOrEmpty(transientMessage) ? $"{loadNote}   //   {validationMessage}" : transientMessage;
-        _statusLabel.Modulate = new Color(_validation.IsValid && ServerReadyOrLocal()
-            && !transientMessage.StartsWith("수정 필요", StringComparison.Ordinal)
-            ? "c9e7ae" : "ff8e78");
+        bool statusError = !_validation.IsValid || (!_serverBusy && !ServerReadyOrLocal())
+            || transientMessage.StartsWith("수정 필요", StringComparison.Ordinal);
+        _statusLabel.Modulate = OperationUiStyle.StatusColor(statusError, _serverBusy);
+        OperationUiStyle.ApplyPanel(
+            GetNode<Panel>("UI/MainPanel/StatusPanel"),
+            true,
+            OperationUiStyle.StatusColor(statusError, _serverBusy));
         _startButton.Disabled = StageSelectionState.SelectedStage is null || !_validation.IsValid || _serverBusy
             || (!_usingLocalTestStorage && !_serverReady);
         _saveButton.Disabled = _serverBusy || (!_usingLocalTestStorage && !_serverReady)
@@ -514,7 +528,11 @@ public partial class SkillLoadoutScreen : Node2D
     private void ShowTransient(string message, bool isError)
     {
         _statusLabel.Text = message;
-        _statusLabel.Modulate = new Color(isError ? "ff8e78" : "c9e7ae");
+        _statusLabel.Modulate = OperationUiStyle.StatusColor(isError);
+        OperationUiStyle.ApplyPanel(
+            GetNode<Panel>("UI/MainPanel/StatusPanel"),
+            true,
+            OperationUiStyle.StatusColor(isError));
     }
 
     private SquadSkillValidationResult ValidateAllocation()
@@ -690,14 +708,6 @@ public partial class SkillLoadoutScreen : Node2D
         if (skill.ForbiddenTags.Count > 0) return $"사용 불가: {KoreanUiText.Tags(skill.ForbiddenTags, " / ")}";
         return "태그 조건 없음";
     }
-
-    private static StyleBoxFlat CardStyle(string background, string border) => new()
-    {
-        BgColor = new Color(background), BorderColor = new Color(border),
-        BorderWidthLeft = 2, BorderWidthTop = 2, BorderWidthRight = 2, BorderWidthBottom = 2,
-        CornerRadiusTopLeft = 6, CornerRadiusTopRight = 6, CornerRadiusBottomLeft = 6, CornerRadiusBottomRight = 6,
-        ContentMarginLeft = 14
-    };
 
     public override void _ExitTree()
     {

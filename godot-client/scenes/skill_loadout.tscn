@@ -1,40 +1,62 @@
-[gd_scene load_steps=7 format=3]
+[gd_scene load_steps=9 format=3]
 
 [ext_resource type="Script" path="res://scripts/ui/SkillLoadoutScreen.cs" id="1_screen"]
 [ext_resource type="Resource" path="res://data/skills/catalog.tres" id="2_catalog"]
 [ext_resource type="Resource" path="res://data/player/defaults.tres" id="3_defaults"]
+[ext_resource type="Texture2D" path="res://assets/backgrounds/operation_preparation_ruined_city.png" id="4_background"]
 
-[sub_resource type="StyleBoxFlat" id="PanelStyle"]
-bg_color = Color(0.035, 0.09, 0.068, 0.97)
-border_width_left = 4
-border_width_top = 4
-border_width_right = 4
-border_width_bottom = 4
-border_color = Color(0.882, 0.604, 0.251, 1)
-corner_radius_top_left = 12
-corner_radius_top_right = 12
-corner_radius_bottom_right = 12
-corner_radius_bottom_left = 12
+[sub_resource type="StyleBoxFlat" id="HeaderStyle"]
+bg_color = Color(0.055, 0.102, 0.137, 0.91)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.306, 0.408, 0.455, 0.85)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
 
-[sub_resource type="StyleBoxFlat" id="ActiveStyle"]
-bg_color = Color(0.31, 0.18, 0.12, 1)
-border_width_left = 3
-border_width_top = 3
-border_width_right = 3
-border_width_bottom = 3
-border_color = Color(1, 0.75, 0.31, 1)
+[sub_resource type="StyleBoxFlat" id="MainStyle"]
+bg_color = Color(0.047, 0.086, 0.114, 0.95)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(0.91, 0.663, 0.31, 0.9)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="SectionStyle"]
+bg_color = Color(0.071, 0.125, 0.157, 0.86)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.286, 0.38, 0.424, 0.9)
 corner_radius_top_left = 7
 corner_radius_top_right = 7
 corner_radius_bottom_right = 7
 corner_radius_bottom_left = 7
 
-[sub_resource type="StyleBoxFlat" id="ActionStyle"]
-bg_color = Color(0.63, 0.25, 0.16, 1)
+[sub_resource type="StyleBoxFlat" id="ActiveStyle"]
+bg_color = Color(0.157, 0.149, 0.122, 0.96)
 border_width_left = 2
 border_width_top = 2
 border_width_right = 2
 border_width_bottom = 2
-border_color = Color(1, 0.75, 0.31, 1)
+border_color = Color(0.91, 0.663, 0.31, 1)
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
+
+[sub_resource type="StyleBoxFlat" id="BudgetStyle"]
+bg_color = Color(0.031, 0.059, 0.078, 0.93)
+border_width_left = 3
+border_color = Color(0.91, 0.663, 0.31, 1)
 corner_radius_top_left = 5
 corner_radius_top_right = 5
 corner_radius_bottom_right = 5
@@ -47,150 +69,199 @@ Defaults = ExtResource("3_defaults")
 
 [node name="UI" type="CanvasLayer" parent="."]
 
+[node name="Background" type="TextureRect" parent="UI"]
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 2
+texture = ExtResource("4_background")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="ReadabilityOverlay" type="ColorRect" parent="UI"]
+offset_right = 1280.0
+offset_bottom = 720.0
+mouse_filter = 2
+color = Color(0.018, 0.039, 0.055, 0.61)
+
+[node name="HeaderPanel" type="Panel" parent="UI"]
+offset_left = 48.0
+offset_top = 20.0
+offset_right = 1232.0
+offset_bottom = 104.0
+theme_override_styles/panel = SubResource("HeaderStyle")
+
 [node name="Eyebrow" type="Label" parent="UI"]
-offset_left = 168.0
-offset_top = 24.0
+offset_left = 76.0
+offset_top = 33.0
 offset_right = 650.0
-offset_bottom = 50.0
-theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
-theme_override_font_sizes/font_size = 17
-text = "무장 관리  //  부대 스킬 준비"
+offset_bottom = 57.0
+theme_override_colors/font_color = Color(0.91, 0.663, 0.31, 1)
+theme_override_font_sizes/font_size = 15
+text = "OPERATION READY  //  스킬 링크"
 
 [node name="Title" type="Label" parent="UI"]
-offset_left = 164.0
-offset_top = 48.0
-offset_right = 760.0
+offset_left = 72.0
+offset_top = 55.0
+offset_right = 650.0
 offset_bottom = 96.0
-theme_override_colors/font_color = Color(1, 0.949, 0.78, 1)
-theme_override_font_sizes/font_size = 38
-text = "고양이 스킬 설정"
+theme_override_colors/font_color = Color(0.91, 0.933, 0.941, 1)
+theme_override_font_sizes/font_size = 31
+text = "고양이 스킬 준비"
 
 [node name="StageLabel" type="Label" parent="UI"]
-offset_left = 760.0
-offset_top = 63.0
-offset_right = 1110.0
-offset_bottom = 92.0
-theme_override_colors/font_color = Color(0.78, 0.85, 0.71, 1)
+offset_left = 700.0
+offset_top = 54.0
+offset_right = 1204.0
+offset_bottom = 88.0
+theme_override_colors/font_color = Color(0.671, 0.761, 0.792, 1)
 theme_override_font_sizes/font_size = 17
-text = "초원 방어선 1  //  stage_01"
 horizontal_alignment = 2
 
 [node name="MainPanel" type="Panel" parent="UI"]
-offset_left = 150.0
-offset_top = 105.0
-offset_right = 1130.0
-offset_bottom = 680.0
-theme_override_styles/panel = SubResource("PanelStyle")
+offset_left = 48.0
+offset_top = 116.0
+offset_right = 1232.0
+offset_bottom = 700.0
+theme_override_styles/panel = SubResource("MainStyle")
+
+[node name="CharacterPanel" type="Panel" parent="UI/MainPanel"]
+offset_left = 22.0
+offset_top = 16.0
+offset_right = 1162.0
+offset_bottom = 110.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("SectionStyle")
 
 [node name="CharacterCaption" type="Label" parent="UI/MainPanel"]
-offset_left = 32.0
-offset_top = 18.0
-offset_right = 230.0
-offset_bottom = 44.0
-theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
-theme_override_font_sizes/font_size = 16
-text = "출전 고양이  //  캐릭터 ID"
+offset_left = 38.0
+offset_top = 26.0
+offset_right = 1120.0
+offset_bottom = 50.0
+theme_override_colors/font_color = Color(0.91, 0.663, 0.31, 1)
+theme_override_font_sizes/font_size = 15
+text = "출전 고양이  //  캐릭터별 링크 설정"
 
-[node name="CharacterList" type="HBoxContainer" parent="UI/MainPanel"]
-offset_left = 28.0
-offset_top = 45.0
-offset_right = 952.0
-offset_bottom = 90.0
-theme_override_constants/separation = 12
+[node name="CharacterScroll" type="ScrollContainer" parent="UI/MainPanel"]
+offset_left = 36.0
+offset_top = 54.0
+offset_right = 1146.0
+offset_bottom = 104.0
+vertical_scroll_mode = 0
+
+[node name="CharacterList" type="HBoxContainer" parent="UI/MainPanel/CharacterScroll"]
+layout_mode = 2
+theme_override_constants/separation = 10
 
 [node name="ActiveCaption" type="Label" parent="UI/MainPanel"]
-offset_left = 32.0
-offset_top = 98.0
-offset_right = 230.0
-offset_bottom = 122.0
-theme_override_colors/font_color = Color(0.945, 0.741, 0.345, 1)
-theme_override_font_sizes/font_size = 16
-text = "액티브 스킬  //  포인트 없음"
+offset_left = 28.0
+offset_top = 122.0
+offset_right = 280.0
+offset_bottom = 146.0
+theme_override_colors/font_color = Color(0.91, 0.663, 0.31, 1)
+theme_override_font_sizes/font_size = 15
+text = "액티브 슬롯  //  포인트 없음"
 
 [node name="ActiveCard" type="Panel" parent="UI/MainPanel"]
-offset_left = 28.0
-offset_top = 124.0
-offset_right = 952.0
-offset_bottom = 194.0
+offset_left = 22.0
+offset_top = 150.0
+offset_right = 1162.0
+offset_bottom = 218.0
 theme_override_styles/panel = SubResource("ActiveStyle")
 
 [node name="ActiveLabel" type="Label" parent="UI/MainPanel/ActiveCard"]
-offset_left = 20.0
-offset_top = 10.0
-offset_right = 720.0
-offset_bottom = 64.0
-theme_override_colors/font_color = Color(1, 0.929, 0.714, 1)
-theme_override_font_sizes/font_size = 18
+offset_left = 18.0
+offset_top = 8.0
+offset_right = 930.0
+offset_bottom = 60.0
+theme_override_colors/font_color = Color(0.91, 0.933, 0.941, 1)
+theme_override_font_sizes/font_size = 17
 text = "액티브  //  기본 화살\n공격 · 활 · 투사체 · 물리 · 적중"
 vertical_alignment = 1
 
 [node name="ActiveList" type="HBoxContainer" parent="UI/MainPanel/ActiveCard"]
-offset_left = 752.0
-offset_top = 14.0
-offset_right = 900.0
-offset_bottom = 58.0
+offset_left = 950.0
+offset_top = 12.0
+offset_right = 1118.0
+offset_bottom = 56.0
 alignment = 2
 
+[node name="BudgetPanel" type="Panel" parent="UI/MainPanel"]
+offset_left = 22.0
+offset_top = 228.0
+offset_right = 1162.0
+offset_bottom = 268.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("BudgetStyle")
+
 [node name="BudgetLabel" type="Label" parent="UI/MainPanel"]
-offset_left = 32.0
-offset_top = 204.0
-offset_right = 948.0
-offset_bottom = 234.0
-theme_override_colors/font_color = Color(1, 0.82, 0.42, 1)
-theme_override_font_sizes/font_size = 20
+offset_left = 40.0
+offset_top = 235.0
+offset_right = 1144.0
+offset_bottom = 261.0
+theme_override_colors/font_color = Color(0.91, 0.663, 0.31, 1)
+theme_override_font_sizes/font_size = 17
 text = "포인트   사용 가능 3   사용 0   남음 3   //   스테이지 상한 3"
 
-[node name="SupportScroll" type="ScrollContainer" parent="UI/MainPanel"]
+[node name="SupportCaption" type="Label" parent="UI/MainPanel"]
 offset_left = 28.0
-offset_top = 240.0
-offset_right = 952.0
-offset_bottom = 450.0
+offset_top = 278.0
+offset_right = 700.0
+offset_bottom = 302.0
+theme_override_colors/font_color = Color(0.91, 0.663, 0.31, 1)
+theme_override_font_sizes/font_size = 15
+text = "보조 스킬 후보  //  태그 조건과 링크 비용 확인"
+
+[node name="SupportScroll" type="ScrollContainer" parent="UI/MainPanel"]
+offset_left = 22.0
+offset_top = 306.0
+offset_right = 1162.0
+offset_bottom = 442.0
 horizontal_scroll_mode = 0
 
 [node name="CandidateList" type="VBoxContainer" parent="UI/MainPanel/SupportScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_constants/separation = 5
+theme_override_constants/separation = 6
+
+[node name="StatusPanel" type="Panel" parent="UI/MainPanel"]
+offset_left = 22.0
+offset_top = 452.0
+offset_right = 1162.0
+offset_bottom = 494.0
+mouse_filter = 2
+theme_override_styles/panel = SubResource("BudgetStyle")
 
 [node name="StatusLabel" type="Label" parent="UI/MainPanel"]
-offset_left = 32.0
-offset_top = 458.0
-offset_right = 948.0
-offset_bottom = 492.0
-theme_override_colors/font_color = Color(0.788, 0.906, 0.682, 1)
-theme_override_font_sizes/font_size = 16
+offset_left = 40.0
+offset_top = 461.0
+offset_right = 1144.0
+offset_bottom = 486.0
+theme_override_colors/font_color = Color(0.333, 0.839, 0.761, 1)
+theme_override_font_sizes/font_size = 14
 text = "고양이를 선택하고 액티브 및 보조 스킬을 설정하세요."
 autowrap_mode = 2
 
 [node name="Actions" type="HBoxContainer" parent="UI/MainPanel"]
-offset_left = 28.0
-offset_top = 504.0
-offset_right = 952.0
-offset_bottom = 554.0
-theme_override_constants/separation = 16
+offset_left = 22.0
+offset_top = 508.0
+offset_right = 1162.0
+offset_bottom = 562.0
+theme_override_constants/separation = 12
 alignment = 2
 
 [node name="BackButton" type="Button" parent="UI/MainPanel/Actions"]
-custom_minimum_size = Vector2(180, 48)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/normal = SubResource("ActionStyle")
+custom_minimum_size = Vector2(164, 48)
 text = "편성으로"
 
 [node name="SaveButton" type="Button" parent="UI/MainPanel/Actions"]
-custom_minimum_size = Vector2(220, 48)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/normal = SubResource("ActionStyle")
+custom_minimum_size = Vector2(200, 48)
 text = "프리셋 저장"
 
 [node name="MigrationButton" type="Button" parent="UI/MainPanel/Actions"]
 visible = false
-custom_minimum_size = Vector2(220, 48)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/normal = SubResource("ActionStyle")
+custom_minimum_size = Vector2(200, 48)
 text = "로컬 프리셋 이전"
 
 [node name="StartButton" type="Button" parent="UI/MainPanel/Actions"]
-custom_minimum_size = Vector2(250, 48)
-theme_override_font_sizes/font_size = 18
-theme_override_styles/normal = SubResource("ActionStyle")
-text = "전투 시작"
+custom_minimum_size = Vector2(230, 48)
+text = "준비 완료 · 전투 시작"

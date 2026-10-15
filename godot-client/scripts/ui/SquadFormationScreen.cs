@@ -47,13 +47,16 @@ public partial class SquadFormationScreen : Node2D
 
     public override void _Ready()
     {
-        _ownedList = GetNode<VBoxContainer>("UI/MainPanel/OwnedList");
-        _selectedList = GetNode<VBoxContainer>("UI/MainPanel/SelectedList");
+        _ownedList = GetNode<VBoxContainer>("UI/MainPanel/OwnedScroll/OwnedList");
+        _selectedList = GetNode<VBoxContainer>("UI/MainPanel/SelectedScroll/SelectedList");
         _countsLabel = GetNode<Label>("UI/MainPanel/CountsLabel");
         _statusLabel = GetNode<Label>("UI/MainPanel/StatusLabel");
         _continueButton = GetNode<Button>("UI/MainPanel/Actions/ContinueButton");
-        GetNode<Button>("UI/MainPanel/Actions/BackButton").Pressed += ReturnToStageList;
+        Button backButton = GetNode<Button>("UI/MainPanel/Actions/BackButton");
+        backButton.Pressed += ReturnToStageList;
         _continueButton.Pressed += () => ContinueToSkills();
+        OperationUiStyle.ApplyButton(backButton);
+        OperationUiStyle.ApplyButton(_continueButton, OperationUiTone.Primary, fontSize: 16);
 
         StageDefinition? stage = StageSelectionState.SelectedStage;
         GetNode<Label>("UI/StageLabel").Text = stage is null
@@ -63,7 +66,6 @@ public partial class SquadFormationScreen : Node2D
         Refresh();
         if (!_usingLocalTestStorage && !_serverReady && stage is not null)
             _ = LoadFromServerAsync(stage);
-        QueueRedraw();
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -71,14 +73,6 @@ public partial class SquadFormationScreen : Node2D
         if (!@event.IsActionPressed("ui_cancel")) return;
         GetViewport().SetInputAsHandled();
         ReturnToStageList();
-    }
-
-    public override void _Draw()
-    {
-        DrawRect(new Rect2(0, 0, 1280, 720), new Color("102a24"));
-        DrawCircle(new Vector2(1135, 105), 190, new Color("6d3425"));
-        DrawCircle(new Vector2(1135, 105), 145, new Color("d98e3d"));
-        DrawLine(new Vector2(850, 0), new Vector2(1280, 430), new Color("2f5f43"), 76);
     }
 
     public string[] GetSelectedCharacterIds() => _selectedIds.ToArray();
@@ -92,6 +86,7 @@ public partial class SquadFormationScreen : Node2D
         else
         {
             _statusLabel.Text = $"수정 필요 // 고양이는 최대 {Capacity}마리까지 편성할 수 있습니다.";
+            PresentStatus(true);
             return false;
         }
         Refresh();
@@ -115,12 +110,14 @@ public partial class SquadFormationScreen : Node2D
         if (stage is null)
         {
             _statusLabel.Text = "수정 필요 // 스테이지를 먼저 선택하세요.";
+            PresentStatus(true);
             return false;
         }
         StageSquadValidationResult validation = Validate(stage);
         if (!validation.IsValid)
         {
             _statusLabel.Text = "수정 필요 // " + validation.Issues[0].Message;
+            PresentStatus(true);
             RefreshLists();
             return false;
         }
@@ -129,6 +126,7 @@ public partial class SquadFormationScreen : Node2D
             if (!_serverReady || _serverBusy)
             {
                 _statusLabel.Text = "수정 필요 // 서버의 편성 정보가 아직 준비되지 않았습니다.";
+                PresentStatus(true);
                 return false;
             }
             _ = SaveToServerAndContinueAsync(stage, validation);
@@ -150,6 +148,7 @@ public partial class SquadFormationScreen : Node2D
         if (save.Status != StageSquadPresetSaveStatus.Saved)
         {
             _statusLabel.Text = $"수정 필요 // SAVE {save.StatusCode}: {save.Message}";
+            PresentStatus(true);
             return false;
         }
         _requiresRecoverySave = false;
@@ -231,6 +230,8 @@ public partial class SquadFormationScreen : Node2D
             : _loadResult?.Status == StageSquadPresetLoadStatus.Corrupt
                 ? "수정 필요 // 저장된 편성 데이터가 손상되었습니다. 현재 편성을 확인하세요."
             : "편성 준비 완료 // 표시된 순서대로 전투 배치 카드가 생성됩니다.";
+        bool statusError = _statusLabel.Text.StartsWith("수정 필요", StringComparison.Ordinal);
+        PresentStatus(statusError, _serverBusy);
         RefreshLists();
     }
 
@@ -244,12 +245,12 @@ public partial class SquadFormationScreen : Node2D
             var button = new Button
             {
                 Name = $"Owned_{id}",
-                Text = $"{(selected ? "[X]" : "[ ]")}  {profile.DisplayName}  //  {KoreanUiText.Role(profile.Unit?.Role ?? UnitRole.Ranged)} · {id}",
-                CustomMinimumSize = new Vector2(450, 52), Alignment = HorizontalAlignment.Left,
+                Text = $"{(selected ? "[출전 중]" : "[대기]")}  {profile.DisplayName}\n    {KoreanUiText.Role(profile.Unit?.Role ?? UnitRole.Ranged)}  ·  {id}",
+                CustomMinimumSize = new Vector2(494, 58), Alignment = HorizontalAlignment.Left,
                 TooltipText = UiLocalization.Description(profile.Description)
             };
             button.Pressed += () => ToggleCharacter(id);
-            Style(button, selected ? "536344" : "3b4938", selected ? "ffd166" : "8f6d38");
+            OperationUiStyle.ApplyButton(button, selected ? OperationUiTone.Primary : OperationUiTone.Neutral, selected);
             _ownedList.AddChild(button);
         }
         for (int index = 0; index < _selectedIds.Count; index++)
@@ -257,14 +258,23 @@ public partial class SquadFormationScreen : Node2D
             string id = _selectedIds[index];
             string label = _profilesById.TryGetValue(id, out CatProfile? profile) ? profile.DisplayName : "누락된 캐릭터";
             var row = new HBoxContainer { Name = $"Selected_{index}" };
-            var text = new Label { Text = $"{index + 1:00}  {label}  //  {id}", CustomMinimumSize = new Vector2(330, 42) };
-            text.AddThemeColorOverride("font_color", new Color(profile is null ? "ff8e78" : "fff0c2"));
-            var up = new Button { Text = "▲", Disabled = index == 0, CustomMinimumSize = new Vector2(48, 40) };
-            var down = new Button { Text = "▼", Disabled = index == _selectedIds.Count - 1, CustomMinimumSize = new Vector2(48, 40) };
-            var remove = new Button { Text = "×", CustomMinimumSize = new Vector2(48, 40) };
+            bool repair = profile is null;
+            var text = new Label
+            {
+                Text = $"출전 {index + 1:00}  //  {label}\n{id}{(repair ? "  //  수정 필요" : "")}",
+                CustomMinimumSize = new Vector2(350, 48)
+            };
+            text.AddThemeFontSizeOverride("font_size", 14);
+            text.AddThemeColorOverride("font_color", repair ? OperationUiStyle.Red : OperationUiStyle.Text);
+            var up = new Button { Text = "▲", Disabled = index == 0, CustomMinimumSize = new Vector2(48, 44), TooltipText = "출전 순서를 앞으로 이동" };
+            var down = new Button { Text = "▼", Disabled = index == _selectedIds.Count - 1, CustomMinimumSize = new Vector2(48, 44), TooltipText = "출전 순서를 뒤로 이동" };
+            var remove = new Button { Text = "제외", CustomMinimumSize = new Vector2(62, 44), TooltipText = "편성에서 제외" };
             int slotIndex = index;
             up.Pressed += () => MoveSelectedUp(id); down.Pressed += () => MoveSelectedDown(id);
             remove.Pressed += () => RemoveSelectedAt(slotIndex);
+            OperationUiStyle.ApplyButton(up, fontSize: 13, leftPadding: 8);
+            OperationUiStyle.ApplyButton(down, fontSize: 13, leftPadding: 8);
+            OperationUiStyle.ApplyButton(remove, OperationUiTone.Danger, repairRequired: repair, fontSize: 13, leftPadding: 8);
             row.AddChild(text); row.AddChild(up); row.AddChild(down); row.AddChild(remove); _selectedList.AddChild(row);
         }
     }
@@ -272,19 +282,6 @@ public partial class SquadFormationScreen : Node2D
     private static void Clear(Node parent)
     {
         foreach (Node child in parent.GetChildren()) { parent.RemoveChild(child); child.QueueFree(); }
-    }
-
-    private static void Style(Button button, string background, string border)
-    {
-        button.AddThemeFontSizeOverride("font_size", 15);
-        button.AddThemeColorOverride("font_color", new Color("fff0c2"));
-        button.AddThemeStyleboxOverride("normal", new StyleBoxFlat
-        {
-            BgColor = new Color(background), BorderColor = new Color(border),
-            BorderWidthLeft = 2, BorderWidthTop = 2, BorderWidthRight = 2, BorderWidthBottom = 2,
-            CornerRadiusTopLeft = 6, CornerRadiusTopRight = 6, CornerRadiusBottomLeft = 6, CornerRadiusBottomRight = 6,
-            ContentMarginLeft = 14
-        });
     }
 
     private async Task LoadFromServerAsync(StageDefinition stage)
@@ -330,6 +327,7 @@ public partial class SquadFormationScreen : Node2D
             _statusLabel.Text = result.IsConflict
                 ? "수정 필요 // 서버 저장 충돌이 발생했습니다. 편성을 확인하고 다시 저장하세요."
                 : $"수정 필요 // 서버 {result.ErrorCode}: {result.Message}";
+            PresentStatus(true);
             RefreshLists();
             _continueButton.Disabled = false;
             return;
@@ -353,6 +351,13 @@ public partial class SquadFormationScreen : Node2D
 
     private static string PlayerId() => (string)ProjectSettings.GetSetting(
         "defense_game/player/development_user_id", "local-development-user");
+
+    private void PresentStatus(bool isError, bool isBusy = false)
+    {
+        Color color = OperationUiStyle.StatusColor(isError, isBusy);
+        _statusLabel.Modulate = color;
+        OperationUiStyle.ApplyPanel(GetNode<Panel>("UI/MainPanel/StatusPanel"), true, color);
+    }
 
     public override void _ExitTree()
     {
