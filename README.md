@@ -28,6 +28,15 @@
 
 이 명령은 밸런스 Resource 생성, 서버와 Godot C# 빌드, 서버 헬스 체크를 차례로 수행한 뒤 Godot 에디터를 연다. 에디터를 닫으면 실행기가 시작한 서버도 종료한다. 에디터 없이 메인 씬을 바로 실행하려면 `./scripts/run-dev.sh --play`를 사용한다.
 
+자동 검토 영상을 만들려면 Homebrew의 `ffmpeg`를 설치한 뒤 캡처 모드를 실행한다.
+
+```bash
+brew install ffmpeg
+./scripts/run-dev.sh --capture
+```
+
+캡처 모드는 격리된 개발 사용자로 작전 선택, 편성, 스킬 준비, 네 고양이 배치, 전투 결과 저장과 다음 작전 해금까지 자동 진행한다. 1280×720 MP4와 실행 보고서는 `.dev/captures/<UTC 시각>-<커밋>/`에 생성되며 Git에는 포함되지 않는다.
+
 macOS Finder 또는 Spotlight에서 실행하려면 한 번만 아래 앱 설치 명령을 실행한다.
 
 ```bash

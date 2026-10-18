@@ -9,18 +9,21 @@ SERVER_SOLUTION="$ROOT_DIR/server/DefenseGame.sln"
 IMPORTER_PROJECT="$CLIENT_DIR/tools/DefenseGame.DataImporter/DefenseGame.DataImporter.csproj"
 GODOT_APP="${GODOT_APP:-/Applications/Godot_mono.app}"
 GODOT_BIN="$GODOT_APP/Contents/MacOS/Godot"
+FFMPEG_BIN="${FFMPEG_BIN:-$(command -v ffmpeg || true)}"
 SERVER_URL="http://127.0.0.1:5080"
 LOG_DIR="$ROOT_DIR/.dev"
 SERVER_LOG="$LOG_DIR/server.log"
 LAUNCH_MODE="editor"
 SERVER_PID=""
+CAPTURE_DIR=""
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/run-dev.sh [--editor|--play]
+Usage: ./scripts/run-dev.sh [--editor|--play|--capture]
 
   --editor  Build everything, start the server, and open the Godot editor.
   --play    Build everything, start the server, and run the main scene.
+  --capture Build everything, run the smoke-review scenario, and create a review video.
 EOF
 }
 
@@ -52,6 +55,9 @@ for argument in "$@"; do
     --play)
       LAUNCH_MODE="play"
       ;;
+    --capture)
+      LAUNCH_MODE="capture"
+      ;;
     --help|-h)
       usage
       exit 0
@@ -69,6 +75,9 @@ command -v dotnet >/dev/null 2>&1 || fail ".NET SDK를 찾을 수 없습니다."
 command -v curl >/dev/null 2>&1 || fail "curl을 찾을 수 없습니다."
 command -v lsof >/dev/null 2>&1 || fail "lsof를 찾을 수 없습니다."
 [[ -x "$GODOT_BIN" ]] || fail "Godot .NET 실행 파일을 찾을 수 없습니다: $GODOT_BIN"
+if [[ "$LAUNCH_MODE" == "capture" ]]; then
+  [[ -x "$FFMPEG_BIN" ]] || fail "ffmpeg를 찾을 수 없습니다. 'brew install ffmpeg'로 설치하세요."
+fi
 
 if lsof -nP -iTCP:5080 -sTCP:LISTEN >/dev/null 2>&1; then
   fail "5080 포트가 이미 사용 중입니다. 기존 DefenseGame 서버를 종료한 뒤 다시 실행하세요."
@@ -89,7 +98,13 @@ dotnet build "$CLIENT_DIR/DefenseGame.csproj" --nologo
 
 printf '\n[4/4] 로컬 서버를 시작하고 준비 상태를 확인합니다.\n'
 : > "$SERVER_LOG"
-dotnet run --project "$SERVER_PROJECT" --no-build >"$SERVER_LOG" 2>&1 &
+if [[ "$LAUNCH_MODE" == "capture" ]]; then
+  rm -f "$LOG_DIR/capture-progress.json"
+  ProgressStore__FilePath="$LOG_DIR/capture-progress.json" \
+    dotnet run --project "$SERVER_PROJECT" --no-build >"$SERVER_LOG" 2>&1 &
+else
+  dotnet run --project "$SERVER_PROJECT" --no-build >"$SERVER_LOG" 2>&1 &
+fi
 SERVER_PID=$!
 
 server_ready=false
@@ -114,7 +129,73 @@ fi
 
 printf '서버 준비 완료: %s (PID %s)\n' "$SERVER_URL" "$SERVER_PID"
 
-if [[ "$LAUNCH_MODE" == "play" ]]; then
+if [[ "$LAUNCH_MODE" == "capture" ]]; then
+  capture_timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
+  capture_revision="$(git -C "$ROOT_DIR" rev-parse --short HEAD)"
+  CAPTURE_DIR="$LOG_DIR/captures/${capture_timestamp}-${capture_revision}"
+  raw_movie="$CAPTURE_DIR/smoke-review.avi"
+  review_movie="$CAPTURE_DIR/smoke-review.mp4"
+  report_file="$CAPTURE_DIR/report.md"
+  capture_started="$(date +%s)"
+  mkdir -p "$CAPTURE_DIR"
+
+  printf 'Godot 리소스 임포트 상태를 갱신합니다.\n'
+  "$GODOT_BIN" \
+    --headless \
+    --path "$CLIENT_DIR" \
+    --import \
+    --log-file "$CAPTURE_DIR/import.log"
+
+  printf '자동 검토 영상을 생성합니다: %s\n' "$CAPTURE_DIR"
+  "$GODOT_BIN" \
+    --path "$CLIENT_DIR" \
+    --windowed \
+    --resolution 1280x720 \
+    --write-movie "$raw_movie" \
+    --fixed-fps 30 \
+    --disable-vsync \
+    --log-file "$CAPTURE_DIR/godot.log" \
+    --script res://tests/smoke_review_capture.gd
+
+  [[ -s "$raw_movie" ]] || fail "Godot이 캡처 영상을 생성하지 못했습니다."
+  "$FFMPEG_BIN" \
+    -hide_banner \
+    -loglevel warning \
+    -y \
+    -i "$raw_movie" \
+    -an \
+    -c:v libx264 \
+    -preset medium \
+    -crf 20 \
+    -pix_fmt yuv420p \
+    -movflags +faststart \
+    "$review_movie"
+  [[ -s "$review_movie" ]] || fail "검토용 MP4 변환에 실패했습니다."
+
+  capture_finished="$(date +%s)"
+  capture_seconds="$((capture_finished - capture_started))"
+  movie_bytes="$(stat -f%z "$review_movie")"
+  movie_sha256="$(shasum -a 256 "$review_movie" | awk '{print $1}')"
+  rm -f "$raw_movie"
+  cat > "$report_file" <<EOF
+# DefenseGame 자동 검토 영상
+
+- 시나리오: smoke-review
+- 공개 코드 커밋: $capture_revision
+- 생성 시각(UTC): $capture_timestamp
+- 실행 시간: ${capture_seconds}초
+- 영상: smoke-review.mp4
+- 영상 크기: ${movie_bytes} bytes
+- SHA-256: $movie_sha256
+- 원본 AVI: MP4 변환 성공 후 삭제
+- 서버: 로컬 Actor 서버, 격리 저장소 사용
+- 결과: 성공
+EOF
+
+  printf '\n캡처 완료\n'
+  printf '영상: %s\n' "$review_movie"
+  printf '보고서: %s\n' "$report_file"
+elif [[ "$LAUNCH_MODE" == "play" ]]; then
   printf 'Godot 메인 씬을 실행합니다. 종료하면 서버도 함께 종료됩니다.\n'
   "$GODOT_BIN" --path "$CLIENT_DIR"
 else
