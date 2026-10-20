@@ -16,14 +16,17 @@ SERVER_LOG="$LOG_DIR/server.log"
 LAUNCH_MODE="editor"
 SERVER_PID=""
 CAPTURE_DIR=""
+UPLOAD_AFTER_CAPTURE=false
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/run-dev.sh [--editor|--play|--capture]
+Usage: ./scripts/run-dev.sh [--editor|--play|--capture|--capture-upload]
 
   --editor  Build everything, start the server, and open the Godot editor.
   --play    Build everything, start the server, and run the main scene.
   --capture Build everything, run the smoke-review scenario, and create a review video.
+  --capture-upload
+             Create a review video and upload it to the private review repository.
 EOF
 }
 
@@ -57,6 +60,10 @@ for argument in "$@"; do
       ;;
     --capture)
       LAUNCH_MODE="capture"
+      ;;
+    --capture-upload)
+      LAUNCH_MODE="capture"
+      UPLOAD_AFTER_CAPTURE=true
       ;;
     --help|-h)
       usage
@@ -195,6 +202,9 @@ EOF
   printf '\n캡처 완료\n'
   printf '영상: %s\n' "$review_movie"
   printf '보고서: %s\n' "$report_file"
+  if [[ "$UPLOAD_AFTER_CAPTURE" == true ]]; then
+    "$ROOT_DIR/scripts/upload-review-capture.sh" "$CAPTURE_DIR"
+  fi
 elif [[ "$LAUNCH_MODE" == "play" ]]; then
   printf 'Godot 메인 씬을 실행합니다. 종료하면 서버도 함께 종료됩니다.\n'
   "$GODOT_BIN" --path "$CLIENT_DIR"

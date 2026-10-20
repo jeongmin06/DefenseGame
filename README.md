@@ -37,13 +37,23 @@ brew install ffmpeg
 
 캡처 모드는 격리된 개발 사용자로 작전 선택, 편성, 스킬 준비, 네 고양이 배치, 전투 결과 저장과 다음 작전 해금까지 자동 진행한다. 1280×720 MP4와 실행 보고서는 `.dev/captures/<UTC 시각>-<커밋>/`에 생성되며 Git에는 포함되지 않는다.
 
+비공개 `DefenseGame-Docs` GitHub Release에 영상과 보고서를 바로 업로드하려면 GitHub CLI 로그인 후 아래 명령을 사용한다. 검토 Release는 최신 10개만 유지하며 공개 저장소에는 업로드하지 않는다.
+
+```bash
+brew install gh
+gh auth login
+./scripts/run-dev.sh --capture-upload
+```
+
+이미 생성한 최신 영상을 다시 캡처하지 않고 올리려면 `./scripts/upload-review-capture.sh`를 실행한다.
+
 macOS Finder 또는 Spotlight에서 실행하려면 한 번만 아래 앱 설치 명령을 실행한다.
 
 ```bash
 ./scripts/install-macos-dev-app.sh
 ```
 
-이후 `~/Applications/DefenseGame Dev.app`을 실행하면 Terminal에서 같은 통합 실행 절차가 시작된다. 저장소를 이동했다면 설치 명령을 다시 실행한다.
+이후 `~/Applications/DefenseGame Dev.app`을 실행하면 에디터, 게임, 영상 생성, 영상 생성 후 비공개 업로드 중 하나를 선택할 수 있다. 선택한 작업은 Terminal에서 실행되어 진행 상황과 오류를 확인할 수 있다. 저장소를 이동했거나 앱 기능이 갱신됐다면 설치 명령을 다시 실행한다.
 
 수동으로 실행할 때는 다음 순서를 사용한다.
 
