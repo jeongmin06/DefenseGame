@@ -37,10 +37,14 @@ func run():
         return
 
     var hud = current_scene.get_node("HUD")
+    hud.UpdateStage("초원 방어선 1", "stage_01")
+    check("stage_" not in hud.get_node("TopPanel/Title").text, "Combat header hides internal stage id")
     check(hud.get_node("TopPanel").get_theme_stylebox("panel") is StyleBoxFlat,
         "Top operation status uses the shared panel style")
     check(hud.get_node_or_null("TopPanel/PlacementCaption") != null,
         "Deployment instruction has a distinct caption")
+    check(hud.get_node("TopPanel").size.y <= 90.0,
+        "Compact top HUD leaves more battlefield visible")
     check(hud.get_node("DeploymentPanel").get_theme_stylebox("panel") is StyleBoxFlat,
         "Deployment deck uses the shared panel style")
     check(hud.get_node("DeploymentPanel/CardScroll") is ScrollContainer,
@@ -51,6 +55,9 @@ func run():
     var first_card: Button = hud.get_node("DeploymentPanel/CardScroll/CardList/Card_" + first_id)
     check_button_states(first_card, "Deployment card")
     check("비용" in first_card.text, "Deployment card writes its deployment cost")
+    check("starter_" not in first_card.text, "Deployment card hides internal character id")
+    check(first_card.mouse_default_cursor_shape == Control.CURSOR_POINTING_HAND,
+        "Deployment card uses pointing-hand cursor")
     check_button_states(hud.get_node("ResultPanel/RestartButton"), "Retry button")
     check_button_states(hud.get_node("ResultPanel/StageListButton"), "Stage-list button")
 
@@ -59,6 +66,14 @@ func run():
         "Deployment deck enables horizontal scrolling")
     check(first_card.custom_minimum_size.x * 10 > card_scroll.size.x,
         "The stage maximum of ten cards exceeds the deck viewport and uses scrolling")
+
+    check(hud.BeginCharacterDrag(first_id, Vector2(300, 500)), "Deployment card starts a drag preview")
+    await ticks(2)
+    var drag_preview: PanelContainer = hud.get_node("DragPreview")
+    check(drag_preview.visible and drag_preview.size.y >= 68.0,
+        "Drag preview is visible and includes placement guidance")
+    check(hud.CompleteCharacterDrag(Vector2(500, 300)), "Deployment card completes drag")
+    check(not drag_preview.visible, "Drag preview disappears after drop")
 
     hud.ShowResult(true, 12, 1)
     check(hud.get_node("ResultPanel").visible, "Result report becomes visible")

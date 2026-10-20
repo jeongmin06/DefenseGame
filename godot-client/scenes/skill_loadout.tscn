@@ -171,7 +171,7 @@ theme_override_styles/panel = SubResource("ActiveStyle")
 [node name="ActiveLabel" type="Label" parent="UI/MainPanel/ActiveCard"]
 offset_left = 18.0
 offset_top = 8.0
-offset_right = 930.0
+offset_right = 618.0
 offset_bottom = 60.0
 theme_override_colors/font_color = Color(0.91, 0.933, 0.941, 1)
 theme_override_font_sizes/font_size = 17
@@ -179,10 +179,11 @@ text = "액티브  //  기본 화살\n공격 · 활 · 투사체 · 물리 · �
 vertical_alignment = 1
 
 [node name="ActiveList" type="HBoxContainer" parent="UI/MainPanel/ActiveCard"]
-offset_left = 950.0
+offset_left = 640.0
 offset_top = 12.0
 offset_right = 1118.0
 offset_bottom = 56.0
+theme_override_constants/separation = 8
 alignment = 2
 
 [node name="BudgetPanel" type="Panel" parent="UI/MainPanel"]

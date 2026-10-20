@@ -27,30 +27,30 @@ script = ExtResource("4_hud")
 offset_left = 16.0
 offset_top = 16.0
 offset_right = 1264.0
-offset_bottom = 126.0
+offset_bottom = 104.0
 
 [node name="Accent" type="ColorRect" parent="HUD/TopPanel"]
 offset_left = 16.0
-offset_top = 52.0
+offset_top = 43.0
 offset_right = 1232.0
-offset_bottom = 54.0
+offset_bottom = 45.0
 mouse_filter = 2
 color = Color(0.91, 0.66, 0.31, 0.7)
 
 [node name="Title" type="Label" parent="HUD/TopPanel"]
 offset_left = 18.0
-offset_top = 10.0
+offset_top = 7.0
 offset_right = 400.0
-offset_bottom = 40.0
+offset_bottom = 35.0
 theme_override_colors/font_color = Color(0.91, 0.93, 0.94, 1)
 theme_override_font_sizes/font_size = 19
 text = "초원 방어선 1  //  stage_01"
 
 [node name="WaveLabel" type="Label" parent="HUD/TopPanel"]
 offset_left = 420.0
-offset_top = 11.0
+offset_top = 7.0
 offset_right = 590.0
-offset_bottom = 39.0
+offset_bottom = 35.0
 theme_override_colors/font_color = Color(0.91, 0.66, 0.31, 1)
 theme_override_font_sizes/font_size = 16
 text = "웨이브 00 / 03"
@@ -58,9 +58,9 @@ horizontal_alignment = 1
 
 [node name="EnemyLabel" type="Label" parent="HUD/TopPanel"]
 offset_left = 610.0
-offset_top = 11.0
+offset_top = 7.0
 offset_right = 760.0
-offset_bottom = 39.0
+offset_bottom = 35.0
 theme_override_colors/font_color = Color(0.91, 0.93, 0.94, 1)
 theme_override_font_sizes/font_size = 16
 text = "전장 적  00"
@@ -68,9 +68,9 @@ horizontal_alignment = 1
 
 [node name="ScoreLabel" type="Label" parent="HUD/TopPanel"]
 offset_left = 780.0
-offset_top = 11.0
+offset_top = 7.0
 offset_right = 1010.0
-offset_bottom = 39.0
+offset_bottom = 35.0
 theme_override_colors/font_color = Color(0.61, 0.69, 0.72, 1)
 theme_override_font_sizes/font_size = 16
 text = "처치  00   탈출  00"
@@ -78,9 +78,9 @@ horizontal_alignment = 1
 
 [node name="BaseLabel" type="Label" parent="HUD/TopPanel"]
 offset_left = 1030.0
-offset_top = 8.0
+offset_top = 5.0
 offset_right = 1214.0
-offset_bottom = 42.0
+offset_bottom = 37.0
 theme_override_colors/font_color = Color(0.94, 0.44, 0.41, 1)
 theme_override_font_sizes/font_size = 20
 text = "기지  05"
@@ -88,18 +88,18 @@ horizontal_alignment = 2
 
 [node name="PlacementCaption" type="Label" parent="HUD/TopPanel"]
 offset_left = 18.0
-offset_top = 69.0
+offset_top = 53.0
 offset_right = 170.0
-offset_bottom = 94.0
+offset_bottom = 78.0
 theme_override_colors/font_color = Color(0.33, 0.84, 0.76, 1)
 theme_override_font_sizes/font_size = 14
 text = "배치 지시"
 
 [node name="PlacementLabel" type="Label" parent="HUD/TopPanel"]
 offset_left = 170.0
-offset_top = 66.0
+offset_top = 50.0
 offset_right = 1214.0
-offset_bottom = 97.0
+offset_bottom = 81.0
 mouse_filter = 2
 theme_override_colors/font_color = Color(0.91, 0.93, 0.94, 1)
 theme_override_font_sizes/font_size = 16

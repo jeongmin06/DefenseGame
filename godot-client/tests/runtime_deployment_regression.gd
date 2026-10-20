@@ -79,7 +79,7 @@ func run():
 
     check(not stage.SelectPlacementType(2), "Unaffordable healer cannot be selected")
     check(hud.IsDeploymentCardDisabled("starter_healer_a"), "Unaffordable character card is disabled")
-    check("비용 11 · 부족" in hud.GetDeploymentCardText("starter_healer_a"), "Card explains the insufficient deployment points")
+    check("비용 11 · 포인트 부족" in hud.GetDeploymentCardText("starter_healer_a"), "Card explains the insufficient deployment points")
     var healer_affordable = await wait_until(func(): return stage.DeploymentPoints >= 11.0, 240)
     check(healer_affordable and not hud.IsDeploymentCardDisabled("starter_healer_a"), "Regeneration re-enables an affordable card")
     check(stage.SelectPlacementType(2), "Healer becomes selectable after deployment points recover")

@@ -53,6 +53,7 @@ func run():
         return
     var formation_background: TextureRect = formation.get_node("UI/Background")
     check(formation_background.texture.resource_path == BACKGROUND_PATH, "Formation uses approved ruined-city background")
+    check("stage_" not in formation.get_node("UI/StageLabel").text, "Formation header hides internal stage id")
     check(formation.get_node("UI/ReadabilityOverlay").color.a >= 0.55, "Formation has readability overlay")
     check(formation.get_node_or_null("UI/MainPanel/OwnedPanel") != null, "Formation has owned-cat panel")
     check(formation.get_node_or_null("UI/MainPanel/SelectedPanel") != null, "Formation has selected-order panel")
@@ -60,8 +61,31 @@ func run():
     check(formation.get_node("UI/MainPanel/SelectedScroll") is ScrollContainer, "Formation selected list scrolls")
     var owned_button: Button = formation.get_node("UI/MainPanel/OwnedScroll/OwnedList/Owned_starter_archer_a")
     check("출전 중" in owned_button.text, "Formation selected state is written as text")
+    check("starter_archer_a" not in owned_button.text, "Formation card hides internal character id")
+    check("배치 비용" in owned_button.text, "Formation card exposes deployment cost")
     check_button_states(owned_button, "Owned cat button")
+    check(owned_button.mouse_default_cursor_shape == Control.CURSOR_POINTING_HAND,
+        "Operation button uses a pointing-hand cursor")
+    check(owned_button.has_meta("operation_ui_interaction_bound"),
+        "Operation button binds tactile interaction once")
+    owned_button.emit_signal("button_down")
+    check(owned_button.scale.x < 1.0, "Operation button shrinks while pressed")
+    owned_button.emit_signal("button_up")
+    check(owned_button.scale.x >= 1.0, "Operation button restores after release")
     check_button_states(formation.get_node("UI/MainPanel/Actions/ContinueButton"), "Formation continue button")
+
+    check(formation.ToggleCharacter("starter_archer_a"), "Formation removes a cat for focus regression")
+    await ticks(3)
+    owned_button = formation.get_node("UI/MainPanel/OwnedScroll/OwnedList/Owned_starter_archer_a")
+    check(formation.get_viewport().gui_get_focus_owner() == owned_button,
+        "Formation restores focus to the toggled cat")
+    check(formation.ToggleCharacter("starter_archer_a"), "Formation restores the removed cat")
+    await ticks(3)
+    check(formation.MoveSelectedUp("starter_archer_a"), "Formation reorders the focused cat")
+    await ticks(3)
+    var move_focus = formation.get_viewport().gui_get_focus_owner()
+    check(move_focus != null and move_focus.name == "MoveDown",
+        "Formation keeps focus on a valid adjacent order action")
 
     check(formation.ContinueToSkills(), "Formation continues to skill preparation")
     await ticks(5)
@@ -72,6 +96,7 @@ func run():
         return
     var skill_background: TextureRect = skills.get_node("UI/Background")
     check(skill_background.texture.resource_path == BACKGROUND_PATH, "Skill preparation shares approved background")
+    check("stage_" not in skills.get_node("UI/StageLabel").text, "Skill header hides internal stage id")
     check(skills.get_node("UI/ReadabilityOverlay").color.a >= 0.60, "Skill preparation has readability overlay")
     check(skills.get_node_or_null("UI/MainPanel/ActiveCard/ActiveLabel") != null, "Required active label path remains stable")
     check(skills.get_node_or_null("UI/MainPanel/SupportScroll/CandidateList") != null, "Required candidate list path remains stable")
@@ -79,11 +104,29 @@ func run():
     check(skills.get_node_or_null("UI/MainPanel/BudgetPanel") != null, "Skill preparation has point-budget section")
 
     check(skills.get_node("UI/MainPanel/CharacterScroll") is ScrollContainer, "Skill character list scrolls")
+    check(skills.SelectCharacter("starter_archer_a"), "Skill screen selects the archer under test")
+    await ticks(3)
     var character_button: Button = skills.get_node("UI/MainPanel/CharacterScroll/CharacterList/Character_starter_archer_a")
     check("선택됨" in character_button.text, "Current character state is written as text")
+    check("starter_archer_a" not in character_button.text, "Skill character card hides internal id")
+    check("보조" in character_button.text, "Skill character card exposes linked support count")
     check_button_states(character_button, "Character button")
+    var active_list: HBoxContainer = skills.get_node("UI/MainPanel/ActiveCard/ActiveList")
+    for active_button in active_list.get_children():
+        check(active_button.position.x + active_button.size.x <= active_list.size.x + 1.0,
+            "Active skill button stays inside the active card")
+    check(skills.TrySelectActive("basic_arrow"), "Skill screen reselects the active skill")
+    await ticks(3)
+    var active_focus = skills.get_viewport().gui_get_focus_owner()
+    check(active_focus != null and active_focus.name == "Active_basic_arrow",
+        "Skill screen restores focus after active selection")
     var support_button: Button = skills.get_node("UI/MainPanel/SupportScroll/CandidateList/Support_multiple_projectiles")
     check_button_states(support_button, "Support skill button")
+    check(skills.TryToggleSupport("multiple_projectiles"), "Skill screen toggles a support for focus regression")
+    await ticks(3)
+    var support_focus = skills.get_viewport().gui_get_focus_owner()
+    check(support_focus != null and support_focus.name == "Support_multiple_projectiles",
+        "Skill screen restores focus after support selection")
     check_button_states(skills.get_node("UI/MainPanel/Actions/SaveButton"), "Save button")
     check_button_states(skills.get_node("UI/MainPanel/Actions/StartButton"), "Start button")
 

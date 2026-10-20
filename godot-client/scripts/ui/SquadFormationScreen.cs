@@ -29,6 +29,7 @@ public partial class SquadFormationScreen : Node2D
     private readonly CancellationTokenSource _serverCancellation = new();
     private readonly StageSquadValidator _validator = new();
     private readonly Dictionary<string, CatProfile> _profilesById = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Button> _focusButtons = new(StringComparer.Ordinal);
     private Godot.Collections.Array<StageSquadPreset> _presets = new();
     private readonly Godot.Collections.Array<string> _selectedIds = new();
     private StageSquadPresetLoadResult? _loadResult;
@@ -39,6 +40,7 @@ public partial class SquadFormationScreen : Node2D
     private bool _serverBusy;
     private int _serverRevision;
     private string _remoteLoadStatus = "Loading";
+    private string _pendingFocusKey = "";
     private VBoxContainer _ownedList = null!;
     private VBoxContainer _selectedList = null!;
     private Label _countsLabel = null!;
@@ -61,7 +63,7 @@ public partial class SquadFormationScreen : Node2D
         StageDefinition? stage = StageSelectionState.SelectedStage;
         GetNode<Label>("UI/StageLabel").Text = stage is null
             ? "선택된 스테이지 없음"
-            : $"{stage.DisplayName}  //  {stage.Id}";
+            : stage.DisplayName;
         Load(stage);
         Refresh();
         if (!_usingLocalTestStorage && !_serverReady && stage is not null)
@@ -89,6 +91,7 @@ public partial class SquadFormationScreen : Node2D
             PresentStatus(true);
             return false;
         }
+        _pendingFocusKey = $"owned:{characterId}";
         Refresh();
         return true;
     }
@@ -99,7 +102,9 @@ public partial class SquadFormationScreen : Node2D
     public bool RemoveSelectedAt(int index)
     {
         if (index < 0 || index >= _selectedIds.Count) return false;
+        string removedId = _selectedIds[index];
         _selectedIds.RemoveAt(index);
+        _pendingFocusKey = $"owned:{removedId}";
         Refresh();
         return true;
     }
@@ -198,6 +203,7 @@ public partial class SquadFormationScreen : Node2D
         string other = _selectedIds[target];
         _selectedIds[target] = characterId;
         _selectedIds[index] = other;
+        _pendingFocusKey = $"selected:{characterId}:{(direction < 0 ? "down" : "up")}";
         Refresh();
         return true;
     }
@@ -238,6 +244,7 @@ public partial class SquadFormationScreen : Node2D
     private void RefreshLists()
     {
         Clear(_ownedList); Clear(_selectedList);
+        _focusButtons.Clear();
         foreach (CatProfile profile in Defaults.CatProfiles)
         {
             string id = profile.CharacterId;
@@ -245,13 +252,14 @@ public partial class SquadFormationScreen : Node2D
             var button = new Button
             {
                 Name = $"Owned_{id}",
-                Text = $"{(selected ? "[출전 중]" : "[대기]")}  {profile.DisplayName}\n    {KoreanUiText.Role(profile.Unit?.Role ?? UnitRole.Ranged)}  ·  {id}",
+                Text = $"{(selected ? "[출전 중]" : "[대기]")}  {profile.DisplayName}\n    {ProfileSummary(profile)}",
                 CustomMinimumSize = new Vector2(494, 58), Alignment = HorizontalAlignment.Left,
-                TooltipText = UiLocalization.Description(profile.Description)
+                TooltipText = $"{UiLocalization.Description(profile.Description)}\n관리 ID: {id}"
             };
             button.Pressed += () => ToggleCharacter(id);
             OperationUiStyle.ApplyButton(button, selected ? OperationUiTone.Primary : OperationUiTone.Neutral, selected);
             _ownedList.AddChild(button);
+            _focusButtons[$"owned:{id}"] = button;
         }
         for (int index = 0; index < _selectedIds.Count; index++)
         {
@@ -261,14 +269,14 @@ public partial class SquadFormationScreen : Node2D
             bool repair = profile is null;
             var text = new Label
             {
-                Text = $"출전 {index + 1:00}  //  {label}\n{id}{(repair ? "  //  수정 필요" : "")}",
+                Text = $"출전 {index + 1:00}  //  {label}\n{(profile is null ? "데이터 누락" : ProfileSummary(profile))}{(repair ? "  //  수정 필요" : "")}",
                 CustomMinimumSize = new Vector2(350, 48)
             };
             text.AddThemeFontSizeOverride("font_size", 14);
             text.AddThemeColorOverride("font_color", repair ? OperationUiStyle.Red : OperationUiStyle.Text);
-            var up = new Button { Text = "▲", Disabled = index == 0, CustomMinimumSize = new Vector2(48, 44), TooltipText = "출전 순서를 앞으로 이동" };
-            var down = new Button { Text = "▼", Disabled = index == _selectedIds.Count - 1, CustomMinimumSize = new Vector2(48, 44), TooltipText = "출전 순서를 뒤로 이동" };
-            var remove = new Button { Text = "제외", CustomMinimumSize = new Vector2(62, 44), TooltipText = "편성에서 제외" };
+            var up = new Button { Name = "MoveUp", Text = "▲", Disabled = index == 0, CustomMinimumSize = new Vector2(48, 44), TooltipText = "출전 순서를 앞으로 이동" };
+            var down = new Button { Name = "MoveDown", Text = "▼", Disabled = index == _selectedIds.Count - 1, CustomMinimumSize = new Vector2(48, 44), TooltipText = "출전 순서를 뒤로 이동" };
+            var remove = new Button { Name = "Remove", Text = "제외", CustomMinimumSize = new Vector2(62, 44), TooltipText = "편성에서 제외" };
             int slotIndex = index;
             up.Pressed += () => MoveSelectedUp(id); down.Pressed += () => MoveSelectedDown(id);
             remove.Pressed += () => RemoveSelectedAt(slotIndex);
@@ -276,7 +284,27 @@ public partial class SquadFormationScreen : Node2D
             OperationUiStyle.ApplyButton(down, fontSize: 13, leftPadding: 8);
             OperationUiStyle.ApplyButton(remove, OperationUiTone.Danger, repairRequired: repair, fontSize: 13, leftPadding: 8);
             row.AddChild(text); row.AddChild(up); row.AddChild(down); row.AddChild(remove); _selectedList.AddChild(row);
+            _focusButtons[$"selected:{id}:up"] = up;
+            _focusButtons[$"selected:{id}:down"] = down;
+            _focusButtons[$"selected:{id}:remove"] = remove;
         }
+        RestorePendingFocus();
+    }
+
+    private static string ProfileSummary(CatProfile profile)
+    {
+        UnitDefinition? unit = profile.Unit;
+        if (unit is null) return "전투 데이터 누락";
+        return $"{KoreanUiText.Role(unit.Role)}  ·  배치 비용 {unit.DeploymentCost}";
+    }
+
+    private void RestorePendingFocus()
+    {
+        if (string.IsNullOrEmpty(_pendingFocusKey)) return;
+        string key = _pendingFocusKey;
+        _pendingFocusKey = "";
+        if (_focusButtons.TryGetValue(key, out Button? target) && !target.Disabled && target.IsInsideTree())
+            target.GrabFocus();
     }
 
     private static void Clear(Node parent)

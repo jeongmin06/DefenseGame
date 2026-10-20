@@ -12,6 +12,8 @@ public enum OperationUiTone
 
 public static class OperationUiStyle
 {
+    public const string InteractionBoundMeta = "operation_ui_interaction_bound";
+
     public static readonly Color Text = new("e8eef0");
     public static readonly Color MutedText = new("9aabb2");
     public static readonly Color Amber = new("e8a94f");
@@ -62,6 +64,7 @@ public static class OperationUiStyle
             ? new Color("352329cc")
             : tone == OperationUiTone.Success ? new Color("183836cc") : Disabled;
         button.AddThemeStyleboxOverride("disabled", Box(disabledBackground, disabledBorder, 1, 6, leftPadding));
+        BindInteraction(button);
     }
 
     public static void ApplyPanel(Panel panel, bool strong = false, Color? border = null)
@@ -78,6 +81,44 @@ public static class OperationUiStyle
         OperationUiTone.Danger => Red,
         _ => new Color("607985")
     };
+
+    private static void BindInteraction(Button button)
+    {
+        button.FocusMode = Control.FocusModeEnum.All;
+        button.MouseDefaultCursorShape = button.Disabled
+            ? Control.CursorShape.Arrow
+            : Control.CursorShape.PointingHand;
+        if (button.HasMeta(InteractionBoundMeta)) return;
+
+        button.SetMeta(InteractionBoundMeta, true);
+        button.Resized += () => button.PivotOffset = button.Size * 0.5f;
+        button.MouseEntered += () =>
+        {
+            button.MouseDefaultCursorShape = button.Disabled
+                ? Control.CursorShape.Arrow
+                : Control.CursorShape.PointingHand;
+            if (!button.Disabled) SetScale(button, 1.01f);
+        };
+        button.MouseExited += () => SetScale(button, button.HasFocus() && !button.Disabled ? 1.01f : 1.0f);
+        button.FocusEntered += () =>
+        {
+            if (!button.Disabled) SetScale(button, 1.01f);
+        };
+        button.FocusExited += () => SetScale(button, button.IsHovered() && !button.Disabled ? 1.01f : 1.0f);
+        button.ButtonDown += () =>
+        {
+            if (!button.Disabled) SetScale(button, 0.985f);
+        };
+        button.ButtonUp += () => SetScale(button, button.IsHovered() || button.HasFocus() ? 1.01f : 1.0f);
+        button.TreeExiting += () => button.Scale = Vector2.One;
+    }
+
+    private static void SetScale(Button button, float scale)
+    {
+        if (!GodotObject.IsInstanceValid(button)) return;
+        button.PivotOffset = button.Size * 0.5f;
+        button.Scale = new Vector2(scale, scale);
+    }
 
     private static StyleBoxFlat Box(Color background, Color border, int borderWidth, int radius, float leftPadding)
     {

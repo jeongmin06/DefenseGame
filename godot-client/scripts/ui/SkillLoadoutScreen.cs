@@ -37,6 +37,8 @@ public partial class SkillLoadoutScreen : Node2D
     private readonly Dictionary<string, CatProfile> _profilesById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CatSkillPreset> _squadPresetsById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Button> _characterButtons = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Button> _activeButtons = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Button> _supportButtons = new(StringComparer.Ordinal);
     private readonly List<CatProfile> _selectedProfiles = new();
     private readonly SquadSkillValidator _validator = new();
     private readonly SkillProfileStore _profileStore = new();
@@ -56,6 +58,7 @@ public partial class SkillLoadoutScreen : Node2D
     private bool _serverDirty;
     private int _serverRevision;
     private string _remoteLoadStatus = "Loading";
+    private string _pendingFocusKey = "";
 
     private HBoxContainer _characterList = null!;
     private HBoxContainer _activeList = null!;
@@ -93,7 +96,7 @@ public partial class SkillLoadoutScreen : Node2D
         StageDefinition? stage = StageSelectionState.SelectedStage;
         GetNode<Label>("UI/StageLabel").Text = stage is null
             ? "선택된 스테이지 없음"
-            : $"{stage.DisplayName}  //  {stage.Id}";
+            : stage.DisplayName;
 
         LoadCatalog();
         LoadProfile();
@@ -117,6 +120,7 @@ public partial class SkillLoadoutScreen : Node2D
     {
         if (!_profilesById.ContainsKey(characterId)) return false;
         _selectedCharacterId = characterId;
+        _pendingFocusKey = $"character:{characterId}";
         Refresh();
         return true;
     }
@@ -133,6 +137,7 @@ public partial class SkillLoadoutScreen : Node2D
         }
         preset.ActiveSkillId = id;
         MarkEdited(preset);
+        _pendingFocusKey = $"active:{id}";
         Refresh();
         return true;
     }
@@ -152,6 +157,7 @@ public partial class SkillLoadoutScreen : Node2D
             preset.SupportSkillIds.RemoveAt(existingIndex);
             preset.AllocatedPoints = preset.SupportSkillIds.Count;
             MarkEdited(preset);
+            _pendingFocusKey = $"support:{id}";
             Refresh($"{support.DisplayName} 스킬을 해제했습니다.");
             return true;
         }
@@ -175,6 +181,7 @@ public partial class SkillLoadoutScreen : Node2D
             return false;
         }
         MarkEdited(preset);
+        _pendingFocusKey = $"support:{id}";
         Refresh($"{support.DisplayName} 스킬을 장착했습니다.");
         return true;
     }
@@ -187,6 +194,7 @@ public partial class SkillLoadoutScreen : Node2D
         preset.SupportSkillIds.RemoveAt(index);
         preset.AllocatedPoints = preset.SupportSkillIds.Count;
         MarkEdited(preset);
+        _pendingFocusKey = $"character:{_selectedCharacterId}";
         Refresh("잘못된 보조 스킬 슬롯을 제거했습니다.");
         return true;
     }
@@ -372,7 +380,8 @@ public partial class SkillLoadoutScreen : Node2D
             {
                 Name = $"Character_{characterId}",
                 CustomMinimumSize = new Vector2(267, 40),
-                Alignment = HorizontalAlignment.Left
+                Alignment = HorizontalAlignment.Left,
+                TooltipText = $"{UiLocalization.Description(profile.Description)}\n관리 ID: {characterId}"
             };
             OperationUiStyle.ApplyButton(button, fontSize: 14, leftPadding: 10);
             button.Pressed += () => SelectCharacter(characterId);
@@ -384,6 +393,7 @@ public partial class SkillLoadoutScreen : Node2D
     private void RebuildActiveButtons()
     {
         ClearChildren(_activeList);
+        _activeButtons.Clear();
         foreach (SkillDefinition skill in Catalog.Skills)
         {
             if (skill.Role != SkillRole.Active) continue;
@@ -391,20 +401,22 @@ public partial class SkillLoadoutScreen : Node2D
             var button = new Button
             {
                 Name = $"Active_{id}", Text = CurrentPreset?.ActiveSkillId == id ? "[장착됨]" : "장착",
-                CustomMinimumSize = new Vector2(150, 42),
+                CustomMinimumSize = new Vector2(130, 42),
                 Disabled = !_progress.OwnedSkillIds.Contains(id) || (!_usingLocalTestStorage && (!_serverReady || _serverBusy)),
-                TooltipText = UiLocalization.Description(skill.Description)
+                TooltipText = $"{skill.DisplayName}\n{UiLocalization.Description(skill.Description)}\n관리 ID: {id}"
             };
             bool selected = CurrentPreset?.ActiveSkillId == id;
             OperationUiStyle.ApplyButton(button, OperationUiTone.Primary, selected, fontSize: 14, leftPadding: 10);
             button.Pressed += () => TrySelectActive(id);
             _activeList.AddChild(button);
+            _activeButtons[id] = button;
         }
     }
 
     private void RebuildSupportButtons()
     {
         ClearChildren(_candidateList);
+        _supportButtons.Clear();
         CatSkillPreset? preset = CurrentPreset;
         if (preset is null) return;
         var occurrence = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -421,7 +433,7 @@ public partial class SkillLoadoutScreen : Node2D
                 Name = $"Support_{support.Id}",
                 Text = $"{(selected ? "[X]" : "[ ]")}  {support.DisplayName}   //   {CompatibilityText(support)}{(repair ? "   //   수정 필요" : "")}\n     {description}",
                 CustomMinimumSize = new Vector2(1108, 64), Alignment = HorizontalAlignment.Left,
-                TooltipText = description,
+                TooltipText = $"{description}\n관리 ID: {support.Id}",
                 Disabled = !_usingLocalTestStorage && (!_serverReady || _serverBusy)
             };
             OperationUiStyle.ApplyButton(
@@ -433,6 +445,7 @@ public partial class SkillLoadoutScreen : Node2D
             string id = support.Id;
             button.Pressed += () => TryToggleSupport(id);
             _candidateList.AddChild(button);
+            _supportButtons[id] = button;
         }
 
         for (int index = 0; index < preset.SupportSkillIds.Count; index++)
@@ -467,7 +480,8 @@ public partial class SkillLoadoutScreen : Node2D
             bool selected = id == _selectedCharacterId;
             bool repair = IsRepairRequired(id);
             string state = repair ? "수정 필요" : selected ? "선택됨" : "대기";
-            button.Text = $"[{state}] {profile.DisplayName}\n{KoreanUiText.Role(profile.Unit?.Role ?? UnitRole.Ranged)} · {id}";
+            int supportCount = _squadPresetsById.GetValueOrDefault(id)?.SupportSkillIds.Count ?? 0;
+            button.Text = $"[{state}] {profile.DisplayName}\n{KoreanUiText.Role(profile.Unit?.Role ?? UnitRole.Ranged)} · 보조 {supportCount}/{SquadSkillValidator.MaxSupportsPerCat}";
             OperationUiStyle.ApplyButton(
                 button,
                 selected ? OperationUiTone.Primary : OperationUiTone.Neutral,
@@ -523,6 +537,24 @@ public partial class SkillLoadoutScreen : Node2D
             || _loadResult?.Status == SkillProfileLoadStatus.MigrationRequired;
         _migrationButton.Visible = MigrationAvailable;
         _migrationButton.Disabled = _serverBusy;
+        RestorePendingFocus();
+    }
+
+    private void RestorePendingFocus()
+    {
+        if (string.IsNullOrEmpty(_pendingFocusKey)) return;
+        string key = _pendingFocusKey;
+        _pendingFocusKey = "";
+        string[] parts = key.Split(':', 2);
+        if (parts.Length != 2) return;
+        Button? target = parts[0] switch
+        {
+            "character" => _characterButtons.GetValueOrDefault(parts[1]),
+            "active" => _activeButtons.GetValueOrDefault(parts[1]),
+            "support" => _supportButtons.GetValueOrDefault(parts[1]),
+            _ => null
+        };
+        if (target is not null && !target.Disabled && target.IsInsideTree()) target.GrabFocus();
     }
 
     private void ShowTransient(string message, bool isError)

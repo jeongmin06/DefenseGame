@@ -90,7 +90,8 @@ public partial class CombatHud : CanvasLayer
 
     public void UpdateStage(string displayName, string id)
     {
-        _title.Text = $"{displayName}  //  {id}";
+        _title.Text = displayName;
+        _title.TooltipText = $"관리 ID: {id}";
     }
 
     public void ConfigureDeploymentCards(IEnumerable<CatProfile> profiles)
@@ -110,7 +111,7 @@ public partial class CombatHud : CanvasLayer
                 Alignment = HorizontalAlignment.Left
             };
             OperationUiStyle.ApplyButton(button, fontSize: 14, leftPadding: 12);
-            button.TooltipText = UiLocalization.Description(profile.Description);
+            button.TooltipText = $"{UiLocalization.Description(profile.Description)}\n관리 ID: {characterId}";
             button.ButtonDown += () => PrepareCharacterDrag(characterId);
             button.Pressed += () => EmitSignal(SignalName.CharacterSelected, characterId);
             _profiles.Add(characterId, profile);
@@ -151,8 +152,8 @@ public partial class CombatHud : CanvasLayer
             }
             button.Disabled = !affordable;
             button.Text = available
-                ? $"{(selected ? "▶ " : "  ")}{profile.DisplayName}\n  {KoreanUiText.Role(unit.Role)} · 비용 {unit.DeploymentCost}{(affordable ? "" : " · 부족")}\n  {characterId}"
-                : $"✓ {profile.DisplayName}\n  {characterId} · 배치 완료";
+                ? $"{(selected ? "▶ " : "  ")}{profile.DisplayName}\n  {KoreanUiText.Role(unit.Role)} · 비용 {unit.DeploymentCost}{(affordable ? " · 배치 가능" : " · 포인트 부족")}"
+                : $"✓ {profile.DisplayName}\n  {KoreanUiText.Role(unit.Role)} · 배치 완료";
             button.Modulate = selected ? Colors.White : affordable ? new Color("dce7ea")
                 : available ? new Color("d99a94") : new Color("80bdb4");
             if (!available && (_dragCandidateId == characterId || _draggedCharacterId == characterId))
@@ -267,7 +268,7 @@ public partial class CombatHud : CanvasLayer
             return false;
         _dragCandidateId = characterId;
         _draggedCharacterId = characterId;
-        _dragPreviewLabel.Text = $"{profile.DisplayName}\n{KoreanUiText.Role(profile.Unit.Role)} · 비용 {profile.Unit.DeploymentCost}";
+        _dragPreviewLabel.Text = $"{profile.DisplayName}\n{KoreanUiText.Role(profile.Unit.Role)} · 비용 {profile.Unit.DeploymentCost}\n타일에 놓아 배치";
         _dragPreview.Visible = true;
         MoveDragPreview(globalPosition);
         EmitSignal(SignalName.CharacterSelected, characterId);
@@ -297,7 +298,7 @@ public partial class CombatHud : CanvasLayer
     }
 
     private void MoveDragPreview(Vector2 globalPosition) =>
-        _dragPreview.Position = globalPosition + new Vector2(18, -66);
+        _dragPreview.Position = globalPosition + new Vector2(22, -82);
 
     private void CreateDragPreview()
     {
@@ -307,7 +308,7 @@ public partial class CombatHud : CanvasLayer
             Visible = false,
             MouseFilter = Control.MouseFilterEnum.Ignore,
             ZIndex = 100,
-            CustomMinimumSize = new Vector2(180, 52)
+            CustomMinimumSize = new Vector2(196, 68)
         };
         _dragPreview.AddThemeStyleboxOverride("panel", OperationUiStyle.PanelStyle(strong: true, border: OperationUiStyle.Amber));
         _dragPreviewLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
