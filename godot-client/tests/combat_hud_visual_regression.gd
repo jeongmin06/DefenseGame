@@ -70,10 +70,33 @@ func run():
     check(hud.BeginCharacterDrag(first_id, Vector2(300, 500)), "Deployment card starts a drag preview")
     await ticks(2)
     var drag_preview: PanelContainer = hud.get_node("DragPreview")
+    var drag_ghost: AnimatedSprite2D = hud.get_node("DragGhost")
     check(drag_preview.visible and drag_preview.size.y >= 68.0,
         "Drag preview is visible and includes placement guidance")
+    check(drag_ghost.visible and drag_ghost.sprite_frames != null,
+        "Drag preview includes the selected character ghost")
+    check(drag_ghost.sprite_frames.get_frame_texture("idle", 0) != null,
+        "Character ghost uses the unit visual idle frame")
+    check(drag_ghost.modulate.a >= 0.5 and drag_ghost.modulate.a <= 0.6,
+        "Character ghost remains semi-transparent")
+    var ghost_material := drag_ghost.material as ShaderMaterial
+    check(ghost_material != null \
+        and is_equal_approx(float(ghost_material.get_shader_parameter("opacity")), 0.55),
+        "Chroma-key character ghost applies its opacity in the shader")
+    var initial_ghost_position := drag_ghost.position
+    var drag_motion := InputEventMouseMotion.new()
+    drag_motion.global_position = Vector2(360, 460)
+    hud._Input(drag_motion)
+    await ticks(1)
+    check(drag_ghost.position != initial_ghost_position,
+        "Character ghost follows drag pointer movement")
     check(hud.CompleteCharacterDrag(Vector2(500, 300)), "Deployment card completes drag")
-    check(not drag_preview.visible, "Drag preview disappears after drop")
+    check(not drag_preview.visible and not drag_ghost.visible,
+        "Text preview and character ghost disappear after drop")
+    check(hud.BeginCharacterDrag(first_id, Vector2(320, 480)), "Deployment card starts another drag")
+    hud.CancelCharacterDrag()
+    check(not drag_preview.visible and not drag_ghost.visible,
+        "Text preview and character ghost disappear after cancellation")
 
     hud.ShowResult(true, 12, 1)
     check(hud.get_node("ResultPanel").visible, "Result report becomes visible")

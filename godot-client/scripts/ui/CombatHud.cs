@@ -1,6 +1,7 @@
 using Godot;
 using DefenseGame.Client.Combat;
 using DefenseGame.Client.Data;
+using DefenseGame.Client.Visuals;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -34,6 +35,8 @@ public partial class CombatHud : CanvasLayer
     private Label _title = null!;
     private PanelContainer _dragPreview = null!;
     private Label _dragPreviewLabel = null!;
+    private DirectionalAnimatedSprite _dragGhost = null!;
+    private Vector2 _dragGhostOffset;
     private string _dragCandidateId = "";
     private string _draggedCharacterId = "";
     private Vector2 _dragStart;
@@ -269,7 +272,9 @@ public partial class CombatHud : CanvasLayer
         _dragCandidateId = characterId;
         _draggedCharacterId = characterId;
         _dragPreviewLabel.Text = $"{profile.DisplayName}\n{KoreanUiText.Role(profile.Unit.Role)} · 비용 {profile.Unit.DeploymentCost}\n타일에 놓아 배치";
+        ConfigureDragGhost(profile.Unit.Visual);
         _dragPreview.Visible = true;
+        _dragGhost.Visible = true;
         MoveDragPreview(globalPosition);
         EmitSignal(SignalName.CharacterSelected, characterId);
         return true;
@@ -280,6 +285,7 @@ public partial class CombatHud : CanvasLayer
         _dragCandidateId = "";
         _draggedCharacterId = "";
         if (_dragPreview is not null) _dragPreview.Visible = false;
+        if (_dragGhost is not null) _dragGhost.Visible = false;
     }
 
     public bool CompleteCharacterDrag(Vector2 globalPosition)
@@ -297,8 +303,11 @@ public partial class CombatHud : CanvasLayer
         _dragStart = GetViewport().GetMousePosition();
     }
 
-    private void MoveDragPreview(Vector2 globalPosition) =>
+    private void MoveDragPreview(Vector2 globalPosition)
+    {
         _dragPreview.Position = globalPosition + new Vector2(22, -82);
+        if (_dragGhost.Visible) _dragGhost.Position = globalPosition + _dragGhostOffset;
+    }
 
     private void CreateDragPreview()
     {
@@ -307,7 +316,7 @@ public partial class CombatHud : CanvasLayer
             Name = "DragPreview",
             Visible = false,
             MouseFilter = Control.MouseFilterEnum.Ignore,
-            ZIndex = 100,
+            ZIndex = 101,
             CustomMinimumSize = new Vector2(196, 68)
         };
         _dragPreview.AddThemeStyleboxOverride("panel", OperationUiStyle.PanelStyle(strong: true, border: OperationUiStyle.Amber));
@@ -316,6 +325,25 @@ public partial class CombatHud : CanvasLayer
         _dragPreviewLabel.AddThemeColorOverride("font_color", OperationUiStyle.Text);
         _dragPreview.AddChild(_dragPreviewLabel);
         AddChild(_dragPreview);
+
+        _dragGhost = new DirectionalAnimatedSprite
+        {
+            Name = "DragGhost",
+            Visible = false,
+            ZIndex = 100,
+            Modulate = new Color(1.0f, 1.0f, 1.0f, 0.55f)
+        };
+        AddChild(_dragGhost);
+    }
+
+    private void ConfigureDragGhost(UnitVisualDefinition visual)
+    {
+        UnitVisualConfigurator.Apply(_dragGhost, visual);
+        _dragGhostOffset = visual.SpritePosition;
+        _dragGhost.Modulate = new Color(1.0f, 1.0f, 1.0f, 0.55f);
+        if (_dragGhost.Material is ShaderMaterial material)
+            material.SetShaderParameter("opacity", 0.55f);
+        _dragGhost.Play(UnitVisualConfigurator.IdleAnimation);
     }
 
     private void ApplyOperationStyle()

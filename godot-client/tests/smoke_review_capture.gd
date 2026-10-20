@@ -31,10 +31,13 @@ func require(condition: bool, message: String) -> bool:
 func deploy(stage, character_id: String, required_points: float, cell: Vector2i, facing: int) -> bool:
     if not await wait_for(func(): return stage.DeploymentPoints >= required_points, 15.0):
         return require(false, "%s 배치 포인트 대기 실패" % character_id)
-    if not require(stage.SelectDeploymentCharacter(character_id), "%s 선택 실패" % character_id):
-        return false
     var grid = stage.get_node("DeploymentGrid")
-    if not require(grid.SelectCell(cell), "%s 배치 셀 선택 실패" % character_id):
+    var hud = stage.get_node("HUD")
+    var drop_position = grid.CellToGlobal(cell)
+    if not require(hud.BeginCharacterDrag(character_id, drop_position), "%s 드래그 시작 실패" % character_id):
+        return false
+    await hold(0.6)
+    if not require(hud.CompleteCharacterDrag(drop_position), "%s 배치 드롭 실패" % character_id):
         return false
     await hold(0.6)
     if not require(grid.SelectFacing(facing), "%s 방향 확정 실패" % character_id):
