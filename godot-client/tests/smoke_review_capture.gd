@@ -96,6 +96,19 @@ func run():
         return
     var stage = current_scene
     await hold(0.8)
+    var grid = stage.get_node("DeploymentGrid")
+    var hud = stage.get_node("HUD")
+    if not require(hud.BeginCharacterDrag("starter_archer_a", grid.CellToGlobal(Vector2i(1, 3))),
+        "궁수 경로 타일 미리보기 시작 실패"):
+        quit(1)
+        return
+    if not require(not hud.DragPlacementValid and "지형" in hud.DragPlacementStatus,
+        "궁수 경로 타일 미리보기 판정 실패"):
+        quit(1)
+        return
+    await hold(0.8)
+    hud.CancelCharacterDrag()
+    await hold(0.3)
     if not await deploy(stage, "starter_archer_a", 10.0, Vector2i(4, 2), 0):
         quit(1)
         return

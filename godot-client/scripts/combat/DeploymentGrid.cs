@@ -9,6 +9,15 @@ public partial class DeploymentGrid : Node2D
 {
     public enum TileType { Ground, EnemyPath, Blocked }
     public enum PlacementType { Ranged, Melee, Support }
+    public enum PlacementBlockReason
+    {
+        None,
+        PlacementDisabled,
+        OutsideGrid,
+        Occupied,
+        BlockedTerrain,
+        TerrainNotAllowed
+    }
 
     public int Columns { get; private set; }
     public int Rows { get; private set; }
@@ -69,6 +78,16 @@ public partial class DeploymentGrid : Node2D
             PlacementRule.GroundOrPath => tile == TileType.Ground || tile == TileType.EnemyPath,
             _ => false
         };
+    }
+
+    public PlacementBlockReason GetPlacementBlockReason(Vector2I cell, PlacementType profile)
+    {
+        if (!_placementEnabled || _isChoosingFacing) return PlacementBlockReason.PlacementDisabled;
+        if (!ContainsCell(cell)) return PlacementBlockReason.OutsideGrid;
+        if (_occupied.Contains(cell)) return PlacementBlockReason.Occupied;
+        TileType tile = GetTileType(cell);
+        if (tile == TileType.Blocked) return PlacementBlockReason.BlockedTerrain;
+        return CanPlace(cell, profile) ? PlacementBlockReason.None : PlacementBlockReason.TerrainNotAllowed;
     }
 
     public bool TryOccupy(Vector2I cell, PlacementType profile)

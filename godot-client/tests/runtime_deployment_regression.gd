@@ -52,13 +52,30 @@ func run():
     check(points_reached_maximum, "Deployment points regenerate to the stage maximum")
     check("30 / 30" in deployment_points_label.text, "HUD shows current and maximum deployment points")
 
-    check(hud.BeginCharacterDrag("starter_archer_b", Vector2(100, 600)), "Available character card can begin a drag")
+    var scout_def = load("res://data/units/cat_archer_scout.tres")
+    var invalid_cell := Vector2i(1, 3)
+    var invalid_drag_position: Vector2 = grid.CellToGlobal(invalid_cell) + Vector2(18, 10)
+    check(hud.BeginCharacterDrag("starter_archer_b", invalid_drag_position), "Available character card can begin a drag")
     check(stage.SelectedDeploymentCharacterId == "starter_archer_b" and hud.IsDraggingCharacter, "Drag selects the exact character")
-    check(hud.CompleteCharacterDrag(grid.CellToGlobal(Vector2i(1, 3))), "HUD completes the invalid drag request")
+    check(not hud.DragPlacementValid and "지형" in hud.DragPlacementStatus,
+        "Ranged drag marks an enemy path tile as invalid")
+    var invalid_tint: Color = hud.get_node("DragGhost").material.get_shader_parameter("tint_color")
+    check(invalid_tint.r > invalid_tint.g, "Invalid drag ghost uses a red tint")
+    check(hud.get_node("DragGhost").position.is_equal_approx(grid.CellToGlobal(invalid_cell) + scout_def.Visual.SpritePosition),
+        "Invalid drag ghost still snaps to the hovered tile center")
+    check(hud.CompleteCharacterDrag(invalid_drag_position), "HUD completes the invalid drag request")
     check(stage.RemainingArchers == 2 and not hud.IsDeploymentCardDisabled("starter_archer_b"), "Invalid drop preserves character inventory")
     check(stage.DeploymentPoints >= 29.9, "Invalid drop does not spend deployment points")
-    check(hud.BeginCharacterDrag("starter_archer_b", Vector2(100, 600)), "Character card can be dragged again after rejection")
-    check(hud.CompleteCharacterDrag(grid.CellToGlobal(Vector2i(4, 2))), "HUD completes the valid drag request")
+    var valid_cell := Vector2i(4, 2)
+    var valid_drag_position: Vector2 = grid.CellToGlobal(valid_cell) + Vector2(18, 10)
+    check(hud.BeginCharacterDrag("starter_archer_b", valid_drag_position), "Character card can be dragged again after rejection")
+    check(hud.DragPlacementValid and hud.DragPlacementStatus == "배치 가능",
+        "Ranged drag marks a grass tile as valid")
+    var valid_tint: Color = hud.get_node("DragGhost").material.get_shader_parameter("tint_color")
+    check(valid_tint.g > valid_tint.r, "Valid drag ghost uses a teal tint")
+    check(hud.get_node("DragGhost").position.is_equal_approx(grid.CellToGlobal(valid_cell) + scout_def.Visual.SpritePosition),
+        "Valid drag ghost snaps to the tile center")
+    check(hud.CompleteCharacterDrag(valid_drag_position), "HUD completes the valid drag request")
     check(stage.IsChoosingDeploymentFacing and stage.RemainingArchers == 2, "Valid drop waits for direction confirmation")
     check(stage.DeploymentPoints >= 29.9, "Pending direction does not spend deployment points")
     check(grid.SelectFacing(0), "Confirm archer facing")
@@ -66,7 +83,6 @@ func run():
     check(get_nodes_in_group("towers")[0].Facing == 0, "Archer keeps confirmed facing")
     check(stage.PlacedArcherCharacterIds == PackedStringArray(["starter_archer_b"]), "Drag deploys the exact character ID")
     check(hud.IsDeploymentCardDisabled("starter_archer_b"), "Placed character card is disabled")
-    var scout_def = load("res://data/units/cat_archer_scout.tres")
     check(is_equal_approx(stage.DeploymentPoints, 30.0 - scout_def.DeploymentCost), "Successful archer deployment spends its data-defined cost once")
 
     var warrior_def = load("res://data/units/cat_warrior.tres")
@@ -79,6 +95,9 @@ func run():
 
     check(not stage.SelectPlacementType(2), "Unaffordable healer cannot be selected")
     check(hud.IsDeploymentCardDisabled("starter_healer_a"), "Unaffordable character card is disabled")
+    check(not hud.BeginCharacterDrag("starter_healer_a", grid.CellToGlobal(Vector2i(5, 2))),
+        "Unaffordable character cannot begin dragging")
+    check(not hud.get_node("DragGhost").visible, "Unaffordable drag does not show a character ghost")
     check("비용 11 · 포인트 부족" in hud.GetDeploymentCardText("starter_healer_a"), "Card explains the insufficient deployment points")
     var healer_affordable = await wait_until(func(): return stage.DeploymentPoints >= 11.0, 240)
     check(healer_affordable and not hud.IsDeploymentCardDisabled("starter_healer_a"), "Regeneration re-enables an affordable card")

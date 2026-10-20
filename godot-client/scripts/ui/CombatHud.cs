@@ -12,6 +12,7 @@ public partial class CombatHud : CanvasLayer
 {
     [Signal] public delegate void CharacterSelectedEventHandler(string characterId);
     [Signal] public delegate void CharacterDroppedEventHandler(string characterId, Vector2 globalPosition);
+    [Signal] public delegate void CharacterDragMovedEventHandler(string characterId, Vector2 globalPosition);
     [Signal] public delegate void RetryRequestedEventHandler();
     [Signal] public delegate void StageListRequestedEventHandler();
     [Signal] public delegate void ResultSyncRetryRequestedEventHandler();
@@ -37,6 +38,7 @@ public partial class CombatHud : CanvasLayer
     private Label _dragPreviewLabel = null!;
     private DirectionalAnimatedSprite _dragGhost = null!;
     private Vector2 _dragGhostOffset;
+    private string _dragPreviewSummary = "";
     private string _dragCandidateId = "";
     private string _draggedCharacterId = "";
     private Vector2 _dragStart;
@@ -45,6 +47,8 @@ public partial class CombatHud : CanvasLayer
     public string[] DeploymentCardCharacterIds => _deploymentCards.Keys.ToArray();
     public bool IsDraggingCharacter => !string.IsNullOrEmpty(_draggedCharacterId);
     public string DraggedCharacterId => _draggedCharacterId;
+    public bool DragPlacementValid { get; private set; }
+    public string DragPlacementStatus { get; private set; } = "";
     public string ResultSyncStatus { get; private set; } = "Idle";
 
     public override void _Ready()
@@ -77,7 +81,11 @@ public partial class CombatHud : CanvasLayer
         {
             if (!IsDraggingCharacter && motion.GlobalPosition.DistanceTo(_dragStart) >= 12.0f)
                 BeginCharacterDrag(_dragCandidateId, motion.GlobalPosition);
-            if (IsDraggingCharacter) MoveDragPreview(motion.GlobalPosition);
+            if (IsDraggingCharacter)
+            {
+                MoveDragPreview(motion.GlobalPosition);
+                EmitSignal(SignalName.CharacterDragMoved, _draggedCharacterId, motion.GlobalPosition);
+            }
         }
         else if (input is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: false } released)
         {
@@ -271,19 +279,41 @@ public partial class CombatHud : CanvasLayer
             return false;
         _dragCandidateId = characterId;
         _draggedCharacterId = characterId;
-        _dragPreviewLabel.Text = $"{profile.DisplayName}\n{KoreanUiText.Role(profile.Unit.Role)} · 비용 {profile.Unit.DeploymentCost}\n타일에 놓아 배치";
+        _dragPreviewSummary = $"{profile.DisplayName}\n{KoreanUiText.Role(profile.Unit.Role)} · 비용 {profile.Unit.DeploymentCost}";
+        DragPlacementValid = false;
+        DragPlacementStatus = "타일 확인 중";
+        _dragPreviewLabel.Text = $"{_dragPreviewSummary}\n{DragPlacementStatus}";
         ConfigureDragGhost(profile.Unit.Visual);
         _dragPreview.Visible = true;
         _dragGhost.Visible = true;
-        MoveDragPreview(globalPosition);
         EmitSignal(SignalName.CharacterSelected, characterId);
+        MoveDragPreview(globalPosition);
+        EmitSignal(SignalName.CharacterDragMoved, characterId, globalPosition);
         return true;
+    }
+
+    public void UpdateCharacterDragPreview(Vector2 snappedGlobalPosition, bool valid, string status)
+    {
+        if (!IsDraggingCharacter) return;
+        bool stateChanged = DragPlacementValid != valid || DragPlacementStatus != status;
+        DragPlacementValid = valid;
+        DragPlacementStatus = status;
+        _dragGhost.Position = snappedGlobalPosition + _dragGhostOffset;
+        if (!stateChanged) return;
+        _dragPreviewLabel.Text = $"{_dragPreviewSummary}\n{status}";
+        Color stateColor = valid ? OperationUiStyle.Teal : OperationUiStyle.Red;
+        _dragPreview.AddThemeStyleboxOverride(
+            "panel",
+            OperationUiStyle.PanelStyle(strong: true, border: stateColor));
+        ApplyDragGhostTint(stateColor);
     }
 
     public void CancelCharacterDrag()
     {
         _dragCandidateId = "";
         _draggedCharacterId = "";
+        DragPlacementValid = false;
+        DragPlacementStatus = "";
         if (_dragPreview is not null) _dragPreview.Visible = false;
         if (_dragGhost is not null) _dragGhost.Visible = false;
     }
@@ -340,10 +370,19 @@ public partial class CombatHud : CanvasLayer
     {
         UnitVisualConfigurator.Apply(_dragGhost, visual);
         _dragGhostOffset = visual.SpritePosition;
-        _dragGhost.Modulate = new Color(1.0f, 1.0f, 1.0f, 0.55f);
         if (_dragGhost.Material is ShaderMaterial material)
             material.SetShaderParameter("opacity", 0.55f);
+        ApplyDragGhostTint(OperationUiStyle.Amber);
         _dragGhost.Play(UnitVisualConfigurator.IdleAnimation);
+    }
+
+    private void ApplyDragGhostTint(Color color)
+    {
+        Color blended = Colors.White.Lerp(color, 0.28f);
+        _dragGhost.Modulate = new Color(blended.R, blended.G, blended.B, 0.55f);
+        if (_dragGhost.Material is not ShaderMaterial material) return;
+        material.SetShaderParameter("tint_color", color);
+        material.SetShaderParameter("tint_strength", 0.28f);
     }
 
     private void ApplyOperationStyle()

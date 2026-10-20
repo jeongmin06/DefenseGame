@@ -95,6 +95,7 @@ public partial class StageOne : Node2D
         _grid.FacingSelected += OnFacingSelected;
         _grid.FacingSelectionCanceled += OnFacingSelectionCanceled;
         _hud.CharacterSelected += characterId => SelectDeploymentCharacter(characterId);
+        _hud.CharacterDragMoved += PreviewCharacterDrag;
         _hud.CharacterDropped += (characterId, globalPosition) =>
             TryDeployCharacterAtGlobalPosition(characterId, globalPosition);
         _hud.RetryRequested += RestartStage;
@@ -176,6 +177,37 @@ public partial class StageOne : Node2D
     {
         if (!SelectDeploymentCharacter(characterId)) return false;
         return BeginPendingDeployment(_grid.GlobalToCell(globalPosition));
+    }
+
+    private void PreviewCharacterDrag(string characterId, Vector2 globalPosition)
+    {
+        Vector2I cell = _grid.GlobalToCell(globalPosition);
+        Vector2 previewPosition = _grid.ContainsCell(cell) ? _grid.CellToGlobal(cell) : globalPosition;
+        if (_battleEnded || !_availableDeployments.TryGetValue(characterId, out UnitDeployment? deployment)
+            || deployment.Profile.Unit is null)
+        {
+            _hud.UpdateCharacterDragPreview(previewPosition, false, "현재 배치 불가");
+            return;
+        }
+        if (!CanAfford(deployment.Profile.Unit))
+        {
+            _hud.UpdateCharacterDragPreview(previewPosition, false, "포인트 부족");
+            return;
+        }
+
+        DeploymentGrid.PlacementBlockReason reason = _grid.GetPlacementBlockReason(
+            cell,
+            ToPlacementType(deployment.Profile.Unit.Role));
+        bool valid = reason == DeploymentGrid.PlacementBlockReason.None;
+        _hud.UpdateCharacterDragPreview(previewPosition, valid, reason switch
+        {
+            DeploymentGrid.PlacementBlockReason.None => "배치 가능",
+            DeploymentGrid.PlacementBlockReason.OutsideGrid => "전장 밖",
+            DeploymentGrid.PlacementBlockReason.Occupied => "이미 점유된 타일",
+            DeploymentGrid.PlacementBlockReason.BlockedTerrain => "배치할 수 없는 지형",
+            DeploymentGrid.PlacementBlockReason.TerrainNotAllowed => "배치할 수 없는 지형",
+            _ => "현재 배치 불가"
+        });
     }
 
     private int RemainingFor(DeploymentGrid.PlacementType type) => _availableDeployments.Values.Count(deployment =>

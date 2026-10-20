@@ -60,6 +60,7 @@ func run():
     var grid = current_scene.get_node("DeploymentGrid")
     check(grid.Columns == definition.Grid.Columns and grid.Rows == definition.Grid.Rows, "Grid dimensions")
     check(grid.CellSize == definition.Grid.CellSize and grid.position == definition.Grid.Origin, "Grid geometry")
+    var path_cell := Vector2i(-1, -1)
     for y in range(grid.Rows):
         for x in range(grid.Columns):
             var cell = Vector2i(x,y)
@@ -68,6 +69,15 @@ func run():
             check(grid.CanPlace(cell, 0) == (kind == 0), "Ranged deployment rule")
             check(grid.CanPlace(cell, 1) == (kind != 2), "Melee deployment rule")
             check(grid.CanPlace(cell, 2) == (kind == 0), "Support deployment rule")
+            if kind == 1 and path_cell.x < 0: path_cell = cell
+    var blocked_cell: Vector2i = definition.BlockedCells[0]
+    check(grid.GetPlacementBlockReason(Vector2i(-1, 0), 0) == 2, "Placement preview identifies outside grid")
+    check(grid.GetPlacementBlockReason(path_cell, 0) == 5, "Ranged preview rejects enemy path terrain")
+    check(grid.GetPlacementBlockReason(path_cell, 1) == 0, "Melee preview accepts enemy path terrain")
+    check(grid.GetPlacementBlockReason(blocked_cell, 0) == 4, "Placement preview identifies blocked terrain")
+    check(grid.TryOccupy(Vector2i(4, 2), 0), "Placement preview occupied fixture")
+    check(grid.GetPlacementBlockReason(Vector2i(4, 2), 0) == 3, "Placement preview identifies occupied tile")
+    grid.ReleaseCell(Vector2i(4, 2))
     var expected_power = 4.0
     for arg in OS.get_cmdline_user_args():
         if arg.begins_with("--expected-power="): expected_power = float(arg.split("=")[1])
