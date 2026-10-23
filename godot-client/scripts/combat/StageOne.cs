@@ -26,6 +26,7 @@ public partial class StageOne : Node2D
         deployment.Profile.Unit?.Role == UnitRole.Ranged && _availableDeployments.ContainsKey(deployment.Profile.CharacterId))
         ?.Profile.CharacterId ?? "";
     public string[] PlacedArcherCharacterIds => _placedArcherCharacterIds.ToArray();
+    public string SelectedRetreatCharacterId => _selectedActiveCharacterId;
     public string ResultSyncStatusCode { get; private set; } = "Idle";
     private readonly StageProgressServerClient _progressClient = new();
     private readonly System.Threading.CancellationTokenSource _progressCancellation = new();
@@ -34,11 +35,14 @@ public partial class StageOne : Node2D
     private WaveSpec[] _waves = [];
     private readonly List<UnitDeployment> _deploymentOrder = new();
     private readonly Dictionary<string, UnitDeployment> _availableDeployments = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ActiveDeployment> _activeDeployments = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, float> _redeployRemaining = new(StringComparer.Ordinal);
     private readonly List<string> _placedArcherCharacterIds = new();
     private readonly List<string> _placedWarriorCharacterIds = new();
     private readonly List<string> _placedHealerCharacterIds = new();
     private string _selectedCharacterId = "";
     private string _pendingDeploymentCharacterId = "";
+    private string _selectedActiveCharacterId = "";
     private Vector2I _pendingDeploymentCell = new(-1, -1);
     private float _firstWaveDelay;
     private float _firstWaveCountdown;
@@ -99,6 +103,7 @@ public partial class StageOne : Node2D
         _hud.CharacterDragEnded += _grid.ClearDragRangePreview;
         _hud.CharacterDropped += (characterId, globalPosition) =>
             TryDeployCharacterAtGlobalPosition(characterId, globalPosition);
+        _hud.RetreatRequested += characterId => RetreatCharacter(characterId);
         _hud.RetryRequested += RestartStage;
         _hud.StageListRequested += ReturnToStageList;
         _hud.ResultSyncRetryRequested += RetryBattleResultSync;
@@ -119,6 +124,8 @@ public partial class StageOne : Node2D
         if (!_combatTimelineStarted || _battleEnded) return;
 
         RegenerateDeploymentPoints((float)delta);
+        TickRedeploymentCooldowns((float)delta);
+        RefreshUnitSelectionHud();
         if (_waveIndex >= 0) return;
 
         _firstWaveCountdown = Mathf.Max(0.0f, _firstWaveCountdown - (float)delta);
@@ -140,6 +147,21 @@ public partial class StageOne : Node2D
     public override void _Draw()
     {
         DrawRect(new Rect2(0, 0, 1280, 720), new Color("5b843e"));
+    }
+
+    public override void _UnhandledInput(InputEvent input)
+    {
+        if (_battleEnded || _grid.IsChoosingFacing || _hud.IsDraggingCharacter
+            || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } click)
+            return;
+
+        Vector2I cell = _grid.GlobalToCell(click.GlobalPosition);
+        if (SelectDeployedUnitAtCell(cell))
+        {
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (_grid.ContainsCell(cell)) ClearActiveUnitSelection();
     }
 
     private void BuildEnemyPath()
@@ -167,6 +189,7 @@ public partial class StageOne : Node2D
         if (_battleEnded || !_availableDeployments.TryGetValue(characterId, out UnitDeployment? deployment)
             || deployment.Profile.Unit is null || !CanAfford(deployment.Profile.Unit)) return false;
         if (_grid.IsChoosingFacing) _grid.CancelFacingSelection();
+        ClearActiveUnitSelection();
         _selectedCharacterId = characterId;
         _selectedType = ToPlacementType(deployment.Profile.Unit.Role);
         _grid.SetPlacementType(_selectedType);
@@ -222,12 +245,26 @@ public partial class StageOne : Node2D
     {
         CatProfile? selected = _availableDeployments.TryGetValue(_selectedCharacterId, out UnitDeployment? deployment)
             ? deployment.Profile : null;
-        _hud.UpdateDeploymentCards(_availableDeployments.Keys, _selectedCharacterId, _deploymentPoints);
-        _hud.UpdatePlacement(selected, _availableDeployments.Count, _grid.IsChoosingFacing);
+        _hud.UpdateDeploymentCards(
+            _availableDeployments.Keys,
+            _selectedCharacterId,
+            _deploymentPoints,
+            _redeployRemaining);
+        _hud.UpdatePlacement(
+            selected,
+            _availableDeployments.Count,
+            _grid.IsChoosingFacing,
+            _redeployRemaining.Count > 0,
+            _availableDeployments.Values.Any(candidate =>
+                candidate.Profile.Unit is not null && CanAfford(candidate.Profile.Unit)));
         _hud.UpdateDeploymentPoints(Mathf.FloorToInt(_deploymentPoints), Definition.MaxDeploymentPoints);
     }
 
-    private void OnCellSelected(Vector2I cell) => BeginPendingDeployment(cell);
+    private void OnCellSelected(Vector2I cell)
+    {
+        ClearActiveUnitSelection();
+        BeginPendingDeployment(cell);
+    }
 
     private bool BeginPendingDeployment(Vector2I cell)
     {
@@ -273,6 +310,7 @@ public partial class StageOne : Node2D
             return false;
         }
         _deploymentPoints -= unit.DeploymentCost;
+        Node2D deployedUnit;
         if (unit.Behavior == UnitBehavior.RangedProjectile)
         {
             Tower tower = unit.Scene.Instantiate<Tower>();
@@ -282,7 +320,8 @@ public partial class StageOne : Node2D
                 _grid, cell, facing);
             tower.SetBattleActive(_combatTimelineStarted);
             _placedArcherCharacterIds.Add(tower.CharacterId);
-            tower.Defeated += _ => _grid.ReleaseCell(cell);
+            tower.Defeated += _ => OnDeployedUnitDefeated(characterId);
+            deployedUnit = tower;
         }
         else if (unit.Behavior == UnitBehavior.MeleeBlocker)
         {
@@ -292,7 +331,8 @@ public partial class StageOne : Node2D
             warrior.Setup(unit, _grid, cell, characterId, deployment.Loadout, facing);
             warrior.SetBattleActive(_combatTimelineStarted);
             _placedWarriorCharacterIds.Add(warrior.CharacterId);
-            warrior.Defeated += _ => _grid.ReleaseCell(cell);
+            warrior.Defeated += _ => OnDeployedUnitDefeated(characterId);
+            deployedUnit = warrior;
         }
         else if (unit.Behavior == UnitBehavior.SingleTargetHealer)
         {
@@ -302,7 +342,8 @@ public partial class StageOne : Node2D
             healer.Setup(unit, characterId, deployment.Loadout, _grid, cell, facing);
             healer.SetBattleActive(_combatTimelineStarted);
             _placedHealerCharacterIds.Add(healer.CharacterId);
-            healer.Defeated += _ => _grid.ReleaseCell(cell);
+            healer.Defeated += _ => OnDeployedUnitDefeated(characterId);
+            deployedUnit = healer;
         }
         else
         {
@@ -310,6 +351,7 @@ public partial class StageOne : Node2D
             _grid.ReleaseCell(cell);
             return false;
         }
+        _activeDeployments.Add(characterId, new ActiveDeployment(deployedUnit, deployment, cell));
         _availableDeployments.Remove(characterId);
         SelectNextAffordableCharacter();
         UpdatePlacementHud();
@@ -320,6 +362,161 @@ public partial class StageOne : Node2D
     {
         _pendingDeploymentCharacterId = "";
         _pendingDeploymentCell = new Vector2I(-1, -1);
+    }
+
+    public bool SelectDeployedUnitAtCell(Vector2I cell)
+    {
+        if (_battleEnded || _grid.IsChoosingFacing || _hud.IsDraggingCharacter) return false;
+        ActiveDeployment? active = _activeDeployments.Values.FirstOrDefault(candidate => candidate.Cell == cell);
+        if (active is null || !GodotObject.IsInstanceValid(active.Unit) || active.Unit.IsQueuedForDeletion()) return false;
+        _selectedCharacterId = "";
+        _selectedActiveCharacterId = active.Deployment.Profile.CharacterId;
+        UpdatePlacementHud();
+        RefreshUnitSelectionHud();
+        return true;
+    }
+
+    public bool RetreatSelectedUnit() => RetreatCharacter(_selectedActiveCharacterId);
+
+    public float GetRedeployRemaining(string characterId) =>
+        _redeployRemaining.TryGetValue(characterId, out float remaining) ? remaining : 0.0f;
+
+    private bool RetreatCharacter(string characterId)
+    {
+        if (_battleEnded || string.IsNullOrEmpty(characterId)) return false;
+        return RemoveActiveDeployment(characterId, refund: true, queueFree: true);
+    }
+
+    private void OnDeployedUnitDefeated(string characterId)
+    {
+        if (_battleEnded) return;
+        RemoveActiveDeployment(characterId, refund: false, queueFree: false);
+    }
+
+    private bool RemoveActiveDeployment(string characterId, bool refund, bool queueFree)
+    {
+        if (!_activeDeployments.Remove(characterId, out ActiveDeployment? active)) return false;
+
+        StopUnit(active.Unit);
+        _grid.ReleaseCell(active.Cell);
+        RemovePlacedCharacter(active.Deployment.Profile.Unit!.Role, characterId);
+        if (refund)
+        {
+            UnitDefinition unit = active.Deployment.Profile.Unit!;
+            int refundPoints = Mathf.FloorToInt(unit.DeploymentCost * unit.RetreatRefundRate);
+            _deploymentPoints = Mathf.Min(Definition.MaxDeploymentPoints, _deploymentPoints + refundPoints);
+        }
+        StartRedeploymentCooldown(active.Deployment);
+        if (queueFree && GodotObject.IsInstanceValid(active.Unit)) active.Unit.QueueFree();
+        if (_selectedActiveCharacterId == characterId) ClearActiveUnitSelection();
+        UpdatePlacementHud();
+        return true;
+    }
+
+    private void StartRedeploymentCooldown(UnitDeployment deployment)
+    {
+        string characterId = deployment.Profile.CharacterId;
+        float delay = Mathf.Max(0.0f, deployment.Profile.Unit!.RedeployDelay);
+        if (delay <= 0.0f)
+        {
+            _availableDeployments.TryAdd(characterId, deployment);
+            return;
+        }
+        _redeployRemaining[characterId] = delay;
+    }
+
+    private void TickRedeploymentCooldowns(float delta)
+    {
+        if (_redeployRemaining.Count == 0) return;
+        bool displayChanged = false;
+        foreach (string characterId in _redeployRemaining.Keys.ToArray())
+        {
+            float previous = _redeployRemaining[characterId];
+            float remaining = Mathf.Max(0.0f, previous - delta);
+            if (Mathf.CeilToInt(previous) != Mathf.CeilToInt(remaining)) displayChanged = true;
+            if (remaining > 0.0f)
+            {
+                _redeployRemaining[characterId] = remaining;
+                continue;
+            }
+
+            _redeployRemaining.Remove(characterId);
+            UnitDeployment? deployment = _deploymentOrder.FirstOrDefault(candidate =>
+                candidate.Profile.CharacterId == characterId);
+            if (deployment is not null) _availableDeployments.TryAdd(characterId, deployment);
+            displayChanged = true;
+        }
+        if (displayChanged) UpdatePlacementHud();
+    }
+
+    private void RefreshUnitSelectionHud()
+    {
+        if (string.IsNullOrEmpty(_selectedActiveCharacterId)
+            || !_activeDeployments.TryGetValue(_selectedActiveCharacterId, out ActiveDeployment? active)
+            || !GodotObject.IsInstanceValid(active.Unit) || active.Unit.IsQueuedForDeletion())
+        {
+            ClearActiveUnitSelection();
+            return;
+        }
+
+        UnitDefinition unit = active.Deployment.Profile.Unit!;
+        (float current, float maximum) = UnitHealthValues(active.Unit);
+        int refund = Mathf.FloorToInt(unit.DeploymentCost * unit.RetreatRefundRate);
+        _hud.ShowUnitSelection(
+            active.Deployment.Profile.CharacterId,
+            active.Deployment.Profile.DisplayName,
+            unit.Role,
+            current,
+            maximum,
+            refund);
+    }
+
+    private void ClearActiveUnitSelection()
+    {
+        bool hadSelection = !string.IsNullOrEmpty(_selectedActiveCharacterId);
+        _selectedActiveCharacterId = "";
+        _hud.HideUnitSelection();
+        if (hadSelection && !_battleEnded) UpdatePlacementHud();
+    }
+
+    private static (float Current, float Maximum) UnitHealthValues(Node2D unit) => unit switch
+    {
+        Tower tower => (tower.CurrentHealth, tower.MaxHealth),
+        Warrior warrior => (warrior.CurrentHealth, warrior.MaxHealth),
+        Healer healer => (healer.CurrentHealth, healer.MaxHealth),
+        _ => (0.0f, 0.0f)
+    };
+
+    private static void StopUnit(Node2D unit)
+    {
+        switch (unit)
+        {
+            case Tower tower:
+                tower.SetBattleActive(false);
+                break;
+            case Warrior warrior:
+                warrior.SetBattleActive(false);
+                break;
+            case Healer healer:
+                healer.SetBattleActive(false);
+                break;
+        }
+    }
+
+    private void RemovePlacedCharacter(UnitRole role, string characterId)
+    {
+        switch (role)
+        {
+            case UnitRole.Ranged:
+                _placedArcherCharacterIds.Remove(characterId);
+                break;
+            case UnitRole.Melee:
+                _placedWarriorCharacterIds.Remove(characterId);
+                break;
+            case UnitRole.Support:
+                _placedHealerCharacterIds.Remove(characterId);
+                break;
+        }
     }
 
     private void SelectNextAffordableCharacter()
@@ -476,6 +673,7 @@ public partial class StageOne : Node2D
         _battleEnded = true;
         _spawnTimer.Stop();
         _grid.SetPlacementEnabled(false);
+        ClearActiveUnitSelection();
 
         foreach (Node node in GetTree().GetNodesInGroup("towers"))
         {
@@ -630,4 +828,5 @@ public partial class StageOne : Node2D
     private readonly record struct WaveSpec(UnitDefinition Enemy, int Count, float Health, float Speed, double Interval);
     private sealed record UnitDeployment(CatProfile Profile, SkillLoadout? Loadout,
         RangedAttackSettings? RangedSettings);
+    private sealed record ActiveDeployment(Node2D Unit, UnitDeployment Deployment, Vector2I Cell);
 }

@@ -14,6 +14,7 @@ public partial class CombatHud : CanvasLayer
     [Signal] public delegate void CharacterDroppedEventHandler(string characterId, Vector2 globalPosition);
     [Signal] public delegate void CharacterDragMovedEventHandler(string characterId, Vector2 globalPosition);
     [Signal] public delegate void CharacterDragEndedEventHandler();
+    [Signal] public delegate void RetreatRequestedEventHandler(string characterId);
     [Signal] public delegate void RetryRequestedEventHandler();
     [Signal] public delegate void StageListRequestedEventHandler();
     [Signal] public delegate void ResultSyncRetryRequestedEventHandler();
@@ -38,11 +39,15 @@ public partial class CombatHud : CanvasLayer
     private PanelContainer _dragPreview = null!;
     private Label _dragPreviewLabel = null!;
     private DirectionalAnimatedSprite _dragGhost = null!;
+    private PanelContainer _unitSelectionPanel = null!;
+    private Label _unitSelectionLabel = null!;
+    private Button _retreatButton = null!;
     private Vector2 _dragGhostOffset;
     private string _dragPreviewSummary = "";
     private string _dragCandidateId = "";
     private string _draggedCharacterId = "";
     private Vector2 _dragStart;
+    private string _selectedUnitCharacterId = "";
 
     public int DeploymentCardCount => _deploymentCards.Count;
     public string[] DeploymentCardCharacterIds => _deploymentCards.Keys.ToArray();
@@ -51,6 +56,10 @@ public partial class CombatHud : CanvasLayer
     public bool DragPlacementValid { get; private set; }
     public string DragPlacementStatus { get; private set; } = "";
     public string ResultSyncStatus { get; private set; } = "Idle";
+    public bool IsUnitSelectionVisible => _unitSelectionPanel?.Visible ?? false;
+    public string SelectedUnitCharacterId => _selectedUnitCharacterId;
+    public string SelectedUnitSummary => _unitSelectionLabel?.Text ?? "";
+    public string RetreatButtonText => _retreatButton?.Text ?? "";
 
     public override void _Ready()
     {
@@ -74,6 +83,7 @@ public partial class CombatHud : CanvasLayer
         _stageListButton.Pressed += () => EmitSignal(SignalName.StageListRequested);
         ApplyOperationStyle();
         CreateDragPreview();
+        CreateUnitSelectionPanel();
     }
 
     public override void _Input(InputEvent input)
@@ -135,7 +145,8 @@ public partial class CombatHud : CanvasLayer
     public void UpdateDeploymentCards(
         IEnumerable<string> remainingCharacterIds,
         string selectedCharacterId,
-        float deploymentPoints)
+        float deploymentPoints,
+        IReadOnlyDictionary<string, float>? redeployRemaining = null)
     {
         var remaining = new HashSet<string>(remainingCharacterIds, StringComparer.Ordinal);
         foreach ((string characterId, Button button) in _deploymentCards)
@@ -143,9 +154,14 @@ public partial class CombatHud : CanvasLayer
             CatProfile profile = _profiles[characterId];
             UnitDefinition unit = profile.Unit!;
             bool available = remaining.Contains(characterId);
+            float remainingSeconds = 0;
+            bool waiting = redeployRemaining is not null
+                && redeployRemaining.TryGetValue(characterId, out remainingSeconds)
+                && remainingSeconds > 0;
             bool affordable = available && deploymentPoints >= unit.DeploymentCost;
             bool selected = affordable && characterId == selectedCharacterId;
-            string visualState = !available ? "placed" : selected ? "selected" : affordable ? "ready" : "insufficient";
+            string visualState = waiting ? "cooldown" : !available ? "placed"
+                : selected ? "selected" : affordable ? "ready" : "insufficient";
             if (!_cardVisualStates.TryGetValue(characterId, out string? previousState) || previousState != visualState)
             {
                 OperationUiStyle.ApplyButton(
@@ -153,6 +169,7 @@ public partial class CombatHud : CanvasLayer
                     visualState switch
                     {
                         "placed" => OperationUiTone.Success,
+                        "cooldown" => OperationUiTone.Neutral,
                         "selected" => OperationUiTone.Primary,
                         "insufficient" => OperationUiTone.Danger,
                         _ => OperationUiTone.Neutral
@@ -163,11 +180,13 @@ public partial class CombatHud : CanvasLayer
                 _cardVisualStates[characterId] = visualState;
             }
             button.Disabled = !affordable;
-            button.Text = available
+            button.Text = waiting
+                ? $"↻ {profile.DisplayName}\n  {KoreanUiText.Role(unit.Role)} · 재배치 {Mathf.CeilToInt(remainingSeconds):D2}초"
+                : available
                 ? $"{(selected ? "▶ " : "  ")}{profile.DisplayName}\n  {KoreanUiText.Role(unit.Role)} · 비용 {unit.DeploymentCost}{(affordable ? " · 배치 가능" : " · 포인트 부족")}"
-                : $"✓ {profile.DisplayName}\n  {KoreanUiText.Role(unit.Role)} · 배치 완료";
+                : $"✓ {profile.DisplayName}\n  {KoreanUiText.Role(unit.Role)} · 전장 배치 중";
             button.Modulate = selected ? Colors.White : affordable ? new Color("dce7ea")
-                : available ? new Color("d99a94") : new Color("80bdb4");
+                : available ? new Color("d99a94") : waiting ? new Color("9babb0") : new Color("80bdb4");
             if (!available && (_dragCandidateId == characterId || _draggedCharacterId == characterId))
                 CancelCharacterDrag();
         }
@@ -178,7 +197,12 @@ public partial class CombatHud : CanvasLayer
         _deploymentPointsLabel.Text = $"배치 포인트 {current} / {maximum}";
     }
 
-    public void UpdatePlacement(CatProfile? selectedProfile, int remainingCount, bool choosingFacing = false)
+    public void UpdatePlacement(
+        CatProfile? selectedProfile,
+        int remainingCount,
+        bool choosingFacing = false,
+        bool hasRedeployCooldown = false,
+        bool hasAffordableCards = false)
     {
         if (choosingFacing)
         {
@@ -187,12 +211,12 @@ public partial class CombatHud : CanvasLayer
         }
         if (remainingCount == 0)
         {
-            _placementLabel.Text = "모든 고양이 배치 완료";
+            _placementLabel.Text = hasRedeployCooldown ? "고양이 재배치 대기 중" : "모든 고양이 배치 완료";
             return;
         }
         if (selectedProfile?.Unit is null)
         {
-            _placementLabel.Text = "배치 포인트 회복 대기";
+            _placementLabel.Text = hasAffordableCards ? "배치할 고양이를 선택하세요" : "배치 포인트 회복 대기";
             return;
         }
         string terrain = selectedProfile.Unit.Role == UnitRole.Melee ? "잔디 또는 경로" : "잔디";
@@ -219,6 +243,7 @@ public partial class CombatHud : CanvasLayer
     public void ShowResult(bool victory, int defeated, int escaped)
     {
         CancelCharacterDrag();
+        HideUnitSelection();
         _placementLabel.Text = "전투 종료";
         foreach (Button button in _deploymentCards.Values) button.Disabled = true;
         _resultPanel.Visible = true;
@@ -272,6 +297,28 @@ public partial class CombatHud : CanvasLayer
         _deploymentCards.TryGetValue(characterId, out Button? button) ? button.Text : "";
 
     public bool AreAllDeploymentCardsDisabled() => _deploymentCards.Values.All(button => button.Disabled);
+
+    public void ShowUnitSelection(
+        string characterId,
+        string displayName,
+        UnitRole role,
+        float currentHealth,
+        float maxHealth,
+        int refund)
+    {
+        _selectedUnitCharacterId = characterId;
+        _unitSelectionLabel.Text = $"{displayName}  //  {KoreanUiText.Role(role)}\n체력 {Mathf.CeilToInt(currentHealth)} / {Mathf.CeilToInt(maxHealth)}";
+        _retreatButton.Text = $"퇴각  //  배치 포인트 +{refund}";
+        _placementLabel.Text = $"{displayName} 선택 // 전장 유지 또는 퇴각 결정";
+        _retreatButton.Disabled = false;
+        _unitSelectionPanel.Visible = true;
+    }
+
+    public void HideUnitSelection()
+    {
+        _selectedUnitCharacterId = "";
+        if (_unitSelectionPanel is not null) _unitSelectionPanel.Visible = false;
+    }
 
     public bool BeginCharacterDrag(string characterId, Vector2 globalPosition)
     {
@@ -367,6 +414,43 @@ public partial class CombatHud : CanvasLayer
             Modulate = new Color(1.0f, 1.0f, 1.0f, 0.55f)
         };
         AddChild(_dragGhost);
+    }
+
+    private void CreateUnitSelectionPanel()
+    {
+        _unitSelectionPanel = new PanelContainer
+        {
+            Name = "UnitSelectionPanel",
+            Visible = false,
+            Position = new Vector2(906, 402),
+            CustomMinimumSize = new Vector2(342, 152),
+            ZIndex = 90
+        };
+        _unitSelectionPanel.AddThemeStyleboxOverride(
+            "panel",
+            OperationUiStyle.PanelStyle(strong: true, border: OperationUiStyle.Amber));
+        var content = new VBoxContainer { Name = "Content" };
+        content.AddThemeConstantOverride("separation", 10);
+        _unitSelectionLabel = new Label
+        {
+            Name = "Summary",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill
+        };
+        _unitSelectionLabel.AddThemeFontSizeOverride("font_size", 15);
+        _unitSelectionLabel.AddThemeColorOverride("font_color", OperationUiStyle.Text);
+        _retreatButton = new Button { Name = "RetreatButton", CustomMinimumSize = new Vector2(0, 46) };
+        OperationUiStyle.ApplyButton(_retreatButton, OperationUiTone.Danger, fontSize: 15);
+        _retreatButton.Pressed += () =>
+        {
+            if (!string.IsNullOrEmpty(_selectedUnitCharacterId))
+                EmitSignal(SignalName.RetreatRequested, _selectedUnitCharacterId);
+        };
+        content.AddChild(_unitSelectionLabel);
+        content.AddChild(_retreatButton);
+        _unitSelectionPanel.AddChild(content);
+        AddChild(_unitSelectionPanel);
     }
 
     private void ConfigureDragGhost(UnitVisualDefinition visual)

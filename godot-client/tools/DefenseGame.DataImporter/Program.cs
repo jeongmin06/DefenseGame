@@ -314,7 +314,7 @@ sealed class Pipeline(string project)
             if (!Roles.Contains(role)) Fail(p + ".role", "unknown role");
             if (!BehaviorDefinitions.TryGetValue(behavior, out var behaviorDefinition)) Fail(p + ".behavior", "unknown behavior");
             if (behaviorDefinition.Role != role) Fail(p + ".behavior", "behavior does not match role");
-            string[] common = ["id", "displayName", "description", "role", "behavior", "visual", "skillTags", "placement", "deploymentCost", "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit"];
+            string[] common = ["id", "displayName", "description", "role", "behavior", "visual", "skillTags", "placement", "deploymentCost", "redeployDelay", "retreatRefundRate", "maxHealth", "actionPower", "actionInterval", "actionFrame", "targetLimit"];
             string[] extra = role switch
             {
                 "ranged" => ["rangePixels", "attackCellOffsets", "projectileScenePath", "projectileSpeed", "projectileHitDistance", "projectileSpawnOffset"],
@@ -330,6 +330,20 @@ sealed class Pipeline(string project)
             int deploymentCost = (int)Num(o, "deploymentCost", p, integer: true);
             if (role == "enemy" ? deploymentCost != 0 : deploymentCost <= 0)
                 Fail(p + ".deploymentCost", role == "enemy" ? "enemy deployment cost must be zero" : "allied deployment cost must be positive");
+            double redeployDelay = Num(o, "redeployDelay", p);
+            double retreatRefundRate = Num(o, "retreatRefundRate", p);
+            if (role == "enemy")
+            {
+                if (redeployDelay != 0) Fail(p + ".redeployDelay", "enemy redeploy delay must be zero");
+                if (retreatRefundRate != 0) Fail(p + ".retreatRefundRate", "enemy retreat refund rate must be zero");
+            }
+            else
+            {
+                if (redeployDelay <= 0 || (float)redeployDelay == 0)
+                    Fail(p + ".redeployDelay", "allied redeploy delay must be positive");
+                if (retreatRefundRate > 1)
+                    Fail(p + ".retreatRefundRate", "allied retreat refund rate must be between zero and one");
+            }
             Num(o, "maxHealth", p, positive: true); Num(o, "actionPower", p);
             Num(o, "actionInterval", p, positive: true);
             double frame = Num(o, "actionFrame", p, integer: true);
@@ -658,6 +672,8 @@ sealed class Pipeline(string project)
         b.AppendLine("Behavior = " + Array.IndexOf(Behaviors, behavior));
         b.AppendLine("Placement = " + Array.IndexOf(Placements, S(u, "placement")));
         b.AppendLine("DeploymentCost = " + N(u["deploymentCost"]));
+        b.AppendLine("RedeployDelay = " + N(u["redeployDelay"]));
+        b.AppendLine("RetreatRefundRate = " + N(u["retreatRefundRate"]));
         b.AppendLine("SkillTags = " + StringsText(u["skillTags"]));
         b.AppendLine("Scene = " + Ext("scene"));
         b.AppendLine("Visual = " + Sub("visual"));

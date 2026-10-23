@@ -86,6 +86,7 @@ func run():
     var archer = get_nodes_in_group("towers")[0]
     var archer_def = load("res://data/units/cat_archer.tres")
     check(archer_def.DeploymentCost == 10, "Unit deployment cost reaches generated resource")
+    check(archer_def.RedeployDelay == 5.0 and archer_def.RetreatRefundRate == 0.5, "Allied retreat settings reach generated resource")
     check(archer_def.Behavior == 0 and archer_def.Visual != null, "Ranged behavior and visual definition")
     check(archer_def.Visual.FrameSize == Vector2i(443, 443) and archer_def.Visual.Action.FrameCount == 8, "Visual frame metadata")
     check(archer_def.SkillTags == ["ATTACK", "BOW", "PROJECTILE", "PHYSICAL", "HIT"], "Unit skill compatibility tags")
@@ -110,6 +111,7 @@ func run():
     warrior.AttackCellOffsets.append(Vector2i(2,0))
     check(warrior_def.AttackCellOffsets.size() == 2, "Offsets copied")
     var mouse = load("res://data/units/mutant_mouse.tres")
+    check(mouse.RedeployDelay == 0.0 and mouse.RetreatRefundRate == 0.0, "Enemy retreat settings remain disabled")
     var enemy = mouse.Scene.instantiate()
     current_scene.get_node("EnemyPath").add_child(enemy)
     enemy.Setup(mouse, 0.0, 0.0)
@@ -127,5 +129,9 @@ func run():
     for id in ["cat_archer", "cat_archer_scout", "cat_warrior", "cat_healer", "mutant_mouse"]:
         var unit = load("res://data/units/" + id + ".tres")
         check(unit.Id == id and unit.Scene != null, "Unit resource reference")
+        if unit.Role == 3:
+            check(unit.RedeployDelay == 0.0 and unit.RetreatRefundRate == 0.0, "Enemy redeployment data is disabled")
+        else:
+            check(unit.RedeployDelay == 5.0 and unit.RetreatRefundRate == 0.5, "Allied redeployment data uses the public defaults")
     print("RESOURCE QA failures=", failures)
     quit(0 if failures == 0 else 1)

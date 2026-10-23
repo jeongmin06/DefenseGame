@@ -115,5 +115,8 @@ func run():
     await ticks(120)
     check(a.CurrentHealth == hp, "No healing after result")
     check(current_scene.get_node("HUD").AreAllDeploymentCardsDisabled(), "Result disables every deployment card")
+    check(not current_scene.SelectDeployedUnitAtCell(Vector2i(4,2)) \
+        and not current_scene.RetreatSelectedUnit(),
+        "Battle result blocks allied selection and retreat")
     print("HEALER QA failures=", failures)
     quit(0 if failures == 0 else 1)

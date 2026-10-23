@@ -18,6 +18,8 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 - `id`: 소문자로 시작하는 소문자·숫자·밑줄 ID, 문서 내 중복 불가
 - `displayName`, `role`, `behavior`, `visual`, `placement`, `skillTags`
 - `deploymentCost`: 아군은 양의 정수, 적은 0
+- `redeployDelay`: 아군은 양수, 적은 0. 현재 모든 아군의 기본값은 5초다.
+- `retreatRefundRate`: 아군은 0 이상 1 이하, 적은 0. 현재 모든 아군의 기본값은 0.5다.
 - `maxHealth`, `actionPower`, `actionInterval`, `actionFrame`, `targetLimit`
 
 역할별 필드:
@@ -93,6 +95,7 @@ dotnet run --project godot-client/tools/DefenseGame.DataImporter -- --input godo
 ```sh
 dotnet build godot-client/tools/DefenseGame.DataImporter
 python3 godot-client/tools/tests/test_importer.py
+python3 godot-client/tools/DefenseGame.DataImporter/tests/test_redeploy_contract.py
 dotnet build godot-client/DefenseGame.csproj
 /Applications/Godot_mono.app/Contents/MacOS/Godot --headless --editor --path godot-client --import --quit
 /Applications/Godot_mono.app/Contents/MacOS/Godot --headless --path godot-client --fixed-fps 60 --quit-after 600 --script res://tests/resource_regression.gd --log-file /tmp/defense-resource-qa.log

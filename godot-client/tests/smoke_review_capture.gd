@@ -112,6 +112,21 @@ func run():
     if not await deploy(stage, "starter_archer_a", 10.0, Vector2i(4, 2), 0):
         quit(1)
         return
+    if not require(stage.SelectDeployedUnitAtCell(Vector2i(4, 2)), "배치 궁수 선택 실패"):
+        quit(1)
+        return
+    await hold(1.0)
+    if not require(stage.RetreatSelectedUnit(), "배치 궁수 퇴각 실패"):
+        quit(1)
+        return
+    await hold(1.2)
+    if not await wait_for(func(): return stage.GetRedeployRemaining("starter_archer_a") <= 0.0, 8.0):
+        require(false, "배치 궁수 재배치 대기 실패")
+        quit(1)
+        return
+    if not await deploy(stage, "starter_archer_a", 10.0, Vector2i(4, 2), 0):
+        quit(1)
+        return
     if not await deploy(stage, "starter_archer_b", 9.0, Vector2i(9, 3), 2):
         quit(1)
         return

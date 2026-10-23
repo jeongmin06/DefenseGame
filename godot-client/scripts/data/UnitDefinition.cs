@@ -18,6 +18,8 @@ public partial class UnitDefinition : Resource
     [Export] public UnitBehavior Behavior { get; set; }
     [Export] public PlacementRule Placement { get; set; }
     [Export] public int DeploymentCost { get; set; }
+    [Export] public float RedeployDelay { get; set; }
+    [Export] public float RetreatRefundRate { get; set; }
     [Export] public Godot.Collections.Array<string> SkillTags { get; set; } = new();
     [Export] public PackedScene Scene { get; set; } = null!;
     [Export] public UnitVisualDefinition Visual { get; set; } = null!;
