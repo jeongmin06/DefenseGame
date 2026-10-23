@@ -48,11 +48,19 @@ public partial class DeploymentGrid : Node2D
     public UnitFacing PreviewFacing => _previewFacing;
     public Godot.Collections.Array<Vector2I> PreviewRangeCells => new(
         GridAttackRange.Cells(_facingOrigin, _facingOffsets, _previewFacing).Where(ContainsCell));
+    public bool HasDragRangePreview => _hasDragRangePreview;
+    public Godot.Collections.Array<Vector2I> DragPreviewRangeCells => _hasDragRangePreview
+        ? new Godot.Collections.Array<Vector2I>(
+            GridAttackRange.Cells(_dragRangeOrigin, _dragRangeOffsets, UnitFacing.Right).Where(ContainsCell))
+        : [];
     private Vector2I _hovered = new(-1, -1);
     private bool _isChoosingFacing;
     private Vector2I _facingOrigin = new(-1, -1);
     private Vector2I[] _facingOffsets = [];
     private UnitFacing _previewFacing = UnitFacing.Right;
+    private bool _hasDragRangePreview;
+    private Vector2I _dragRangeOrigin = new(-1, -1);
+    private Vector2I[] _dragRangeOffsets = [];
 
     public bool ContainsCell(Vector2I cell) => cell.X >= 0 && cell.X < Columns && cell.Y >= 0 && cell.Y < Rows;
 
@@ -106,7 +114,34 @@ public partial class DeploymentGrid : Node2D
     public void SetPlacementEnabled(bool enabled)
     {
         _placementEnabled = enabled;
-        if (!enabled) CancelFacingSelection();
+        if (!enabled)
+        {
+            CancelFacingSelection();
+            ClearDragRangePreview();
+        }
+        QueueRedraw();
+    }
+
+    public void ShowDragRangePreview(Vector2I cell, IEnumerable<Vector2I> canonicalOffsets)
+    {
+        Vector2I[] offsets = canonicalOffsets.Distinct().ToArray();
+        if (!ContainsCell(cell) || offsets.Length == 0)
+        {
+            ClearDragRangePreview();
+            return;
+        }
+        _hasDragRangePreview = true;
+        _dragRangeOrigin = cell;
+        _dragRangeOffsets = offsets;
+        QueueRedraw();
+    }
+
+    public void ClearDragRangePreview()
+    {
+        if (!_hasDragRangePreview) return;
+        _hasDragRangePreview = false;
+        _dragRangeOrigin = new Vector2I(-1, -1);
+        _dragRangeOffsets = [];
         QueueRedraw();
     }
 
@@ -123,6 +158,7 @@ public partial class DeploymentGrid : Node2D
         if (!_placementEnabled || !CanPlace(cell, SelectedProfile)) return false;
         Vector2I[] offsets = canonicalOffsets.Distinct().ToArray();
         if (offsets.Length == 0) return false;
+        ClearDragRangePreview();
         _isChoosingFacing = true;
         _facingOrigin = cell;
         _facingOffsets = offsets;
@@ -175,6 +211,9 @@ public partial class DeploymentGrid : Node2D
         _occupied.Clear();
         _isChoosingFacing = false;
         _facingOffsets = [];
+        _hasDragRangePreview = false;
+        _dragRangeOrigin = new Vector2I(-1, -1);
+        _dragRangeOffsets = [];
         _placementEnabled = true;
         foreach (Vector2I cell in blockedCells)
         {
@@ -240,8 +279,12 @@ public partial class DeploymentGrid : Node2D
 
     public override void _Draw()
     {
-        var previewCells = _isChoosingFacing
+        var facingPreviewCells = _isChoosingFacing
             ? new HashSet<Vector2I>(GridAttackRange.Cells(_facingOrigin, _facingOffsets, _previewFacing).Where(ContainsCell))
+            : new HashSet<Vector2I>();
+        var dragPreviewCells = _hasDragRangePreview
+            ? new HashSet<Vector2I>(GridAttackRange.Cells(
+                _dragRangeOrigin, _dragRangeOffsets, UnitFacing.Right).Where(ContainsCell))
             : new HashSet<Vector2I>();
         for (int y = 0; y < Rows; y++)
         for (int x = 0; x < Columns; x++)
@@ -266,8 +309,12 @@ public partial class DeploymentGrid : Node2D
                 DrawRect(rect.Grow(-4), new Color(0.85f, 0.94f, 0.6f, 0.16f), false, 1);
             if (_occupied.Contains(cell))
                 DrawRect(rect.Grow(-5), new Color(1, 0.85f, 0.5f, 0.35f), false, 2);
-            if (previewCells.Contains(cell))
+            if (dragPreviewCells.Contains(cell))
+                DrawRect(rect.Grow(-5), new Color(0.35f, 0.88f, 0.82f, 0.20f), true);
+            if (facingPreviewCells.Contains(cell))
                 DrawRect(rect.Grow(-5), new Color(0.35f, 0.88f, 0.82f, 0.32f), true);
+            if (_hasDragRangePreview && cell == _dragRangeOrigin)
+                DrawRect(rect.Grow(-3), new Color(0.35f, 0.88f, 0.82f, 0.75f), false, 3);
             if (_isChoosingFacing && cell == _facingOrigin)
                 DrawRect(rect.Grow(-3), new Color(1.0f, 0.75f, 0.25f, 0.85f), false, 4);
             DrawRect(rect, new Color(0.15f, 0.22f, 0.1f, 0.25f), false, 1);

@@ -96,6 +96,7 @@ public partial class StageOne : Node2D
         _grid.FacingSelectionCanceled += OnFacingSelectionCanceled;
         _hud.CharacterSelected += characterId => SelectDeploymentCharacter(characterId);
         _hud.CharacterDragMoved += PreviewCharacterDrag;
+        _hud.CharacterDragEnded += _grid.ClearDragRangePreview;
         _hud.CharacterDropped += (characterId, globalPosition) =>
             TryDeployCharacterAtGlobalPosition(characterId, globalPosition);
         _hud.RetryRequested += RestartStage;
@@ -186,11 +187,13 @@ public partial class StageOne : Node2D
         if (_battleEnded || !_availableDeployments.TryGetValue(characterId, out UnitDeployment? deployment)
             || deployment.Profile.Unit is null)
         {
+            _grid.ClearDragRangePreview();
             _hud.UpdateCharacterDragPreview(previewPosition, false, "현재 배치 불가");
             return;
         }
         if (!CanAfford(deployment.Profile.Unit))
         {
+            _grid.ClearDragRangePreview();
             _hud.UpdateCharacterDragPreview(previewPosition, false, "포인트 부족");
             return;
         }
@@ -199,6 +202,8 @@ public partial class StageOne : Node2D
             cell,
             ToPlacementType(deployment.Profile.Unit.Role));
         bool valid = reason == DeploymentGrid.PlacementBlockReason.None;
+        if (valid) _grid.ShowDragRangePreview(cell, deployment.Profile.Unit.AttackCellOffsets);
+        else _grid.ClearDragRangePreview();
         _hud.UpdateCharacterDragPreview(previewPosition, valid, reason switch
         {
             DeploymentGrid.PlacementBlockReason.None => "배치 가능",

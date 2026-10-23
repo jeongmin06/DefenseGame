@@ -13,6 +13,7 @@ public partial class CombatHud : CanvasLayer
     [Signal] public delegate void CharacterSelectedEventHandler(string characterId);
     [Signal] public delegate void CharacterDroppedEventHandler(string characterId, Vector2 globalPosition);
     [Signal] public delegate void CharacterDragMovedEventHandler(string characterId, Vector2 globalPosition);
+    [Signal] public delegate void CharacterDragEndedEventHandler();
     [Signal] public delegate void RetryRequestedEventHandler();
     [Signal] public delegate void StageListRequestedEventHandler();
     [Signal] public delegate void ResultSyncRetryRequestedEventHandler();
@@ -310,12 +311,14 @@ public partial class CombatHud : CanvasLayer
 
     public void CancelCharacterDrag()
     {
+        bool wasDragging = IsDraggingCharacter;
         _dragCandidateId = "";
         _draggedCharacterId = "";
         DragPlacementValid = false;
         DragPlacementStatus = "";
         if (_dragPreview is not null) _dragPreview.Visible = false;
         if (_dragGhost is not null) _dragGhost.Visible = false;
+        if (wasDragging) EmitSignal(SignalName.CharacterDragEnded);
     }
 
     public bool CompleteCharacterDrag(Vector2 globalPosition)
