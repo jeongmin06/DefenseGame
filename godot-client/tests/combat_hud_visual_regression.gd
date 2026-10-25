@@ -60,6 +60,16 @@ func run():
         "Deployment card uses pointing-hand cursor")
     check_button_states(hud.get_node("ResultPanel/RestartButton"), "Retry button")
     check_button_states(hud.get_node("ResultPanel/StageListButton"), "Stage-list button")
+    var battle_controls: HBoxContainer = hud.get_node("BattleControls")
+    var pause_button: Button = battle_controls.get_node("PauseButton")
+    var speed_button: Button = battle_controls.get_node("SpeedButton")
+    var first_wave_button: Button = battle_controls.get_node("FirstWaveButton")
+    check_button_states(pause_button, "Pause button")
+    check_button_states(speed_button, "Speed button")
+    check_button_states(first_wave_button, "First-wave button")
+    check(pause_button.text == "일시정지" and speed_button.text == "1×" \
+        and not first_wave_button.disabled,
+        "Battle time controls start in the expected Korean state")
 
     var card_scroll: ScrollContainer = hud.get_node("DeploymentPanel/CardScroll")
     check(card_scroll.horizontal_scroll_mode != ScrollContainer.SCROLL_MODE_DISABLED,
@@ -104,6 +114,8 @@ func run():
     check(hud.get_node("ResultPanel/ResultTitle").modulate.g > hud.get_node("ResultPanel/ResultTitle").modulate.r,
         "Victory result uses the teal success color")
     check(hud.ResultSyncStatus == "Saving", "Result report starts in server-saving state")
+    check(pause_button.disabled and speed_button.disabled and first_wave_button.disabled,
+        "Battle result disables every time control")
     check(hud.get_node("ResultPanel/RestartButton").disabled \
         and hud.get_node("ResultPanel/StageListButton").disabled,
         "Result navigation stays locked before server confirmation")

@@ -118,5 +118,12 @@ func run():
     check(not current_scene.SelectDeployedUnitAtCell(Vector2i(4,2)) \
         and not current_scene.RetreatSelectedUnit(),
         "Battle result blocks allied selection and retreat")
+    check(not paused and is_equal_approx(Engine.time_scale, 1.0),
+        "Battle result restores global pause and speed defaults")
+    var time_controls = current_scene.get_node("HUD/BattleControls")
+    check(time_controls.get_node("PauseButton").disabled \
+        and time_controls.get_node("SpeedButton").disabled \
+        and time_controls.get_node("FirstWaveButton").disabled,
+        "Battle result disables every time control")
     print("HEALER QA failures=", failures)
     quit(0 if failures == 0 else 1)

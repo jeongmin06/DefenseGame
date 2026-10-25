@@ -27,6 +27,11 @@ public partial class StageOne : Node2D
         ?.Profile.CharacterId ?? "";
     public string[] PlacedArcherCharacterIds => _placedArcherCharacterIds.ToArray();
     public string SelectedRetreatCharacterId => _selectedActiveCharacterId;
+    public bool IsBattlePaused => _battlePaused;
+    public int BattleSpeed => _battleSpeed;
+    public int CurrentWaveNumber => Mathf.Max(0, _waveIndex + 1);
+    public int SpawnedInCurrentWave => _spawnedInWave;
+    public bool CanStartFirstWaveEarly => !_battleEnded && _waveIndex < 0 && _firstWaveCountdown > 0;
     public string ResultSyncStatusCode { get; private set; } = "Idle";
     private readonly StageProgressServerClient _progressClient = new();
     private readonly System.Threading.CancellationTokenSource _progressCancellation = new();
@@ -49,6 +54,9 @@ public partial class StageOne : Node2D
     private float _waveGap;
     private float _deploymentPoints;
     private bool _combatTimelineStarted;
+    private bool _battlePaused;
+    private int _battleSpeed = 1;
+    private int _waveScheduleGeneration;
     private int _lastDisplayedCountdownSecond = -1;
     private int _lastDisplayedDeploymentPoints = -1;
     private DeploymentGrid.PlacementType _selectedType;
@@ -73,6 +81,7 @@ public partial class StageOne : Node2D
 
     public override void _Ready()
     {
+        RestoreSimulationDefaults();
         if (StageSelectionState.SelectedStage is not null)
             Definition = StageSelectionState.SelectedStage;
         BuildDeploymentQueues();
@@ -104,6 +113,9 @@ public partial class StageOne : Node2D
         _hud.CharacterDropped += (characterId, globalPosition) =>
             TryDeployCharacterAtGlobalPosition(characterId, globalPosition);
         _hud.RetreatRequested += characterId => RetreatCharacter(characterId);
+        _hud.PauseRequested += () => ToggleBattlePause();
+        _hud.BattleSpeedRequested += () => ToggleBattleSpeed();
+        _hud.FirstWaveStartRequested += () => StartFirstWaveEarly();
         _hud.RetryRequested += RestartStage;
         _hud.StageListRequested += ReturnToStageList;
         _hud.ResultSyncRetryRequested += RetryBattleResultSync;
@@ -136,12 +148,52 @@ public partial class StageOne : Node2D
         UpdateHud();
     }
 
-    public void RestartStage() => GetTree().ReloadCurrentScene();
+    public void RestartStage()
+    {
+        RestoreSimulationDefaults();
+        GetTree().ReloadCurrentScene();
+    }
 
     public void ReturnToStageList()
     {
+        RestoreSimulationDefaults();
         StageSelectionState.ClearStage();
         GetTree().ChangeSceneToFile("res://scenes/stage_select.tscn");
+    }
+
+    public bool ToggleBattlePause()
+    {
+        if (_battleEnded) return false;
+        bool pause = !_battlePaused;
+        if (pause)
+        {
+            _hud.CancelCharacterDrag();
+            _grid.SetPlacementEnabled(false);
+        }
+        _battlePaused = pause;
+        GetTree().Paused = _battlePaused;
+        if (!pause) _grid.SetPlacementEnabled(true);
+        UpdatePlacementHud();
+        _hud.UpdateBattleControls(_battlePaused, _battleSpeed, CanStartFirstWaveEarly);
+        return true;
+    }
+
+    public int ToggleBattleSpeed()
+    {
+        if (_battleEnded) return _battleSpeed;
+        _battleSpeed = _battleSpeed == 1 ? 2 : 1;
+        Engine.TimeScale = _battleSpeed;
+        _hud.UpdateBattleControls(_battlePaused, _battleSpeed, CanStartFirstWaveEarly);
+        return _battleSpeed;
+    }
+
+    public bool StartFirstWaveEarly()
+    {
+        if (_battlePaused || !CanStartFirstWaveEarly) return false;
+        _waveScheduleGeneration++;
+        _firstWaveCountdown = 0.0f;
+        StartNextWave();
+        return true;
     }
 
     public override void _Draw()
@@ -151,7 +203,7 @@ public partial class StageOne : Node2D
 
     public override void _UnhandledInput(InputEvent input)
     {
-        if (_battleEnded || _grid.IsChoosingFacing || _hud.IsDraggingCharacter
+        if (_battleEnded || _battlePaused || _grid.IsChoosingFacing || _hud.IsDraggingCharacter
             || input is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } click)
             return;
 
@@ -186,7 +238,8 @@ public partial class StageOne : Node2D
 
     public bool SelectDeploymentCharacter(string characterId)
     {
-        if (_battleEnded || !_availableDeployments.TryGetValue(characterId, out UnitDeployment? deployment)
+        if (_battleEnded || _battlePaused
+            || !_availableDeployments.TryGetValue(characterId, out UnitDeployment? deployment)
             || deployment.Profile.Unit is null || !CanAfford(deployment.Profile.Unit)) return false;
         if (_grid.IsChoosingFacing) _grid.CancelFacingSelection();
         ClearActiveUnitSelection();
@@ -207,7 +260,8 @@ public partial class StageOne : Node2D
     {
         Vector2I cell = _grid.GlobalToCell(globalPosition);
         Vector2 previewPosition = _grid.ContainsCell(cell) ? _grid.CellToGlobal(cell) : globalPosition;
-        if (_battleEnded || !_availableDeployments.TryGetValue(characterId, out UnitDeployment? deployment)
+        if (_battleEnded || _battlePaused
+            || !_availableDeployments.TryGetValue(characterId, out UnitDeployment? deployment)
             || deployment.Profile.Unit is null)
         {
             _grid.ClearDragRangePreview();
@@ -249,14 +303,16 @@ public partial class StageOne : Node2D
             _availableDeployments.Keys,
             _selectedCharacterId,
             _deploymentPoints,
-            _redeployRemaining);
+            _redeployRemaining,
+            _battlePaused);
         _hud.UpdatePlacement(
             selected,
             _availableDeployments.Count,
             _grid.IsChoosingFacing,
             _redeployRemaining.Count > 0,
             _availableDeployments.Values.Any(candidate =>
-                candidate.Profile.Unit is not null && CanAfford(candidate.Profile.Unit)));
+                candidate.Profile.Unit is not null && CanAfford(candidate.Profile.Unit)),
+            _battlePaused);
         _hud.UpdateDeploymentPoints(Mathf.FloorToInt(_deploymentPoints), Definition.MaxDeploymentPoints);
     }
 
@@ -268,7 +324,8 @@ public partial class StageOne : Node2D
 
     private bool BeginPendingDeployment(Vector2I cell)
     {
-        if (_battleEnded || !_availableDeployments.TryGetValue(_selectedCharacterId, out UnitDeployment? deployment)
+        if (_battleEnded || _battlePaused
+            || !_availableDeployments.TryGetValue(_selectedCharacterId, out UnitDeployment? deployment)
             || deployment.Profile.Unit is null || !CanAfford(deployment.Profile.Unit)
             || !_grid.CanPlace(cell, _selectedType)) return false;
         _pendingDeploymentCharacterId = deployment.Profile.CharacterId;
@@ -366,7 +423,7 @@ public partial class StageOne : Node2D
 
     public bool SelectDeployedUnitAtCell(Vector2I cell)
     {
-        if (_battleEnded || _grid.IsChoosingFacing || _hud.IsDraggingCharacter) return false;
+        if (_battleEnded || _battlePaused || _grid.IsChoosingFacing || _hud.IsDraggingCharacter) return false;
         ActiveDeployment? active = _activeDeployments.Values.FirstOrDefault(candidate => candidate.Cell == cell);
         if (active is null || !GodotObject.IsInstanceValid(active.Unit) || active.Unit.IsQueuedForDeletion()) return false;
         _selectedCharacterId = "";
@@ -383,7 +440,7 @@ public partial class StageOne : Node2D
 
     private bool RetreatCharacter(string characterId)
     {
-        if (_battleEnded || string.IsNullOrEmpty(characterId)) return false;
+        if (_battleEnded || _battlePaused || string.IsNullOrEmpty(characterId)) return false;
         return RemoveActiveDeployment(characterId, refund: true, queueFree: true);
     }
 
@@ -622,8 +679,12 @@ public partial class StageOne : Node2D
 
     private void ScheduleNextWave(double delay)
     {
-        SceneTreeTimer timer = GetTree().CreateTimer(delay, true, true);
-        timer.Timeout += StartNextWave;
+        int generation = ++_waveScheduleGeneration;
+        SceneTreeTimer timer = GetTree().CreateTimer(delay, processAlways: false, processInPhysics: true);
+        timer.Timeout += () =>
+        {
+            if (generation == _waveScheduleGeneration && IsInsideTree()) StartNextWave();
+        };
     }
 
     private void OnEnemyDefeated(Enemy enemy)
@@ -671,6 +732,7 @@ public partial class StageOne : Node2D
         }
 
         _battleEnded = true;
+        RestoreSimulationDefaults();
         _spawnTimer.Stop();
         _grid.SetPlacementEnabled(false);
         ClearActiveUnitSelection();
@@ -788,6 +850,7 @@ public partial class StageOne : Node2D
             _escapedEnemies,
             _baseHealth,
             _waveIndex < 0 ? Mathf.CeilToInt(_firstWaveCountdown) : -1);
+        _hud.UpdateBattleControls(_battlePaused, _battleSpeed, CanStartFirstWaveEarly, _battleEnded);
     }
 
     private void BuildDeploymentQueues()
@@ -821,6 +884,8 @@ public partial class StageOne : Node2D
 
     public override void _ExitTree()
     {
+        _waveScheduleGeneration++;
+        RestoreSimulationDefaults();
         _progressCancellation.Cancel();
         _progressCancellation.Dispose();
     }
@@ -829,4 +894,12 @@ public partial class StageOne : Node2D
     private sealed record UnitDeployment(CatProfile Profile, SkillLoadout? Loadout,
         RangedAttackSettings? RangedSettings);
     private sealed record ActiveDeployment(Node2D Unit, UnitDeployment Deployment, Vector2I Cell);
+
+    private void RestoreSimulationDefaults()
+    {
+        _battlePaused = false;
+        _battleSpeed = 1;
+        Engine.TimeScale = 1.0;
+        GetTree().Paused = false;
+    }
 }

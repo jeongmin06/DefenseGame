@@ -98,6 +98,33 @@ func run():
     await hold(0.8)
     var grid = stage.get_node("DeploymentGrid")
     var hud = stage.get_node("HUD")
+    var battle_controls = hud.get_node("BattleControls")
+    var pause_button: Button = battle_controls.get_node("PauseButton")
+    var speed_button: Button = battle_controls.get_node("SpeedButton")
+    var first_wave_button: Button = battle_controls.get_node("FirstWaveButton")
+    pause_button.emit_signal("pressed")
+    if not require(stage.IsBattlePaused, "전투 일시정지 실패"):
+        quit(1)
+        return
+    await hold(1.0)
+    pause_button.emit_signal("pressed")
+    if not require(not stage.IsBattlePaused, "전투 재개 실패"):
+        quit(1)
+        return
+    speed_button.emit_signal("pressed")
+    if not require(stage.BattleSpeed == 2, "2배속 전환 실패"):
+        quit(1)
+        return
+    await hold(0.8)
+    speed_button.emit_signal("pressed")
+    if not require(stage.BattleSpeed == 1, "1배속 복귀 실패"):
+        quit(1)
+        return
+    first_wave_button.emit_signal("pressed")
+    if not require(stage.CurrentWaveNumber == 1, "첫 웨이브 조기 시작 실패"):
+        quit(1)
+        return
+    await hold(0.8)
     if not require(hud.BeginCharacterDrag("starter_archer_a", grid.CellToGlobal(Vector2i(1, 3))),
         "궁수 경로 타일 미리보기 시작 실패"):
         quit(1)

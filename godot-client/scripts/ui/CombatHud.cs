@@ -15,6 +15,9 @@ public partial class CombatHud : CanvasLayer
     [Signal] public delegate void CharacterDragMovedEventHandler(string characterId, Vector2 globalPosition);
     [Signal] public delegate void CharacterDragEndedEventHandler();
     [Signal] public delegate void RetreatRequestedEventHandler(string characterId);
+    [Signal] public delegate void PauseRequestedEventHandler();
+    [Signal] public delegate void BattleSpeedRequestedEventHandler();
+    [Signal] public delegate void FirstWaveStartRequestedEventHandler();
     [Signal] public delegate void RetryRequestedEventHandler();
     [Signal] public delegate void StageListRequestedEventHandler();
     [Signal] public delegate void ResultSyncRetryRequestedEventHandler();
@@ -42,6 +45,9 @@ public partial class CombatHud : CanvasLayer
     private PanelContainer _unitSelectionPanel = null!;
     private Label _unitSelectionLabel = null!;
     private Button _retreatButton = null!;
+    private Button _pauseButton = null!;
+    private Button _speedButton = null!;
+    private Button _firstWaveButton = null!;
     private Vector2 _dragGhostOffset;
     private string _dragPreviewSummary = "";
     private string _dragCandidateId = "";
@@ -60,9 +66,13 @@ public partial class CombatHud : CanvasLayer
     public string SelectedUnitCharacterId => _selectedUnitCharacterId;
     public string SelectedUnitSummary => _unitSelectionLabel?.Text ?? "";
     public string RetreatButtonText => _retreatButton?.Text ?? "";
+    public string PauseButtonText => _pauseButton?.Text ?? "";
+    public string SpeedButtonText => _speedButton?.Text ?? "";
+    public bool IsFirstWaveButtonDisabled => _firstWaveButton?.Disabled ?? true;
 
     public override void _Ready()
     {
+        ProcessMode = ProcessModeEnum.Always;
         _title = GetNode<Label>("TopPanel/Title");
         _deploymentCardList = GetNode<HBoxContainer>("DeploymentPanel/CardScroll/CardList");
         _placementLabel = GetNode<Label>("TopPanel/PlacementLabel");
@@ -84,6 +94,7 @@ public partial class CombatHud : CanvasLayer
         ApplyOperationStyle();
         CreateDragPreview();
         CreateUnitSelectionPanel();
+        CreateBattleControls();
     }
 
     public override void _Input(InputEvent input)
@@ -146,7 +157,8 @@ public partial class CombatHud : CanvasLayer
         IEnumerable<string> remainingCharacterIds,
         string selectedCharacterId,
         float deploymentPoints,
-        IReadOnlyDictionary<string, float>? redeployRemaining = null)
+        IReadOnlyDictionary<string, float>? redeployRemaining = null,
+        bool interactionsLocked = false)
     {
         var remaining = new HashSet<string>(remainingCharacterIds, StringComparer.Ordinal);
         foreach ((string characterId, Button button) in _deploymentCards)
@@ -179,7 +191,7 @@ public partial class CombatHud : CanvasLayer
                     leftPadding: 12);
                 _cardVisualStates[characterId] = visualState;
             }
-            button.Disabled = !affordable;
+            button.Disabled = interactionsLocked || !affordable;
             button.Text = waiting
                 ? $"↻ {profile.DisplayName}\n  {KoreanUiText.Role(unit.Role)} · 재배치 {Mathf.CeilToInt(remainingSeconds):D2}초"
                 : available
@@ -202,8 +214,14 @@ public partial class CombatHud : CanvasLayer
         int remainingCount,
         bool choosingFacing = false,
         bool hasRedeployCooldown = false,
-        bool hasAffordableCards = false)
+        bool hasAffordableCards = false,
+        bool battlePaused = false)
     {
+        if (battlePaused)
+        {
+            _placementLabel.Text = "전투 일시정지 // 계속을 눌러 재개";
+            return;
+        }
         if (choosingFacing)
         {
             _placementLabel.Text = "배치 방향 선택 // 범위를 확인하고 다시 클릭 · ESC 취소";
@@ -246,6 +264,7 @@ public partial class CombatHud : CanvasLayer
         HideUnitSelection();
         _placementLabel.Text = "전투 종료";
         foreach (Button button in _deploymentCards.Values) button.Disabled = true;
+        UpdateBattleControls(paused: false, speed: 1, canStartFirstWave: false, battleEnded: true);
         _resultPanel.Visible = true;
         _resultTitle.Text = victory ? "작전 성공" : "기지 함락";
         _resultTitle.Modulate = victory ? OperationUiStyle.Teal : OperationUiStyle.Red;
@@ -297,6 +316,17 @@ public partial class CombatHud : CanvasLayer
         _deploymentCards.TryGetValue(characterId, out Button? button) ? button.Text : "";
 
     public bool AreAllDeploymentCardsDisabled() => _deploymentCards.Values.All(button => button.Disabled);
+
+    public void UpdateBattleControls(bool paused, int speed, bool canStartFirstWave, bool battleEnded = false)
+    {
+        _pauseButton.Text = paused ? "계속" : "일시정지";
+        _pauseButton.Disabled = battleEnded;
+        _speedButton.Text = $"{speed}×";
+        _speedButton.Disabled = battleEnded;
+        _firstWaveButton.Disabled = battleEnded || paused || !canStartFirstWave;
+        _firstWaveButton.Text = canStartFirstWave ? "웨이브 시작" : "진행 중";
+        if (_retreatButton is not null) _retreatButton.Disabled = battleEnded || paused;
+    }
 
     public void ShowUnitSelection(
         string characterId,
@@ -451,6 +481,31 @@ public partial class CombatHud : CanvasLayer
         content.AddChild(_retreatButton);
         _unitSelectionPanel.AddChild(content);
         AddChild(_unitSelectionPanel);
+    }
+
+    private void CreateBattleControls()
+    {
+        _placementLabel.OffsetRight = 900;
+        var controls = new HBoxContainer
+        {
+            Name = "BattleControls",
+            Position = new Vector2(914, 51),
+            CustomMinimumSize = new Vector2(332, 38)
+        };
+        controls.AddThemeConstantOverride("separation", 8);
+        _pauseButton = new Button { Name = "PauseButton", Text = "일시정지", CustomMinimumSize = new Vector2(96, 36) };
+        _speedButton = new Button { Name = "SpeedButton", Text = "1×", CustomMinimumSize = new Vector2(72, 36) };
+        _firstWaveButton = new Button { Name = "FirstWaveButton", Text = "웨이브 시작", CustomMinimumSize = new Vector2(148, 36) };
+        OperationUiStyle.ApplyButton(_pauseButton, fontSize: 14);
+        OperationUiStyle.ApplyButton(_speedButton, OperationUiTone.Primary, fontSize: 14);
+        OperationUiStyle.ApplyButton(_firstWaveButton, OperationUiTone.Success, fontSize: 14);
+        _pauseButton.Pressed += () => EmitSignal(SignalName.PauseRequested);
+        _speedButton.Pressed += () => EmitSignal(SignalName.BattleSpeedRequested);
+        _firstWaveButton.Pressed += () => EmitSignal(SignalName.FirstWaveStartRequested);
+        controls.AddChild(_pauseButton);
+        controls.AddChild(_speedButton);
+        controls.AddChild(_firstWaveButton);
+        AddChild(controls);
     }
 
     private void ConfigureDragGhost(UnitVisualDefinition visual)
