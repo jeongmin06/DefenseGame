@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using DefenseGame.Server.Domain;
 using DefenseGame.Server.Services;
 
@@ -13,12 +14,16 @@ public sealed class JsonFileProgressStore : IProgressStore
     };
 
     private readonly string _filePath;
+    private readonly string _temporaryFilePath;
+    private readonly string _backupFilePath;
     private readonly ISystemClock _clock;
     private readonly SemaphoreSlim _gate = new(1, 1);
 
     public JsonFileProgressStore(string filePath, ISystemClock clock)
     {
         _filePath = filePath;
+        _temporaryFilePath = $"{filePath}.tmp";
+        _backupFilePath = $"{filePath}.bak";
         _clock = clock;
         // Directory setup happens when the store is constructed, outside actor messages.
         var directoryPath = Path.GetDirectoryName(filePath);
@@ -68,18 +73,122 @@ public sealed class JsonFileProgressStore : IProgressStore
     {
         try
         {
-            var json = await File.ReadAllTextAsync(_filePath, cancellationToken);
-            return JsonSerializer.Deserialize<ProgressDatabase>(json, JsonOptions) ?? new ProgressDatabase();
+            return await ReadDatabaseFileAsync(_filePath, cancellationToken);
+        }
+        catch (FileNotFoundException)
+        {
+            return await RecoverBackupOrCreateAsync(cancellationToken);
+        }
+        catch (JsonException primaryError)
+        {
+            return await RecoverBackupAsync(primaryError, cancellationToken);
+        }
+    }
+
+    private async Task<ProgressDatabase> ReadDatabaseFileAsync(
+        string filePath,
+        CancellationToken cancellationToken)
+    {
+        var json = await File.ReadAllTextAsync(filePath, cancellationToken);
+        ProgressDatabase db = JsonSerializer.Deserialize<ProgressDatabase>(json, JsonOptions)
+            ?? throw new JsonException($"Progress database '{filePath}' contains a null document.");
+        if (db.Users is null)
+            throw new JsonException($"Progress database '{filePath}' contains a null users object.");
+
+        return db;
+    }
+
+    private async Task<ProgressDatabase> RecoverBackupOrCreateAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await RestoreBackupAsync(cancellationToken);
         }
         catch (FileNotFoundException)
         {
             return new ProgressDatabase();
         }
+        catch (JsonException backupError)
+        {
+            throw new InvalidDataException(
+                $"Progress database '{_filePath}' is missing and backup '{_backupFilePath}' is corrupted.",
+                backupError);
+        }
     }
 
-    private Task WriteDatabaseAsync(ProgressDatabase db, CancellationToken cancellationToken)
+    private async Task<ProgressDatabase> RecoverBackupAsync(
+        JsonException primaryError,
+        CancellationToken cancellationToken)
     {
-        return File.WriteAllTextAsync(_filePath, JsonSerializer.Serialize(db, JsonOptions), cancellationToken);
+        try
+        {
+            return await RestoreBackupAsync(cancellationToken);
+        }
+        catch (FileNotFoundException)
+        {
+            throw new InvalidDataException(
+                $"Progress database '{_filePath}' is corrupted and no backup is available.",
+                primaryError);
+        }
+        catch (JsonException backupError)
+        {
+            throw new InvalidDataException(
+                $"Progress database '{_filePath}' and backup '{_backupFilePath}' are both corrupted.",
+                new AggregateException(primaryError, backupError));
+        }
+    }
+
+    private async Task<ProgressDatabase> RestoreBackupAsync(CancellationToken cancellationToken)
+    {
+        ProgressDatabase db = await ReadDatabaseFileAsync(_backupFilePath, cancellationToken);
+        try
+        {
+            File.Copy(_backupFilePath, _temporaryFilePath, overwrite: true);
+            cancellationToken.ThrowIfCancellationRequested();
+            File.Move(_temporaryFilePath, _filePath, overwrite: true);
+            return db;
+        }
+        finally
+        {
+            DeleteTemporaryFileBestEffort();
+        }
+    }
+
+    private async Task WriteDatabaseAsync(ProgressDatabase db, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await File.WriteAllTextAsync(
+                _temporaryFilePath,
+                JsonSerializer.Serialize(db, JsonOptions),
+                cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+
+            if (File.Exists(_filePath))
+                File.Replace(_temporaryFilePath, _filePath, _backupFilePath, ignoreMetadataErrors: true);
+            else
+                File.Move(_temporaryFilePath, _filePath);
+        }
+        finally
+        {
+            DeleteTemporaryFileBestEffort();
+        }
+    }
+
+    private void DeleteTemporaryFileBestEffort()
+    {
+        try
+        {
+            File.Delete(_temporaryFilePath);
+        }
+        catch (IOException)
+        {
+            // Preserve the original write or recovery failure when cleanup is blocked.
+        }
+        catch (UnauthorizedAccessException)
+        {
+            // Preserve the original write or recovery failure when cleanup is blocked.
+        }
     }
 
     private static ProgressEntry ToEntry(UserProgress progress)
@@ -169,6 +278,7 @@ public sealed class JsonFileProgressStore : IProgressStore
 
     private sealed class ProgressDatabase
     {
+        [JsonRequired]
         public Dictionary<string, ProgressEntry> Users { get; init; } = new(StringComparer.Ordinal);
     }
 
