@@ -314,11 +314,19 @@ public partial class SquadFormationScreen : Node2D
 
     private async Task LoadFromServerAsync(StageDefinition stage)
     {
+        if (!ClientRuntimeSettings.TryGet(out ClientRuntimeConfiguration configuration, out string error))
+        {
+            _remoteLoadStatus = "invalid_configuration";
+            _serverReady = false;
+            GD.PushError(error);
+            Refresh();
+            return;
+        }
         _serverBusy = true;
         _remoteLoadStatus = "Loading";
         Refresh();
         StageSquadServerResult result = await _serverClient.LoadAsync(
-            ServerBaseUrl(), PlayerId(), stage.Id, _serverCancellation.Token);
+            configuration.ServerBaseUrl, configuration.PlayerId, stage.Id, _serverCancellation.Token);
         if (!IsInsideTree()) return;
         _serverBusy = false;
         if (!result.IsSuccess || result.Payload is null)
@@ -341,11 +349,21 @@ public partial class SquadFormationScreen : Node2D
 
     private async Task SaveToServerAndContinueAsync(StageDefinition stage, StageSquadValidationResult validation)
     {
+        if (!ClientRuntimeSettings.TryGet(out ClientRuntimeConfiguration configuration, out string error))
+        {
+            _lastSaveStatus = "invalid_configuration";
+            _statusLabel.Text = $"수정 필요 // {error}";
+            GD.PushError(error);
+            PresentStatus(true);
+            RefreshLists();
+            _continueButton.Disabled = false;
+            return;
+        }
         _serverBusy = true;
         _lastSaveStatus = "Saving";
         Refresh();
         StageSquadServerResult result = await _serverClient.SaveAsync(
-            ServerBaseUrl(), PlayerId(), stage.Id, _selectedIds.ToArray(), _serverRevision, _serverCancellation.Token);
+            configuration.ServerBaseUrl, configuration.PlayerId, stage.Id, _selectedIds.ToArray(), _serverRevision, _serverCancellation.Token);
         if (!IsInsideTree()) return;
         _serverBusy = false;
         if (!result.IsSuccess || result.Payload is null)
@@ -373,12 +391,6 @@ public partial class SquadFormationScreen : Node2D
         StageSelectionState.ActiveSquadRevision = _serverRevision;
         GetTree().ChangeSceneToFile("res://scenes/skill_loadout.tscn");
     }
-
-    private static string ServerBaseUrl() => (string)ProjectSettings.GetSetting(
-        "defense_game/server/base_url", "http://127.0.0.1:5080");
-
-    private static string PlayerId() => (string)ProjectSettings.GetSetting(
-        "defense_game/player/development_user_id", "local-development-user");
 
     private void PresentStatus(bool isError, bool isBusy = false)
     {

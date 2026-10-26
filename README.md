@@ -28,6 +28,14 @@
 
 이 명령은 밸런스 Resource 생성, 서버와 Godot C# 빌드, 서버 헬스 체크를 차례로 수행한 뒤 Godot 에디터를 연다. 에디터를 닫으면 실행기가 시작한 서버도 종료한다. 에디터 없이 메인 씬을 바로 실행하려면 `./scripts/run-dev.sh --play`를 사용한다.
 
+서버 주소와 개발 플레이어 ID는 환경 변수로 재정의할 수 있다. 실행 전 값만 검증하려면 `./scripts/run-dev.sh --check-environment`를 사용한다.
+
+```bash
+DEFENSEGAME_SERVER_URL=https://staging.example.com \
+DEFENSEGAME_PLAYER_ID=review-player \
+./scripts/run-dev.sh --external-server --play
+```
+
 자동 검토 영상을 만들려면 Homebrew의 `ffmpeg`를 설치한 뒤 캡처 모드를 실행한다.
 
 ```bash

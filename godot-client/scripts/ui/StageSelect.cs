@@ -197,13 +197,22 @@ public partial class StageSelect : Node2D
     private async Task LoadProgressAsync()
     {
         if (_progressBusy || _progressTestOverride) return;
+        if (!ClientRuntimeSettings.TryGet(out ClientRuntimeConfiguration configuration, out string error))
+        {
+            _progressReady = false;
+            _progressStatusCode = "invalid_configuration";
+            GD.PushError(error);
+            RefreshStageButtons();
+            RefreshProgressStatus();
+            return;
+        }
         _progressBusy = true;
         _progressReady = false;
         _progressStatusCode = "Loading";
         RefreshStageButtons();
         RefreshProgressStatus();
         StageProgressLoadResult result = await _progressClient.LoadAsync(
-            ServerBaseUrl(), PlayerId(), _progressCancellation.Token);
+            configuration.ServerBaseUrl, configuration.PlayerId, _progressCancellation.Token);
         if (!IsInsideTree() || _progressTestOverride) return;
         _progressBusy = false;
         if (!result.IsSuccess || result.Payload is null)
@@ -232,12 +241,6 @@ public partial class StageSelect : Node2D
         OperationUiStyle.ApplyPanel(GetNode<Panel>("UI/RoutePanel"));
         OperationUiStyle.ApplyButton(_progressRetryButton, OperationUiTone.Danger, fontSize: 14);
     }
-
-    private static string ServerBaseUrl() => (string)ProjectSettings.GetSetting(
-        "defense_game/server/base_url", "http://127.0.0.1:5080");
-
-    private static string PlayerId() => (string)ProjectSettings.GetSetting(
-        "defense_game/player/development_user_id", "local-development-user");
 
     public override void _ExitTree()
     {

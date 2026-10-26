@@ -10,29 +10,50 @@ IMPORTER_PROJECT="$CLIENT_DIR/tools/DefenseGame.DataImporter/DefenseGame.DataImp
 GODOT_APP="${GODOT_APP:-/Applications/Godot_mono.app}"
 GODOT_BIN="$GODOT_APP/Contents/MacOS/Godot"
 FFMPEG_BIN="${FFMPEG_BIN:-$(command -v ffmpeg || true)}"
-SERVER_URL="http://127.0.0.1:5080"
+PYTHON_BIN="${PYTHON_BIN:-$(command -v python3 || true)}"
+SERVER_URL="${DEFENSEGAME_SERVER_URL-http://127.0.0.1:5080}"
+PLAYER_ID="${DEFENSEGAME_PLAYER_ID-local-development-user}"
 LOG_DIR="$ROOT_DIR/.dev"
 SERVER_LOG="$LOG_DIR/server.log"
 LAUNCH_MODE="editor"
 SERVER_PID=""
 CAPTURE_DIR=""
 UPLOAD_AFTER_CAPTURE=false
+CHECK_ENVIRONMENT_ONLY=false
+RUN_LOCAL_SERVER=true
+SERVER_PORT=""
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/run-dev.sh [--editor|--play|--capture|--capture-upload]
+Usage: ./scripts/run-dev.sh [--editor|--play|--capture|--capture-upload|--external-server|--check-environment]
 
   --editor  Build everything, start the server, and open the Godot editor.
   --play    Build everything, start the server, and run the main scene.
   --capture Build everything, run the smoke-review scenario, and create a review video.
   --capture-upload
              Create a review video and upload it to the private review repository.
+  --check-environment
+             Validate and print the runtime environment without building or launching.
+  --external-server
+             Use DEFENSEGAME_SERVER_URL without starting a local server.
 EOF
 }
 
 fail() {
   printf '오류: %s\n' "$1" >&2
   exit 1
+}
+
+validate_environment() {
+  SERVER_URL="$($PYTHON_BIN "$ROOT_DIR/scripts/validate-runtime-environment.py" server-url "$SERVER_URL")"
+  PLAYER_ID="$($PYTHON_BIN "$ROOT_DIR/scripts/validate-runtime-environment.py" player-id "$PLAYER_ID")"
+  SERVER_PORT="$($PYTHON_BIN "$ROOT_DIR/scripts/validate-runtime-environment.py" server-port "$SERVER_URL")"
+  if [[ "$RUN_LOCAL_SERVER" == true ]]; then
+    "$PYTHON_BIN" "$ROOT_DIR/scripts/validate-runtime-environment.py" local-server "$SERVER_URL"
+  fi
+
+  export DEFENSEGAME_SERVER_URL="$SERVER_URL"
+  export DEFENSEGAME_PLAYER_ID="$PLAYER_ID"
 }
 
 cleanup() {
@@ -65,6 +86,12 @@ for argument in "$@"; do
       LAUNCH_MODE="capture"
       UPLOAD_AFTER_CAPTURE=true
       ;;
+    --check-environment)
+      CHECK_ENVIRONMENT_ONLY=true
+      ;;
+    --external-server)
+      RUN_LOCAL_SERVER=false
+      ;;
     --help|-h)
       usage
       exit 0
@@ -76,6 +103,17 @@ for argument in "$@"; do
   esac
 done
 
+[[ -x "$PYTHON_BIN" ]] || fail "python3를 찾을 수 없습니다."
+validate_environment
+if [[ "$RUN_LOCAL_SERVER" != true && "$LAUNCH_MODE" == "capture" ]]; then
+  fail "외부 서버에서는 자동 캡처를 실행하지 않습니다. 로컬 서버 모드로 실행하세요."
+fi
+if [[ "$CHECK_ENVIRONMENT_ONLY" == true ]]; then
+  printf '서버 URL: %s\n' "$DEFENSEGAME_SERVER_URL"
+  printf '플레이어 ID: %s\n' "$DEFENSEGAME_PLAYER_ID"
+  exit 0
+fi
+
 trap cleanup EXIT INT TERM HUP
 
 command -v dotnet >/dev/null 2>&1 || fail ".NET SDK를 찾을 수 없습니다."
@@ -86,8 +124,8 @@ if [[ "$LAUNCH_MODE" == "capture" ]]; then
   [[ -x "$FFMPEG_BIN" ]] || fail "ffmpeg를 찾을 수 없습니다. 'brew install ffmpeg'로 설치하세요."
 fi
 
-if lsof -nP -iTCP:5080 -sTCP:LISTEN >/dev/null 2>&1; then
-  fail "5080 포트가 이미 사용 중입니다. 기존 DefenseGame 서버를 종료한 뒤 다시 실행하세요."
+if [[ "$RUN_LOCAL_SERVER" == true ]] && lsof -nP -iTCP:"$SERVER_PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+  fail "$SERVER_PORT 포트가 이미 사용 중입니다. 기존 DefenseGame 서버를 종료한 뒤 다시 실행하세요."
 fi
 
 mkdir -p "$LOG_DIR"
@@ -98,25 +136,33 @@ dotnet run --project "$IMPORTER_PROJECT" -- \
   --output "$CLIENT_DIR/data"
 
 printf '\n[2/4] 서버를 빌드합니다.\n'
-dotnet build "$SERVER_SOLUTION" --nologo
+if [[ "$RUN_LOCAL_SERVER" == true ]]; then
+  dotnet build "$SERVER_SOLUTION" --nologo
+else
+  printf '외부 서버 모드이므로 로컬 서버 빌드를 생략합니다.\n'
+fi
 
 printf '\n[3/4] Godot C# 프로젝트를 빌드합니다.\n'
 dotnet build "$CLIENT_DIR/DefenseGame.csproj" --nologo
 
-printf '\n[4/4] 로컬 서버를 시작하고 준비 상태를 확인합니다.\n'
+printf '\n[4/4] 서버 준비 상태를 확인합니다.\n'
 : > "$SERVER_LOG"
-if [[ "$LAUNCH_MODE" == "capture" ]]; then
+if [[ "$RUN_LOCAL_SERVER" != true ]]; then
+  printf '외부 서버를 사용합니다: %s\n' "$SERVER_URL"
+elif [[ "$LAUNCH_MODE" == "capture" ]]; then
   rm -f "$LOG_DIR/capture-progress.json"
-  ProgressStore__FilePath="$LOG_DIR/capture-progress.json" \
+  ASPNETCORE_URLS="$SERVER_URL" ProgressStore__FilePath="$LOG_DIR/capture-progress.json" \
     dotnet run --project "$SERVER_PROJECT" --no-build >"$SERVER_LOG" 2>&1 &
+  SERVER_PID=$!
 else
-  dotnet run --project "$SERVER_PROJECT" --no-build >"$SERVER_LOG" 2>&1 &
+  ASPNETCORE_URLS="$SERVER_URL" \
+    dotnet run --project "$SERVER_PROJECT" --no-build >"$SERVER_LOG" 2>&1 &
+  SERVER_PID=$!
 fi
-SERVER_PID=$!
 
 server_ready=false
 for ((attempt = 1; attempt <= 60; attempt++)); do
-  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+  if [[ "$RUN_LOCAL_SERVER" == true ]] && ! kill -0 "$SERVER_PID" 2>/dev/null; then
     show_server_log
     fail "서버가 준비되기 전에 종료되었습니다."
   fi
@@ -134,7 +180,11 @@ if [[ "$server_ready" != true ]]; then
   fail "서버가 15초 안에 준비되지 않았습니다."
 fi
 
-printf '서버 준비 완료: %s (PID %s)\n' "$SERVER_URL" "$SERVER_PID"
+if [[ "$RUN_LOCAL_SERVER" == true ]]; then
+  printf '서버 준비 완료: %s (PID %s)\n' "$SERVER_URL" "$SERVER_PID"
+else
+  printf '외부 서버 준비 완료: %s\n' "$SERVER_URL"
+fi
 
 if [[ "$LAUNCH_MODE" == "capture" ]]; then
   capture_timestamp="$(date -u +%Y%m%dT%H%M%SZ)"

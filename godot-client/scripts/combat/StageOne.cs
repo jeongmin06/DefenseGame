@@ -803,12 +803,19 @@ public partial class StageOne : Node2D
             _hud.ShowResultSyncFailed(ResultSyncStatusCode);
             return;
         }
+        if (!ClientRuntimeSettings.TryGet(out ClientRuntimeConfiguration configuration, out string error))
+        {
+            ResultSyncStatusCode = "invalid_configuration";
+            GD.PushError(error);
+            _hud.ShowResultSyncFailed(ResultSyncStatusCode);
+            return;
+        }
 
         _resultSyncBusy = true;
         ResultSyncStatusCode = "Saving";
         _hud.ShowResultSyncPending();
         StageResultSubmitResult result = await _progressClient.SubmitResultAsync(
-            ServerBaseUrl(), PlayerId(), progressionId, _battleVictory, _progressCancellation.Token);
+            configuration.ServerBaseUrl, configuration.PlayerId, progressionId, _battleVictory, _progressCancellation.Token);
         if (!IsInsideTree()) return;
         _resultSyncBusy = false;
         if (!result.IsSuccess || result.Payload is null || result.Payload.StageId != progressionId)
@@ -833,12 +840,6 @@ public partial class StageOne : Node2D
             "defense_game/progress/submit_in_headless", false);
         return DisplayServer.GetName() == "headless" && !submitInHeadless;
     }
-
-    private static string ServerBaseUrl() => (string)ProjectSettings.GetSetting(
-        "defense_game/server/base_url", "http://127.0.0.1:5080");
-
-    private static string PlayerId() => (string)ProjectSettings.GetSetting(
-        "defense_game/player/development_user_id", "local-development-user");
 
     private void UpdateHud()
     {

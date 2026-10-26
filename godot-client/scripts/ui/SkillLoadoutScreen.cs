@@ -608,11 +608,20 @@ public partial class SkillLoadoutScreen : Node2D
 
     private async Task LoadFromServerAsync()
     {
+        if (!ClientRuntimeSettings.TryGet(out ClientRuntimeConfiguration configuration, out string error))
+        {
+            _remoteLoadStatus = "invalid_configuration";
+            _serverReady = false;
+            GD.PushError(error);
+            Refresh();
+            ShowTransient($"수정 필요 // {error}", true);
+            return;
+        }
         _serverBusy = true;
         _remoteLoadStatus = "Loading";
         Refresh();
         SkillProfileServerResult result = await _serverClient.LoadAsync(
-            ServerBaseUrl(), PlayerId(), _serverCancellation.Token);
+            configuration.ServerBaseUrl, configuration.PlayerId, _serverCancellation.Token);
         if (!IsInsideTree()) return;
         _serverBusy = false;
         if (!result.IsSuccess || result.Payload is null)
@@ -635,11 +644,19 @@ public partial class SkillLoadoutScreen : Node2D
         bool isMigration,
         bool startAfterSave)
     {
+        if (!ClientRuntimeSettings.TryGet(out ClientRuntimeConfiguration configuration, out string error))
+        {
+            _lastSaveStatus = "invalid_configuration";
+            GD.PushError(error);
+            Refresh();
+            ShowTransient($"수정 필요 // {error}", true);
+            return;
+        }
         _serverBusy = true;
         _lastSaveStatus = "Saving";
         Refresh();
         SkillProfileServerResult result = await _serverClient.SaveAsync(
-            ServerBaseUrl(), PlayerId(), presets, _serverRevision, isMigration, _serverCancellation.Token);
+            configuration.ServerBaseUrl, configuration.PlayerId, presets, _serverRevision, isMigration, _serverCancellation.Token);
         if (!IsInsideTree()) return;
         _serverBusy = false;
         if (!result.IsSuccess || result.Payload is null)
@@ -708,12 +725,6 @@ public partial class SkillLoadoutScreen : Node2D
         preset.UpdatedAtUtc = DateTimeOffset.UtcNow.ToString("O");
         if (!_usingLocalTestStorage) _serverDirty = true;
     }
-
-    private static string ServerBaseUrl() => (string)ProjectSettings.GetSetting(
-        "defense_game/server/base_url", "http://127.0.0.1:5080");
-
-    private static string PlayerId() => (string)ProjectSettings.GetSetting(
-        "defense_game/player/development_user_id", "local-development-user");
 
     private static CatSkillPreset ClonePreset(CatSkillPreset source) => new()
     {
