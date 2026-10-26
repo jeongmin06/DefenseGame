@@ -78,3 +78,13 @@ GitHub Actions와 동일한 서버 테스트, 밸런스 변환기 계약·Resour
 ```
 
 이 기준선은 Godot 실행 파일 없이 동작한다. Godot headless 전투 회귀와 배포 export는 별도 단계에서 검증한다.
+
+## macOS Debug export
+
+Godot 4.7.2 .NET의 macOS export template을 설치한 뒤 GUI 없이 개발용 앱을 생성할 수 있다.
+
+```bash
+./scripts/export-macos-debug.sh
+```
+
+기본 출력은 시스템 임시 디렉터리에 생성된다. 고정 위치가 필요하면 `--output /절대경로/DefenseGame.app`을 사용한다. 이 preset은 로컬 검증용 ad-hoc signing만 사용하며 배포용 Developer ID 서명과 notarization은 포함하지 않는다.
