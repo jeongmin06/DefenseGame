@@ -68,3 +68,13 @@ macOS Finder 또는 Spotlight에서 실행하려면 한 번만 아래 앱 설치
 ## 밸런스 데이터
 
 `godot-client/balance-json`의 JSON을 편집하고 독립 .NET 변환기로 `godot-client/data`의 Godot Resource를 생성한다. 런타임은 `.tres`만 읽는다. 캐릭터 외형·애니메이션도 유닛 JSON의 `visual`로 관리하며 기존 행동 타입은 JSON과 PNG만으로 추가한다. 콘텐츠 설명은 `description.ko`, `description.en`으로 관리한다. 변환·검증 명령은 [클라이언트 README](godot-client/README.md#데이터와-공통-컴포넌트)를 참고한다.
+
+## 빠른 CI 검증
+
+GitHub Actions와 동일한 서버 테스트, 밸런스 변환기 계약·Resource 드리프트 검사와 Godot C# 빌드는 저장소 루트에서 실행한다.
+
+```bash
+./scripts/ci-verify.sh
+```
+
+이 기준선은 Godot 실행 파일 없이 동작한다. Godot headless 전투 회귀와 배포 export는 별도 단계에서 검증한다.
