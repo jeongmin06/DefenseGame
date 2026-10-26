@@ -7,6 +7,9 @@ namespace DefenseGame.Server.Stores;
 
 public sealed class JsonFileProgressStore : IProgressStore
 {
+    private const int LegacySchemaVersion = 0;
+    private const int CurrentSchemaVersion = 1;
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -95,7 +98,56 @@ public sealed class JsonFileProgressStore : IProgressStore
         if (db.Users is null)
             throw new JsonException($"Progress database '{filePath}' contains a null users object.");
 
+        if (db.SchemaVersion == LegacySchemaVersion)
+            db.SchemaVersion = CurrentSchemaVersion;
+        else if (db.SchemaVersion < LegacySchemaVersion)
+            throw new JsonException(
+                $"Progress database '{filePath}' contains invalid schema version {db.SchemaVersion}.");
+        else if (db.SchemaVersion > CurrentSchemaVersion)
+            throw new InvalidDataException(
+                $"Progress database '{filePath}' uses unsupported schema version {db.SchemaVersion}. " +
+                $"This server supports version {CurrentSchemaVersion}.");
+
+        ValidateDatabaseStructure(db, filePath);
         return db;
+    }
+
+    private static void ValidateDatabaseStructure(ProgressDatabase db, string filePath)
+    {
+        foreach ((string userId, ProgressEntry entry) in db.Users)
+        {
+            if (string.IsNullOrWhiteSpace(userId) || entry is null || entry.ClearedStageIds is null ||
+                entry.OwnedCharacterIds is null || entry.OwnedCharacterIds.Any(string.IsNullOrWhiteSpace) ||
+                entry.StageSquads is null)
+            {
+                throw new JsonException(
+                    $"Progress database '{filePath}' contains an invalid entry for user '{userId}'.");
+            }
+
+            if (entry.StageSquads.Any(pair =>
+                    string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null ||
+                    pair.Value.CharacterIds is null ||
+                    pair.Value.CharacterIds.Any(string.IsNullOrWhiteSpace)))
+            {
+                throw new JsonException(
+                    $"Progress database '{filePath}' contains an invalid squad for user '{userId}'.");
+            }
+
+            SkillProfileEntry? profile = entry.SkillProfile;
+            if (profile is null)
+                continue;
+
+            if (profile.OwnedSkillIds is null || profile.OwnedSkillIds.Any(string.IsNullOrWhiteSpace) ||
+                profile.Presets is null || profile.Presets.Any(pair =>
+                    string.IsNullOrWhiteSpace(pair.Key) || pair.Value is null ||
+                    string.IsNullOrWhiteSpace(pair.Value.ActiveSkillId) ||
+                    pair.Value.SupportSkillIds is null ||
+                    pair.Value.SupportSkillIds.Any(string.IsNullOrWhiteSpace)))
+            {
+                throw new JsonException(
+                    $"Progress database '{filePath}' contains an invalid skill profile for user '{userId}'.");
+            }
+        }
     }
 
     private async Task<ProgressDatabase> RecoverBackupOrCreateAsync(CancellationToken cancellationToken)
@@ -106,7 +158,7 @@ public sealed class JsonFileProgressStore : IProgressStore
         }
         catch (FileNotFoundException)
         {
-            return new ProgressDatabase();
+            return ProgressDatabase.CreateCurrent();
         }
         catch (JsonException backupError)
         {
@@ -278,8 +330,15 @@ public sealed class JsonFileProgressStore : IProgressStore
 
     private sealed class ProgressDatabase
     {
+        public int SchemaVersion { get; set; } = LegacySchemaVersion;
+
         [JsonRequired]
         public Dictionary<string, ProgressEntry> Users { get; init; } = new(StringComparer.Ordinal);
+
+        public static ProgressDatabase CreateCurrent()
+        {
+            return new ProgressDatabase { SchemaVersion = CurrentSchemaVersion };
+        }
     }
 
     private sealed class ProgressEntry

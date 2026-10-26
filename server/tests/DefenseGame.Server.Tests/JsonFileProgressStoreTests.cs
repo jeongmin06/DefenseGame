@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DefenseGame.Server.Domain;
 using DefenseGame.Server.Stores;
 using DefenseGame.Server.Tests.TestDoubles;
@@ -52,6 +53,158 @@ public class JsonFileProgressStoreTests
         Assert.Equal(["multiple_projectiles", "piercing_shot"],
             loaded.SkillProfile.Presets["starter_archer_a"].SupportSkillIds);
         Assert.Equal(0, loaded.SkillProfile.Revision);
+    }
+
+    [Fact]
+    public async Task FirstWrite_WritesCurrentSchemaVersion()
+    {
+        var (filePath, store, now) = CreateStore();
+
+        await store.UpsertAsync(UserProgress.New("versioned-user", now), default);
+
+        using JsonDocument document = JsonDocument.Parse(await File.ReadAllTextAsync(filePath));
+        Assert.Equal(1, document.RootElement.GetProperty("schemaVersion").GetInt32());
+    }
+
+    [Theory]
+    [InlineData("{\"users\":{\"legacy-user\":{}}}")]
+    [InlineData("{\"schemaVersion\":0,\"users\":{\"legacy-user\":{}}}")]
+    public async Task LegacyVersion_FirstSuccessfulWrite_UpgradesPrimaryAndPreservesLegacyBackup(
+        string legacyJson)
+    {
+        var (filePath, _, now) = CreateStore();
+        await File.WriteAllTextAsync(filePath, legacyJson);
+        var store = new JsonFileProgressStore(filePath, new FakeClock(now));
+
+        await store.UpsertAsync(UserProgress.New("legacy-user", now), default);
+
+        using JsonDocument primary = JsonDocument.Parse(await File.ReadAllTextAsync(filePath));
+        Assert.Equal(1, primary.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(legacyJson, await File.ReadAllTextAsync($"{filePath}.bak"));
+    }
+
+    [Fact]
+    public async Task LegacyVersion_ReadOnlyLoad_DoesNotRewriteFile()
+    {
+        var (filePath, _, now) = CreateStore();
+        const string legacyJson = "{\"users\":{\"legacy-user\":{}}}";
+        await File.WriteAllTextAsync(filePath, legacyJson);
+        var store = new JsonFileProgressStore(filePath, new FakeClock(now));
+
+        UserProgress loaded = await store.GetOrCreateAsync("legacy-user", default);
+
+        Assert.Equal("legacy-user", loaded.UserId);
+        Assert.Equal(legacyJson, await File.ReadAllTextAsync(filePath));
+        Assert.False(File.Exists($"{filePath}.bak"));
+    }
+
+    [Fact]
+    public async Task LegacyVersion_GetOrCreateMissingUser_UpgradesPrimaryAndPreservesLegacyBackup()
+    {
+        var (filePath, _, now) = CreateStore();
+        const string legacyJson = "{\"users\":{}}";
+        await File.WriteAllTextAsync(filePath, legacyJson);
+        var store = new JsonFileProgressStore(filePath, new FakeClock(now));
+
+        await store.GetOrCreateAsync("new-user", default);
+
+        using JsonDocument primary = JsonDocument.Parse(await File.ReadAllTextAsync(filePath));
+        Assert.Equal(1, primary.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(legacyJson, await File.ReadAllTextAsync($"{filePath}.bak"));
+    }
+
+    [Fact]
+    public async Task UnsupportedSchemaVersion_ThrowsWithoutRestoringBackupOrChangingFiles()
+    {
+        var (filePath, store, now) = CreateStore();
+        UserProgress progress = UserProgress.New("future-version", now);
+        await store.UpsertAsync(progress, default);
+        progress.ClearedStageIds.Add(1);
+        await store.UpsertAsync(progress, default);
+
+        string unsupportedPrimary = (await File.ReadAllTextAsync(filePath))
+            .Replace("\"schemaVersion\": 1", "\"schemaVersion\": 2", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(filePath, unsupportedPrimary);
+        string backup = await File.ReadAllTextAsync($"{filePath}.bak");
+        var reloadedStore = new JsonFileProgressStore(filePath, new FakeClock(now));
+
+        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => reloadedStore.GetOrCreateAsync("future-version", default));
+
+        Assert.Contains("unsupported schema version 2", error.Message);
+        Assert.Equal(unsupportedPrimary, await File.ReadAllTextAsync(filePath));
+        Assert.Equal(backup, await File.ReadAllTextAsync($"{filePath}.bak"));
+    }
+
+    [Fact]
+    public async Task UnsupportedSchemaVersionInBackup_DoesNotCreateNewDatabase()
+    {
+        var (filePath, _, now) = CreateStore();
+        const string futureBackup = "{\"schemaVersion\":2,\"users\":{}}";
+        await File.WriteAllTextAsync($"{filePath}.bak", futureBackup);
+        var store = new JsonFileProgressStore(filePath, new FakeClock(now));
+
+        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => store.GetOrCreateAsync("must-not-create", default));
+
+        Assert.Contains("unsupported schema version 2", error.Message);
+        Assert.False(File.Exists(filePath));
+        Assert.Equal(futureBackup, await File.ReadAllTextAsync($"{filePath}.bak"));
+    }
+
+    [Fact]
+    public async Task CorruptedPrimary_WithUnsupportedBackup_PreservesBothFiles()
+    {
+        var (filePath, _, now) = CreateStore();
+        const string corruptPrimary = "{broken-primary";
+        const string futureBackup = "{\"schemaVersion\":2,\"users\":{}}";
+        await File.WriteAllTextAsync(filePath, corruptPrimary);
+        await File.WriteAllTextAsync($"{filePath}.bak", futureBackup);
+        var store = new JsonFileProgressStore(filePath, new FakeClock(now));
+
+        InvalidDataException error = await Assert.ThrowsAsync<InvalidDataException>(
+            () => store.GetOrCreateAsync("must-not-restore", default));
+
+        Assert.Contains("unsupported schema version 2", error.Message);
+        Assert.Equal(corruptPrimary, await File.ReadAllTextAsync(filePath));
+        Assert.Equal(futureBackup, await File.ReadAllTextAsync($"{filePath}.bak"));
+    }
+
+    [Fact]
+    public async Task LegacyBackup_AfterRecoveryAndFirstWrite_UpgradesPrimaryAndPreservesLegacyBackup()
+    {
+        var (filePath, _, now) = CreateStore();
+        const string legacyJson = "{\"users\":{\"legacy-user\":{}}}";
+        await File.WriteAllTextAsync($"{filePath}.bak", legacyJson);
+        var store = new JsonFileProgressStore(filePath, new FakeClock(now));
+
+        UserProgress recovered = await store.GetOrCreateAsync("legacy-user", default);
+        Assert.Equal(legacyJson, await File.ReadAllTextAsync(filePath));
+        await store.UpsertAsync(recovered, default);
+
+        using JsonDocument primary = JsonDocument.Parse(await File.ReadAllTextAsync(filePath));
+        Assert.Equal(1, primary.RootElement.GetProperty("schemaVersion").GetInt32());
+        Assert.Equal(legacyJson, await File.ReadAllTextAsync($"{filePath}.bak"));
+    }
+
+    [Theory]
+    [InlineData("{\"schemaVersion\":-1,\"users\":{}}")]
+    [InlineData("{\"schemaVersion\":null,\"users\":{}}")]
+    [InlineData("{\"schemaVersion\":\"1\",\"users\":{}}")]
+    [InlineData("{\"schemaVersion\":1.5,\"users\":{}}")]
+    public async Task InvalidSchemaVersion_WithValidBackup_RestoresBackup(string invalidJson)
+    {
+        var (filePath, store, now) = CreateStore();
+        UserProgress progress = UserProgress.New("invalid-version", now);
+        await store.UpsertAsync(progress, default);
+        progress.ClearedStageIds.Add(1);
+        await store.UpsertAsync(progress, default);
+        await File.WriteAllTextAsync(filePath, invalidJson);
+
+        var recoveredStore = new JsonFileProgressStore(filePath, new FakeClock(now));
+        UserProgress recovered = await recoveredStore.GetOrCreateAsync("invalid-version", default);
+
+        Assert.Empty(recovered.ClearedStageIds);
     }
 
     [Fact]
@@ -140,6 +293,11 @@ public class JsonFileProgressStoreTests
     [Theory]
     [InlineData("{}")]
     [InlineData("{\"users\":null}")]
+    [InlineData("{\"schemaVersion\":1,\"users\":{\"broken\":null}}")]
+    [InlineData("{\"schemaVersion\":1,\"users\":{\"broken\":{\"ownedCharacterIds\":[null]}}}")]
+    [InlineData("{\"schemaVersion\":1,\"users\":{\"broken\":{\"stageSquads\":{\"stage_01\":{\"characterIds\":[\" \"]}}}}}")]
+    [InlineData("{\"schemaVersion\":1,\"users\":{\"broken\":{\"skillProfile\":{\"ownedSkillIds\":[null],\"presets\":{}}}}}")]
+    [InlineData("{\"schemaVersion\":1,\"users\":{\"broken\":{\"skillProfile\":{\"ownedSkillIds\":[],\"presets\":{\"cat\":{\"activeSkillId\":null,\"supportSkillIds\":[]}}}}}}")]
     public async Task InvalidPrimaryStructure_WithValidBackup_RestoresPreviousVersion(string invalidJson)
     {
         var (filePath, store, now) = CreateStore();
@@ -203,6 +361,23 @@ public class JsonFileProgressStoreTests
 
         Assert.NotNull(error);
         Assert.Equal(originalJson, await File.ReadAllTextAsync(filePath));
+        Assert.False(File.Exists($"{filePath}.tmp"));
+    }
+
+    [Fact]
+    public async Task LegacyMigrationReplaceFailure_PreservesLegacyPrimary()
+    {
+        var (filePath, _, now) = CreateStore();
+        const string legacyJson = "{\"users\":{\"legacy-user\":{}}}";
+        await File.WriteAllTextAsync(filePath, legacyJson);
+        Directory.CreateDirectory($"{filePath}.bak");
+        var store = new JsonFileProgressStore(filePath, new FakeClock(now));
+
+        Exception? error = await Record.ExceptionAsync(
+            () => store.UpsertAsync(UserProgress.New("legacy-user", now), default));
+
+        Assert.NotNull(error);
+        Assert.Equal(legacyJson, await File.ReadAllTextAsync(filePath));
         Assert.False(File.Exists($"{filePath}.tmp"));
     }
 
