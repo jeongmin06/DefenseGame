@@ -1,0 +1,33 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    image: defensegame-server:local
+    init: true
+    read_only: true
+    ports:
+      - "${DEFENSEGAME_SERVER_PORT:-5080}:8080"
+    environment:
+      Urls: http://+:8080
+      ProgressStore__FilePath: /app/data/progress.json
+      Actors__WorkerCount: "${DEFENSEGAME_ACTOR_WORKERS:-2}"
+    volumes:
+      - defensegame-progress:/app/data
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://127.0.0.1:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    labels:
+      com.defensegame.storage-mode: single-replica-json
+
+volumes:
+  defensegame-progress:

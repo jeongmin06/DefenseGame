@@ -1,0 +1,13 @@
+.git
+.github
+.private-docs
+.opencode
+.dev
+docs
+godot-client
+**/bin
+**/obj
+**/.DS_Store
+**/*.user
+**/*.suo
+README.md

@@ -9,6 +9,8 @@ dotnet run --project server/src/DefenseGame.Server
 dotnet test server/DefenseGame.sln -m:1 -nr:false
 ```
 
+저장소 루트에서 `docker compose up --build`를 실행하면 비루트 .NET 9 컨테이너가 5080 포트와 named volume으로 시작된다. JSON 저장소를 사용하는 동안 server service는 반드시 단일 replica로 유지한다.
+
 ## Actor 처리 경로
 
 ```text

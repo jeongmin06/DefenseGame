@@ -96,3 +96,13 @@ Godot 4.7.2 .NET의 macOS export template을 설치한 뒤 GUI 없이 개발용 
 ```
 
 기본 출력은 시스템 임시 디렉터리에 생성된다. 고정 위치가 필요하면 `--output /절대경로/DefenseGame.app`을 사용한다. 이 preset은 로컬 검증용 ad-hoc signing만 사용하며 배포용 Developer ID 서명과 notarization은 포함하지 않는다.
+
+## 서버 컨테이너
+
+Docker Desktop이 실행 중이면 서버와 단일 JSON 데이터 volume을 Compose로 시작할 수 있다.
+
+```bash
+docker compose up --build
+```
+
+기본 주소는 `http://127.0.0.1:5080`이다. 호스트 포트는 `DEFENSEGAME_SERVER_PORT`로 바꿀 수 있다. 현재 JSON 저장소는 다중 writer를 지원하지 않으므로 server service를 scale-out하지 않는다.
