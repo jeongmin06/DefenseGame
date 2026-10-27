@@ -11,7 +11,7 @@ grep -q '^FROM mcr.microsoft.com/dotnet/aspnet:9\.0-bookworm-slim AS runtime$' "
 grep -q '^USER app$' "$DOCKERFILE"
 grep -q 'Urls=http://+:8080' "$DOCKERFILE"
 grep -q 'ProgressStore__FilePath=/app/data/progress.json' "$DOCKERFILE"
-grep -q 'http://127.0.0.1:8080/health' "$DOCKERFILE"
+grep -q 'http://127.0.0.1:8080/health/ready' "$DOCKERFILE"
 grep -q 'single-replica-json' "$COMPOSE_FILE"
 
 command -v docker >/dev/null 2>&1 || {

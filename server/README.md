@@ -11,6 +11,14 @@ dotnet test server/DefenseGame.sln -m:1 -nr:false
 
 저장소 루트에서 `docker compose up --build`를 실행하면 비루트 .NET 9 컨테이너가 5080 포트와 named volume으로 시작된다. JSON 저장소를 사용하는 동안 server service는 반드시 단일 replica로 유지한다.
 
+## 상태 확인과 요청 로그
+
+- `GET /health/live`: HTTP 프로세스 생존 확인
+- `GET /health/ready`: Actor worker 준비 확인
+- `GET /health`: 기존 배포 호환용 ready 별칭
+
+모든 응답은 `X-Request-ID`를 반환한다. console 로그는 JSON이며 `/v1` 요청 완료 시 `requestId`, `userId`, `actor`, `durationMs`, `result`, method, path와 status code를 기록한다.
+
 ## Actor 처리 경로
 
 ```text

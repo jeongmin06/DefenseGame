@@ -1,10 +1,18 @@
 using DefenseGame.Server.Actors.Players;
 using DefenseGame.Server.Actors.Runtime;
 using DefenseGame.Server.Contracts;
+using DefenseGame.Server.Hosting;
 using DefenseGame.Server.Services;
 using DefenseGame.Server.Stores;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddJsonConsole(options =>
+{
+    options.TimestampFormat = "yyyy-MM-ddTHH:mm:ss.fffZ";
+    options.UseUtcTimestamp = true;
+});
 
 builder.Services.AddSingleton<ISystemClock, SystemClock>();
 builder.Services.AddSingleton<IProgressStore>(sp =>
@@ -22,14 +30,22 @@ builder.Services.AddSingleton<IStageSquadService, StageSquadService>();
 builder.Services.AddSingleton<ISkillProfileService, SkillProfileService>();
 
 builder.Services.AddSingleton<ActorThreadScheduler>();
-builder.Services.AddHostedService<ActorThreadPool>();
+builder.Services.AddSingleton<ActorThreadPool>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<ActorThreadPool>());
 builder.Services.AddSingleton<PlayerActorRegistry>();
 
 var app = builder.Build();
 
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.UseMiddleware<RequestObservationMiddleware>();
 
-app.MapGet("/v1/progress/{userId}", async (
+app.MapGet("/health/live", () => Results.Ok(new { status = "ok", check = "live" }));
+app.MapGet("/health/ready", (ActorThreadPool pool) => ReadinessResult(pool));
+app.MapGet("/health", (ActorThreadPool pool) => ReadinessResult(pool));
+
+RouteGroupBuilder playerApi = app.MapGroup("/v1");
+playerApi.AddEndpointFilter<PlayerActorObservationFilter>();
+
+playerApi.MapGet("/progress/{userId}", async (
     string userId,
     PlayerActorRegistry players,
     CancellationToken cancellationToken) =>
@@ -43,7 +59,7 @@ app.MapGet("/v1/progress/{userId}", async (
     return Results.Ok(progress);
 });
 
-app.MapPost("/v1/stage-clear", async (
+playerApi.MapPost("/stage-clear", async (
     StageClearRequest request,
     PlayerActorRegistry players,
     CancellationToken cancellationToken) =>
@@ -58,7 +74,7 @@ app.MapPost("/v1/stage-clear", async (
         : Results.BadRequest(new { errorCode = result.ErrorCode, message = result.ErrorMessage });
 });
 
-app.MapGet("/v1/squads/{userId}/{stageId}", async (
+playerApi.MapGet("/squads/{userId}/{stageId}", async (
     string userId,
     string stageId,
     PlayerActorRegistry players,
@@ -72,7 +88,7 @@ app.MapGet("/v1/squads/{userId}/{stageId}", async (
         : Results.BadRequest(new { errorCode = result.ErrorCode, message = result.ErrorMessage });
 });
 
-app.MapPut("/v1/squads/{stageId}", async (
+playerApi.MapPut("/squads/{stageId}", async (
     string stageId,
     SaveStageSquadRequest request,
     PlayerActorRegistry players,
@@ -95,7 +111,7 @@ app.MapPut("/v1/squads/{stageId}", async (
     };
 });
 
-app.MapGet("/v1/skill-profiles/{userId}", async (
+playerApi.MapGet("/skill-profiles/{userId}", async (
     string userId,
     PlayerActorRegistry players,
     CancellationToken cancellationToken) =>
@@ -108,7 +124,7 @@ app.MapGet("/v1/skill-profiles/{userId}", async (
         : Results.BadRequest(new { errorCode = result.ErrorCode, message = result.ErrorMessage });
 });
 
-app.MapPut("/v1/skill-profiles", async (
+playerApi.MapPut("/skill-profiles", async (
     SaveSkillProfileRequest request,
     PlayerActorRegistry players,
     CancellationToken cancellationToken) =>
@@ -131,5 +147,11 @@ app.MapPut("/v1/skill-profiles", async (
 });
 
 app.Run();
+
+static IResult ReadinessResult(ActorThreadPool pool) => pool.IsReady
+    ? Results.Ok(new { status = "ok", check = "ready" })
+    : Results.Json(
+        new { status = "unavailable", check = "ready" },
+        statusCode: StatusCodes.Status503ServiceUnavailable);
 
 public partial class Program;

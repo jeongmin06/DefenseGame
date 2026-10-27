@@ -9,15 +9,47 @@ namespace DefenseGame.Server.Tests;
 
 public class EndpointBehaviorTests
 {
-    [Fact]
-    public async Task Health_ReturnsOk()
+    [Theory]
+    [InlineData("/health", "ready")]
+    [InlineData("/health/live", "live")]
+    [InlineData("/health/ready", "ready")]
+    public async Task Health_ReturnsExpectedCheck(string path, string expectedCheck)
     {
         await using var app = new TestWebApplicationFactory();
         var client = app.CreateClient();
 
-        var response = await client.GetAsync("/health");
+        var response = await client.GetAsync(path);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var payload = await response.Content.ReadFromJsonAsync<Dictionary<string, string>>();
+        Assert.NotNull(payload);
+        Assert.Equal("ok", payload["status"]);
+        Assert.Equal(expectedCheck, payload["check"]);
+    }
+
+    [Fact]
+    public async Task RequestId_IsGeneratedAndPreservesValidClientValue()
+    {
+        await using var app = new TestWebApplicationFactory();
+        var client = app.CreateClient();
+
+        var generated = await client.GetAsync("/health/live");
+        Assert.True(generated.Headers.TryGetValues("X-Request-ID", out IEnumerable<string>? generatedValues));
+        Assert.Equal(32, Assert.Single(generatedValues).Length);
+
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/v1/progress/request-id-user");
+        request.Headers.Add("X-Request-ID", "client-request-123");
+        var preserved = await client.SendAsync(request);
+
+        Assert.Equal("client-request-123", Assert.Single(preserved.Headers.GetValues("X-Request-ID")));
+
+        using var oversizedRequest = new HttpRequestMessage(HttpMethod.Get, "/health/live");
+        oversizedRequest.Headers.Add("X-Request-ID", new string('x', 129));
+        var replaced = await client.SendAsync(oversizedRequest);
+
+        string replacedId = Assert.Single(replaced.Headers.GetValues("X-Request-ID"));
+        Assert.Equal(32, replacedId.Length);
+        Assert.NotEqual(new string('x', 129), replacedId);
     }
 
     [Fact]
