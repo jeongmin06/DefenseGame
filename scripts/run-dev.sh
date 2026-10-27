@@ -249,6 +249,8 @@ if [[ "$LAUNCH_MODE" == "capture" ]]; then
 - 결과: 성공
 EOF
 
+  "$ROOT_DIR/scripts/prune-review-captures.sh"
+
   printf '\n캡처 완료\n'
   printf '영상: %s\n' "$review_movie"
   printf '보고서: %s\n' "$report_file"
