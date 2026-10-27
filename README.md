@@ -55,6 +55,8 @@ gh auth login
 
 이미 생성한 최신 영상을 다시 캡처하지 않고 올리려면 `./scripts/upload-review-capture.sh`를 실행한다.
 
+GitHub에서 원격으로 캡처하려면 public 저장소 Actions secret `REVIEW_REPOSITORY_TOKEN`에 private `DefenseGame-Docs` Contents read/write 권한의 fine-grained token을 등록한 뒤 `Manual review capture` workflow를 수동 실행한다. workflow는 public artifact를 만들지 않고 private Release 링크만 실행 요약에 남긴다.
+
 macOS Finder 또는 Spotlight에서 실행하려면 한 번만 아래 앱 설치 명령을 실행한다.
 
 ```bash

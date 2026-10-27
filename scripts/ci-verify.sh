@@ -53,5 +53,6 @@ printf '\n[8/8] 개발 도구 스크립트 계약을 검증합니다.\n'
 "$ROOT_DIR/scripts/tests/test-export-macos-debug.sh"
 "$ROOT_DIR/scripts/tests/test-runtime-environment.sh"
 "$ROOT_DIR/scripts/tests/review-capture-retention-regression.sh"
+"$ROOT_DIR/scripts/tests/review-capture-workflow-contract.sh"
 
 printf '\nCI 기준선 검증을 모두 통과했습니다.\n'
