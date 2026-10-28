@@ -57,6 +57,13 @@ gh auth login
 
 GitHub에서 원격으로 캡처하려면 public 저장소 Actions secret `REVIEW_REPOSITORY_TOKEN`에 private `DefenseGame-Docs` Contents read/write 권한의 fine-grained token을 등록한 뒤 `Manual review capture` workflow를 수동 실행한다. workflow는 public artifact를 만들지 않고 private Release 링크만 실행 요약에 남긴다.
 
+GitHub CLI 로그인, 저장소 가시성, workflow와 secret 이름을 한 번에 확인하려면 아래 진단 명령을 사용한다. secret 값은 읽거나 출력하지 않는다.
+
+```bash
+gh auth login
+./scripts/check-review-github-setup.sh
+```
+
 macOS Finder 또는 Spotlight에서 실행하려면 한 번만 아래 앱 설치 명령을 실행한다.
 
 ```bash
