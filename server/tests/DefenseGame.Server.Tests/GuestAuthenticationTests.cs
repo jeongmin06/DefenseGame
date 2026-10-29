@@ -129,6 +129,34 @@ public class GuestAuthenticationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task GuestRefresh_PreservesAuthenticatedPlayer()
+    {
+        await using var app = new AuthenticatedWebApplicationFactory();
+        var client = app.CreateClient();
+        GuestLoginResponse login = await LoginAsync(client);
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/v1/auth/refresh");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", login.AccessToken);
+        HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        GuestLoginResponse refreshed = (await response.Content.ReadFromJsonAsync<GuestLoginResponse>())!;
+        Assert.Equal(login.PlayerId, refreshed.PlayerId);
+        Assert.True(refreshed.ExpiresAtUtc >= login.ExpiresAtUtc);
+    }
+
+    [Fact]
+    public async Task GuestRefresh_WithoutToken_ReturnsUnauthorized()
+    {
+        await using var app = new AuthenticatedWebApplicationFactory();
+        var client = app.CreateClient();
+
+        HttpResponseMessage response = await client.PostAsync("/v1/auth/refresh", content: null);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     private static async Task<GuestLoginResponse> LoginAsync(HttpClient client)
     {
         HttpResponseMessage response = await client.PostAsync("/v1/auth/guest", content: null);

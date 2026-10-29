@@ -31,13 +31,14 @@ dotnet run --project server/src/DefenseGame.Server
 ```
 
 - `POST /v1/auth/guest`: 새 `guest_<uuid>` player ID, bearer access token과 만료 시각을 발급한다.
+- `POST /v1/auth/refresh`: 유효한 bearer token의 player ID를 유지한 채 만료 시각을 갱신한다.
 - 인증 활성화 시 `/v1/auth/guest`를 제외한 `/v1` 요청은 `Authorization: Bearer <token>`을 요구한다.
 - route 또는 body의 `userId`가 token의 player ID와 다르면 HTTP 403을 반환한다.
 - token 없음·변조·만료는 HTTP 401을 반환한다.
 - `/health/live`, `/health/ready`는 인증 없이 사용할 수 있다.
 - 인증 활성화 시 signing key가 없거나 짧으면 서버 시작을 거부한다.
 
-현재 guest token은 계정 복구나 갱신을 지원하지 않는다. Godot은 `DEFENSEGAME_AUTH_MODE=guest`에서 token을 발급·보관하고 모든 플레이어 API에 공용으로 연결한다.
+Godot은 `DEFENSEGAME_AUTH_MODE=guest`에서 token을 발급·보관하고 모든 플레이어 API에 공용으로 연결한다. 만료 24시간 전에는 같은 player ID로 갱신하며, 이미 만료되거나 손상된 세션은 새 계정으로 자동 교체하지 않는다. 계정 복구는 아직 지원하지 않는다.
 
 ## Actor 처리 경로
 

@@ -19,7 +19,7 @@ Godot 4 .NET과 C#으로 만든 기본 도트 디펜스 스테이지다.
 
 기본 `DEFENSEGAME_AUTH_MODE=disabled`는 `DEFENSEGAME_PLAYER_ID` 또는 ProjectSettings의 개발 ID를 사용한다. staging과 인증 로컬 실행에서는 `DEFENSEGAME_AUTH_MODE=guest`를 사용한다. 이 모드에서는 서버가 발급한 player ID와 bearer token을 `user://guest_session.json`에 원자 저장하고 진행도·편성·스킬 API가 공용 transport로 같은 세션을 사용한다.
 
-세션은 서버 URL이 같고 만료까지 5분 이상 남았을 때만 재사용한다. token은 로그에 출력하지 않으며 Unix 계열에서는 파일을 소유자 읽기·쓰기로 제한한다. 현재 파일 저장은 Keychain 수준 보안과 계정 복구를 제공하지 않는다. 테스트는 `DEFENSEGAME_GUEST_SESSION_PATH`로 격리된 절대 경로를 주입한다.
+세션은 서버 URL이 같을 때 재사용하고 만료 24시간 전부터 같은 player ID로 token을 갱신한다. 이미 만료되거나 손상된 세션은 새 guest 계정으로 자동 교체하지 않는다. token은 로그에 출력하지 않으며 Unix 계열에서는 파일을 소유자 읽기·쓰기로 제한한다. 현재 파일 저장은 Keychain 수준 보안과 계정 복구를 제공하지 않는다. 테스트는 `DEFENSEGAME_GUEST_SESSION_PATH`로 격리된 절대 경로를 주입한다.
 
 ## 현재 범위
 

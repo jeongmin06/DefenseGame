@@ -66,6 +66,20 @@ app.MapPost("/v1/auth/guest", (GuestAuthenticationOptions options, GuestTokenSer
     return Results.Ok(new GuestLoginResponse(token.PlayerId, token.AccessToken, token.ExpiresAtUtc));
 });
 
+app.MapPost("/v1/auth/refresh", (HttpContext context, GuestTokenService tokens) =>
+{
+    string? playerId = context.Items[GuestAuthenticationMiddleware.AuthenticatedPlayerIdItemKey] as string;
+    if (string.IsNullOrEmpty(playerId))
+    {
+        return Results.Json(
+            new { errorCode = "missing_access_token", message = "Bearer access token is required." },
+            statusCode: StatusCodes.Status401Unauthorized);
+    }
+
+    GuestTokenIssueResult token = tokens.Issue(playerId);
+    return Results.Ok(new GuestLoginResponse(token.PlayerId, token.AccessToken, token.ExpiresAtUtc));
+});
+
 RouteGroupBuilder playerApi = app.MapGroup("/v1");
 playerApi.AddEndpointFilter<GuestPlayerAuthorizationFilter>();
 playerApi.AddEndpointFilter<PlayerActorObservationFilter>();

@@ -20,9 +20,9 @@ public sealed class GuestSessionStore
         _storagePath = Path.GetFullPath(storagePath);
     }
 
-    public GuestSession? Load(string serverBaseUrl, DateTimeOffset nowUtc)
+    public GuestSessionLoadResult Load(string serverBaseUrl, DateTimeOffset nowUtc)
     {
-        if (!File.Exists(_storagePath)) return null;
+        if (!File.Exists(_storagePath)) return GuestSessionLoadResult.Missing();
 
         try
         {
@@ -31,23 +31,27 @@ public sealed class GuestSessionStore
                 JsonOptions);
             if (document is null ||
                 document.SchemaVersion != CurrentSchemaVersion ||
-                !string.Equals(document.ServerBaseUrl, serverBaseUrl, StringComparison.Ordinal) ||
                 string.IsNullOrWhiteSpace(document.PlayerId) ||
-                string.IsNullOrWhiteSpace(document.AccessToken) ||
-                document.ExpiresAtUtc <= nowUtc.AddMinutes(5))
+                string.IsNullOrWhiteSpace(document.AccessToken))
             {
-                return null;
+                return GuestSessionLoadResult.Invalid();
             }
 
-            return new GuestSession(
+            if (!string.Equals(document.ServerBaseUrl, serverBaseUrl, StringComparison.Ordinal))
+                return GuestSessionLoadResult.Missing();
+
+            var session = new GuestSession(
                 document.ServerBaseUrl,
                 document.PlayerId,
                 document.AccessToken,
                 document.ExpiresAtUtc);
+            return document.ExpiresAtUtc <= nowUtc
+                ? GuestSessionLoadResult.Expired(session)
+                : GuestSessionLoadResult.Valid(session);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or JsonException)
         {
-            return null;
+            return GuestSessionLoadResult.Invalid();
         }
     }
 
@@ -109,3 +113,21 @@ public sealed record GuestSession(
     string PlayerId,
     string AccessToken,
     DateTimeOffset ExpiresAtUtc);
+
+public enum GuestSessionLoadStatus
+{
+    Missing,
+    Valid,
+    Expired,
+    Invalid
+}
+
+public sealed record GuestSessionLoadResult(
+    GuestSessionLoadStatus Status,
+    GuestSession? Session)
+{
+    public static GuestSessionLoadResult Missing() => new(GuestSessionLoadStatus.Missing, null);
+    public static GuestSessionLoadResult Valid(GuestSession session) => new(GuestSessionLoadStatus.Valid, session);
+    public static GuestSessionLoadResult Expired(GuestSession session) => new(GuestSessionLoadStatus.Expired, session);
+    public static GuestSessionLoadResult Invalid() => new(GuestSessionLoadStatus.Invalid, null);
+}

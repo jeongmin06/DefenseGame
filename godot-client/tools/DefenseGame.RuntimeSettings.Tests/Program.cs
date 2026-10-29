@@ -62,11 +62,18 @@ try
         nowUtc.AddHours(1));
     store.Save(session);
 
-    GuestSession? loaded = store.Load("https://staging.example.com", nowUtc);
-    AssertEqual("guest_test", loaded?.PlayerId, "guest session round trip");
+    GuestSessionLoadResult loaded = store.Load("https://staging.example.com", nowUtc);
+    AssertEqual(GuestSessionLoadStatus.Valid, loaded.Status, "guest session round trip status");
+    AssertEqual("guest_test", loaded.Session?.PlayerId, "guest session round trip player");
     AssertTrue(!File.Exists(sessionPath + ".tmp"), "guest session atomic temporary file cleanup");
-    AssertTrue(store.Load("https://other.example.com", nowUtc) is null, "guest session server isolation");
-    AssertTrue(store.Load("https://staging.example.com", nowUtc.AddHours(2)) is null, "guest session expiry");
+    AssertEqual(
+        GuestSessionLoadStatus.Missing,
+        store.Load("https://other.example.com", nowUtc).Status,
+        "guest session server isolation");
+    AssertEqual(
+        GuestSessionLoadStatus.Expired,
+        store.Load("https://staging.example.com", nowUtc.AddHours(2)).Status,
+        "guest session expiry");
 }
 finally
 {

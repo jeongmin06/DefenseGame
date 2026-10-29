@@ -11,6 +11,7 @@ namespace DefenseGame.Client.Network;
 
 public static class ServerApiTransport
 {
+    private static readonly TimeSpan RefreshWindow = TimeSpan.FromHours(24);
     private static readonly System.Net.Http.HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(5) };
     private static readonly SemaphoreSlim SessionLock = new(1, 1);
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -65,20 +66,45 @@ public static class ServerApiTransport
         try
         {
             DateTimeOffset nowUtc = DateTimeOffset.UtcNow;
-            if (IsReusable(_cachedGuestSession, configuration.ServerBaseUrl, nowUtc))
-            {
-                return new ServerRequestIdentity(
-                    _cachedGuestSession!.PlayerId,
-                    _cachedGuestSession.AccessToken);
-            }
-
             string storagePath = configuration.GuestSessionPath.StartsWith("user://", StringComparison.Ordinal)
                 ? ProjectSettings.GlobalizePath(configuration.GuestSessionPath)
                 : configuration.GuestSessionPath;
             var store = new GuestSessionStore(storagePath);
-            GuestSession? stored = store.Load(configuration.ServerBaseUrl, nowUtc);
-            if (stored is not null)
+            if (_cachedGuestSession is not null &&
+                string.Equals(_cachedGuestSession.ServerBaseUrl, configuration.ServerBaseUrl, StringComparison.Ordinal))
             {
+                bool shouldRefresh = _cachedGuestSession.ExpiresAtUtc <= nowUtc.Add(RefreshWindow);
+                GuestSession cached = await ResolveExistingSessionAsync(
+                    configuration.ServerBaseUrl,
+                    _cachedGuestSession,
+                    nowUtc,
+                    cancellationToken);
+                if (shouldRefresh) store.Save(cached);
+                _cachedGuestSession = cached;
+                return new ServerRequestIdentity(cached.PlayerId, cached.AccessToken);
+            }
+
+            GuestSessionLoadResult loaded = store.Load(configuration.ServerBaseUrl, nowUtc);
+            if (loaded.Status == GuestSessionLoadStatus.Expired)
+            {
+                throw new ServerAuthenticationException(
+                    "guest_session_expired",
+                    "The saved guest session has expired and cannot be recovered automatically.");
+            }
+            if (loaded.Status == GuestSessionLoadStatus.Invalid)
+            {
+                throw new ServerAuthenticationException(
+                    "invalid_guest_session",
+                    "The saved guest session is invalid and was not replaced automatically.");
+            }
+            if (loaded.Status == GuestSessionLoadStatus.Valid)
+            {
+                GuestSession stored = await ResolveExistingSessionAsync(
+                    configuration.ServerBaseUrl,
+                    loaded.Session!,
+                    nowUtc,
+                    cancellationToken);
+                store.Save(stored);
                 _cachedGuestSession = stored;
                 return new ServerRequestIdentity(stored.PlayerId, stored.AccessToken);
             }
@@ -94,10 +120,23 @@ public static class ServerApiTransport
         }
     }
 
-    private static bool IsReusable(GuestSession? session, string serverBaseUrl, DateTimeOffset nowUtc) =>
-        session is not null &&
-        string.Equals(session.ServerBaseUrl, serverBaseUrl, StringComparison.Ordinal) &&
-        session.ExpiresAtUtc > nowUtc.AddMinutes(5);
+    private static async Task<GuestSession> ResolveExistingSessionAsync(
+        string serverBaseUrl,
+        GuestSession session,
+        DateTimeOffset nowUtc,
+        CancellationToken cancellationToken)
+    {
+        if (session.ExpiresAtUtc <= nowUtc)
+        {
+            throw new ServerAuthenticationException(
+                "guest_session_expired",
+                "The saved guest session has expired and cannot be recovered automatically.");
+        }
+
+        return session.ExpiresAtUtc > nowUtc.Add(RefreshWindow)
+            ? session
+            : await RefreshGuestSessionAsync(serverBaseUrl, session, cancellationToken);
+    }
 
     private static async Task<GuestSession> IssueGuestSessionAsync(
         string serverBaseUrl,
@@ -124,6 +163,42 @@ public static class ServerApiTransport
             throw new ServerAuthenticationException(
                 "invalid_authentication_response",
                 "Server returned an invalid guest login response.");
+        }
+
+        return new GuestSession(
+            serverBaseUrl,
+            payload.PlayerId,
+            payload.AccessToken,
+            payload.ExpiresAtUtc);
+    }
+
+    private static async Task<GuestSession> RefreshGuestSessionAsync(
+        string serverBaseUrl,
+        GuestSession session,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{serverBaseUrl}/v1/auth/refresh");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", session.AccessToken);
+        using HttpResponseMessage response = await Http.SendAsync(request, cancellationToken);
+        if (!response.IsSuccessStatusCode)
+        {
+            GuestLoginError? error = await response.Content
+                .ReadFromJsonAsync<GuestLoginError>(JsonOptions, cancellationToken);
+            throw new ServerAuthenticationException(
+                error?.ErrorCode ?? $"http_{(int)response.StatusCode}",
+                error?.Message ?? response.ReasonPhrase ?? "Guest token refresh failed.");
+        }
+
+        GuestLoginPayload? payload = await response.Content
+            .ReadFromJsonAsync<GuestLoginPayload>(JsonOptions, cancellationToken);
+        if (payload is null ||
+            !string.Equals(payload.PlayerId, session.PlayerId, StringComparison.Ordinal) ||
+            string.IsNullOrWhiteSpace(payload.AccessToken) ||
+            payload.ExpiresAtUtc <= DateTimeOffset.UtcNow)
+        {
+            throw new ServerAuthenticationException(
+                "invalid_authentication_response",
+                "Server returned an invalid guest refresh response.");
         }
 
         return new GuestSession(
