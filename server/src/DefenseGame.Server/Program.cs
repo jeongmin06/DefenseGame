@@ -1,5 +1,6 @@
 using DefenseGame.Server.Actors.Players;
 using DefenseGame.Server.Actors.Runtime;
+using DefenseGame.Server.Authentication;
 using DefenseGame.Server.Contracts;
 using DefenseGame.Server.Hosting;
 using DefenseGame.Server.Services;
@@ -14,6 +15,9 @@ builder.Logging.AddJsonConsole(options =>
     options.UseUtcTimestamp = true;
 });
 
+builder.Services.AddSingleton(sp => GuestAuthenticationOptions.FromConfiguration(
+    sp.GetRequiredService<IConfiguration>()));
+builder.Services.AddSingleton<GuestTokenService>();
 builder.Services.AddSingleton<ISystemClock, SystemClock>();
 builder.Services.AddSingleton<IProgressStore>(sp =>
 {
@@ -35,14 +39,35 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<ActorThreadPool>()
 builder.Services.AddSingleton<PlayerActorRegistry>();
 
 var app = builder.Build();
+_ = app.Services.GetRequiredService<GuestAuthenticationOptions>();
 
 app.UseMiddleware<RequestObservationMiddleware>();
+app.UseMiddleware<GuestAuthenticationMiddleware>();
 
 app.MapGet("/health/live", () => Results.Ok(new { status = "ok", check = "live" }));
 app.MapGet("/health/ready", (ActorThreadPool pool) => ReadinessResult(pool));
 app.MapGet("/health", (ActorThreadPool pool) => ReadinessResult(pool));
 
+app.MapPost("/v1/auth/guest", (GuestAuthenticationOptions options, GuestTokenService tokens) =>
+{
+    if (!options.CanIssueTokens)
+    {
+        return Results.Json(
+            new
+            {
+                errorCode = "authentication_not_configured",
+                message = "Guest token signing is not configured."
+            },
+            statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    string playerId = $"guest_{Guid.NewGuid():N}";
+    GuestTokenIssueResult token = tokens.Issue(playerId);
+    return Results.Ok(new GuestLoginResponse(token.PlayerId, token.AccessToken, token.ExpiresAtUtc));
+});
+
 RouteGroupBuilder playerApi = app.MapGroup("/v1");
+playerApi.AddEndpointFilter<GuestPlayerAuthorizationFilter>();
 playerApi.AddEndpointFilter<PlayerActorObservationFilter>();
 
 playerApi.MapGet("/progress/{userId}", async (

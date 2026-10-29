@@ -19,6 +19,26 @@ dotnet test server/DefenseGame.sln -m:1 -nr:false
 
 모든 응답은 `X-Request-ID`를 반환한다. console 로그는 JSON이며 `/v1` 요청 완료 시 `requestId`, `userId`, `actor`, `durationMs`, `result`, method, path와 status code를 기록한다.
 
+## Guest 인증
+
+로컬 개발에서는 기존 `userId` 계약을 유지하기 위해 인증이 기본적으로 비활성화되어 있다. staging에서는 32자 이상의 외부 비밀키와 함께 인증을 명시적으로 활성화한다. 비밀키는 설정 파일이나 저장소에 커밋하지 않는다.
+
+```sh
+Authentication__Required=true \
+Authentication__SigningKey='<32자 이상의 외부 비밀키>' \
+Authentication__TokenLifetimeHours=720 \
+dotnet run --project server/src/DefenseGame.Server
+```
+
+- `POST /v1/auth/guest`: 새 `guest_<uuid>` player ID, bearer access token과 만료 시각을 발급한다.
+- 인증 활성화 시 `/v1/auth/guest`를 제외한 `/v1` 요청은 `Authorization: Bearer <token>`을 요구한다.
+- route 또는 body의 `userId`가 token의 player ID와 다르면 HTTP 403을 반환한다.
+- token 없음·변조·만료는 HTTP 401을 반환한다.
+- `/health/live`, `/health/ready`는 인증 없이 사용할 수 있다.
+- 인증 활성화 시 signing key가 없거나 짧으면 서버 시작을 거부한다.
+
+현재 guest token은 계정 복구나 갱신을 지원하지 않는다. Godot token 저장과 header 연결 전까지 인증 활성화는 서버 API 검증 용도로만 사용한다.
+
 ## Actor 처리 경로
 
 ```text
