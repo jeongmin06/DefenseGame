@@ -8,17 +8,27 @@ TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/defensegame-runtime-environment-test.XXXX
 trap 'rm -rf "$TEST_DIR"' EXIT
 
 default_log="$TEST_DIR/default.log"
-env -u DEFENSEGAME_SERVER_URL -u DEFENSEGAME_PLAYER_ID \
+env -u DEFENSEGAME_SERVER_URL -u DEFENSEGAME_PLAYER_ID -u DEFENSEGAME_AUTH_MODE \
   "$RUN_DEV" --check-environment >"$default_log"
 grep -q '서버 URL: http://127.0.0.1:5080' "$default_log"
+grep -q '인증 모드: disabled' "$default_log"
 grep -q '플레이어 ID: local-development-user' "$default_log"
 
 custom_log="$TEST_DIR/custom.log"
 DEFENSEGAME_SERVER_URL=' https://staging.example.com/api/ ' \
 DEFENSEGAME_PLAYER_ID=' remote-player ' \
+DEFENSEGAME_AUTH_MODE=' disabled ' \
   "$RUN_DEV" --external-server --check-environment >"$custom_log"
 grep -q '서버 URL: https://staging.example.com/api' "$custom_log"
 grep -q '플레이어 ID: remote-player' "$custom_log"
+
+guest_log="$TEST_DIR/guest.log"
+DEFENSEGAME_SERVER_URL='https://staging.example.com' \
+DEFENSEGAME_PLAYER_ID='' \
+DEFENSEGAME_AUTH_MODE=' GUEST ' \
+  "$RUN_DEV" --external-server --check-environment >"$guest_log"
+grep -q '인증 모드: guest' "$guest_log"
+grep -q '플레이어 ID: 서버 발급 guest' "$guest_log"
 
 assert_invalid() {
   local name="$1"
@@ -38,6 +48,7 @@ assert_invalid zero_port env DEFENSEGAME_SERVER_URL='http://127.0.0.1:0' "$RUN_D
 assert_invalid bad_host env DEFENSEGAME_SERVER_URL='https://.' "$RUN_DEV" --check-environment
 assert_invalid bad_ipv6 env DEFENSEGAME_SERVER_URL='http://[::1' "$RUN_DEV" --check-environment
 assert_invalid blank_player env DEFENSEGAME_PLAYER_ID='   ' "$RUN_DEV" --check-environment
+assert_invalid bad_auth_mode env DEFENSEGAME_AUTH_MODE='token' "$RUN_DEV" --check-environment
 
 uppercase_log="$TEST_DIR/uppercase.log"
 DEFENSEGAME_SERVER_URL='HTTPS://example.com/' \

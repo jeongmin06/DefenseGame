@@ -10,24 +10,36 @@ namespace DefenseGame.Client.Network;
 
 public sealed class StageSquadServerClient
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(5) };
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<StageSquadServerResult> LoadAsync(
-        string baseUrl,
-        string userId,
+        ClientRuntimeConfiguration configuration,
         string stageId,
         CancellationToken cancellationToken)
     {
         try
         {
-            string url = $"{NormalizeBaseUrl(baseUrl)}/v1/squads/{Uri.EscapeDataString(userId)}/{Uri.EscapeDataString(stageId)}";
-            using HttpResponseMessage response = await Http.GetAsync(url, cancellationToken);
+            ServerRequestIdentity identity = await ServerApiTransport.ResolveIdentityAsync(
+                configuration,
+                cancellationToken);
+            string path = $"/v1/squads/{Uri.EscapeDataString(identity.PlayerId)}/{Uri.EscapeDataString(stageId)}";
+            using HttpResponseMessage response = await ServerApiTransport.SendAsync(
+                configuration,
+                identity,
+                HttpMethod.Get,
+                path,
+                body: null,
+                JsonOptions,
+                cancellationToken);
             if (!response.IsSuccessStatusCode) return await Failure(response, cancellationToken);
             StageSquadServerPayload? payload = await response.Content.ReadFromJsonAsync<StageSquadServerPayload>(JsonOptions, cancellationToken);
             return payload is null
                 ? StageSquadServerResult.Failed("invalid_response", "Server returned an empty squad response.")
                 : StageSquadServerResult.Succeeded(payload);
+        }
+        catch (ServerAuthenticationException ex)
+        {
+            return StageSquadServerResult.Failed(ex.ErrorCode, ex.Message);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException)
         {
@@ -36,8 +48,7 @@ public sealed class StageSquadServerClient
     }
 
     public async Task<StageSquadServerResult> SaveAsync(
-        string baseUrl,
-        string userId,
+        ClientRuntimeConfiguration configuration,
         string stageId,
         string[] characterIds,
         int expectedRevision,
@@ -45,9 +56,19 @@ public sealed class StageSquadServerClient
     {
         try
         {
-            string url = $"{NormalizeBaseUrl(baseUrl)}/v1/squads/{Uri.EscapeDataString(stageId)}";
-            var request = new StageSquadServerSaveRequest(userId, characterIds, expectedRevision);
-            using HttpResponseMessage response = await Http.PutAsJsonAsync(url, request, JsonOptions, cancellationToken);
+            ServerRequestIdentity identity = await ServerApiTransport.ResolveIdentityAsync(
+                configuration,
+                cancellationToken);
+            string path = $"/v1/squads/{Uri.EscapeDataString(stageId)}";
+            var request = new StageSquadServerSaveRequest(identity.PlayerId, characterIds, expectedRevision);
+            using HttpResponseMessage response = await ServerApiTransport.SendAsync(
+                configuration,
+                identity,
+                HttpMethod.Put,
+                path,
+                request,
+                JsonOptions,
+                cancellationToken);
             if (response.IsSuccessStatusCode)
             {
                 StageSquadServerPayload? payload = await response.Content.ReadFromJsonAsync<StageSquadServerPayload>(JsonOptions, cancellationToken);
@@ -62,6 +83,10 @@ public sealed class StageSquadServerClient
             }
             return await Failure(response, cancellationToken);
         }
+        catch (ServerAuthenticationException ex)
+        {
+            return StageSquadServerResult.Failed(ex.ErrorCode, ex.Message);
+        }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException)
         {
             return StageSquadServerResult.Failed("server_unavailable", ex.Message);
@@ -75,8 +100,6 @@ public sealed class StageSquadServerClient
             error?.ErrorCode ?? $"http_{(int)response.StatusCode}",
             error?.Message ?? response.ReasonPhrase ?? "Server request failed.");
     }
-
-    private static string NormalizeBaseUrl(string baseUrl) => baseUrl.Trim().TrimEnd('/');
 
     private sealed record StageSquadServerSaveRequest(string UserId, string[] CharacterIds, int ExpectedRevision);
     private sealed record StageSquadServerError(string? ErrorCode, string? Message, StageSquadServerPayload? Current);

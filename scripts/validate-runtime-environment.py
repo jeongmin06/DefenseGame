@@ -33,7 +33,7 @@ def parse_server_url(value: str):
 
 
 if len(sys.argv) != 3:
-    fail("사용법: validate-runtime-environment.py server-url|player-id|server-port|local-server URL_OR_ID")
+    fail("사용법: validate-runtime-environment.py server-url|player-id|auth-mode|server-port|local-server VALUE")
 
 command, raw_value = sys.argv[1:]
 if command == "player-id":
@@ -51,5 +51,10 @@ elif command == "local-server":
     server_url, _, _ = parse_server_url(raw_value)
     if server_url.hostname not in {"127.0.0.1", "localhost", "::1"} or server_url.path not in {"", "/"}:
         fail("로컬 서버 모드는 loopback host의 루트 URL만 지원합니다. 원격 서버는 --external-server를 사용하세요.")
+elif command == "auth-mode":
+    auth_mode = raw_value.strip().lower()
+    if auth_mode not in {"disabled", "guest"}:
+        fail("DEFENSEGAME_AUTH_MODE는 disabled 또는 guest여야 합니다.")
+    print(auth_mode)
 else:
     fail(f"지원하지 않는 검증 명령입니다: {command}")

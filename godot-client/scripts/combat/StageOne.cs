@@ -815,7 +815,7 @@ public partial class StageOne : Node2D
         ResultSyncStatusCode = "Saving";
         _hud.ShowResultSyncPending();
         StageResultSubmitResult result = await _progressClient.SubmitResultAsync(
-            configuration.ServerBaseUrl, configuration.PlayerId, progressionId, _battleVictory, _progressCancellation.Token);
+            configuration, progressionId, _battleVictory, _progressCancellation.Token);
         if (!IsInsideTree()) return;
         _resultSyncBusy = false;
         if (!result.IsSuccess || result.Payload is null || result.Payload.StageId != progressionId)

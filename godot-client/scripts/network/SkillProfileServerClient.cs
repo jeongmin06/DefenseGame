@@ -12,24 +12,36 @@ namespace DefenseGame.Client.Network;
 
 public sealed class SkillProfileServerClient
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(5) };
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<SkillProfileServerResult> LoadAsync(
-        string baseUrl,
-        string userId,
+        ClientRuntimeConfiguration configuration,
         CancellationToken cancellationToken)
     {
         try
         {
-            string url = $"{NormalizeBaseUrl(baseUrl)}/v1/skill-profiles/{Uri.EscapeDataString(userId)}";
-            using HttpResponseMessage response = await Http.GetAsync(url, cancellationToken);
+            ServerRequestIdentity identity = await ServerApiTransport.ResolveIdentityAsync(
+                configuration,
+                cancellationToken);
+            string path = $"/v1/skill-profiles/{Uri.EscapeDataString(identity.PlayerId)}";
+            using HttpResponseMessage response = await ServerApiTransport.SendAsync(
+                configuration,
+                identity,
+                HttpMethod.Get,
+                path,
+                body: null,
+                JsonOptions,
+                cancellationToken);
             if (!response.IsSuccessStatusCode) return await Failure(response, cancellationToken);
             SkillProfileServerPayload? payload = await response.Content
                 .ReadFromJsonAsync<SkillProfileServerPayload>(JsonOptions, cancellationToken);
             return payload is null
                 ? SkillProfileServerResult.Failed("invalid_response", "Server returned an empty skill profile response.")
                 : SkillProfileServerResult.Succeeded(payload);
+        }
+        catch (ServerAuthenticationException ex)
+        {
+            return SkillProfileServerResult.Failed(ex.ErrorCode, ex.Message);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException)
         {
@@ -38,8 +50,7 @@ public sealed class SkillProfileServerClient
     }
 
     public async Task<SkillProfileServerResult> SaveAsync(
-        string baseUrl,
-        string userId,
+        ClientRuntimeConfiguration configuration,
         Godot.Collections.Array<CatSkillPreset> presets,
         int expectedRevision,
         bool isMigration,
@@ -47,7 +58,9 @@ public sealed class SkillProfileServerClient
     {
         try
         {
-            string url = $"{NormalizeBaseUrl(baseUrl)}/v1/skill-profiles";
+            ServerRequestIdentity identity = await ServerApiTransport.ResolveIdentityAsync(
+                configuration,
+                cancellationToken);
             SkillPresetServerSaveRequest[] presetRequests = presets.Select(preset =>
                 new SkillPresetServerSaveRequest(
                     preset.CharacterId,
@@ -55,8 +68,15 @@ public sealed class SkillProfileServerClient
                     preset.SupportSkillIds.ToArray(),
                     preset.AllocatedPoints)).ToArray();
             var request = new SkillProfileServerSaveRequest(
-                userId, presetRequests, expectedRevision, isMigration);
-            using HttpResponseMessage response = await Http.PutAsJsonAsync(url, request, JsonOptions, cancellationToken);
+                identity.PlayerId, presetRequests, expectedRevision, isMigration);
+            using HttpResponseMessage response = await ServerApiTransport.SendAsync(
+                configuration,
+                identity,
+                HttpMethod.Put,
+                "/v1/skill-profiles",
+                request,
+                JsonOptions,
+                cancellationToken);
             if (response.IsSuccessStatusCode)
             {
                 SkillProfileServerPayload? payload = await response.Content
@@ -75,6 +95,10 @@ public sealed class SkillProfileServerClient
             }
             return await Failure(response, cancellationToken);
         }
+        catch (ServerAuthenticationException ex)
+        {
+            return SkillProfileServerResult.Failed(ex.ErrorCode, ex.Message);
+        }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException)
         {
             return SkillProfileServerResult.Failed("server_unavailable", ex.Message);
@@ -91,8 +115,6 @@ public sealed class SkillProfileServerClient
             error?.ErrorCode ?? $"http_{(int)response.StatusCode}",
             error?.Message ?? response.ReasonPhrase ?? "Server request failed.");
     }
-
-    private static string NormalizeBaseUrl(string baseUrl) => baseUrl.Trim().TrimEnd('/');
 
     private sealed record SkillPresetServerSaveRequest(
         string CharacterId,

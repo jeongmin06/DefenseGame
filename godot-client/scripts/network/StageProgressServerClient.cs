@@ -9,18 +9,26 @@ namespace DefenseGame.Client.Network;
 
 public sealed class StageProgressServerClient
 {
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(5) };
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     public async Task<StageProgressLoadResult> LoadAsync(
-        string baseUrl,
-        string userId,
+        ClientRuntimeConfiguration configuration,
         CancellationToken cancellationToken)
     {
         try
         {
-            string url = $"{NormalizeBaseUrl(baseUrl)}/v1/progress/{Uri.EscapeDataString(userId)}";
-            using HttpResponseMessage response = await Http.GetAsync(url, cancellationToken);
+            ServerRequestIdentity identity = await ServerApiTransport.ResolveIdentityAsync(
+                configuration,
+                cancellationToken);
+            string path = $"/v1/progress/{Uri.EscapeDataString(identity.PlayerId)}";
+            using HttpResponseMessage response = await ServerApiTransport.SendAsync(
+                configuration,
+                identity,
+                HttpMethod.Get,
+                path,
+                body: null,
+                JsonOptions,
+                cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 StageProgressServerError? error = await ReadError(response, cancellationToken);
@@ -34,6 +42,10 @@ public sealed class StageProgressServerClient
                 ? StageProgressLoadResult.Failed("invalid_response", "Server returned an empty progress response.")
                 : StageProgressLoadResult.Succeeded(payload);
         }
+        catch (ServerAuthenticationException ex)
+        {
+            return StageProgressLoadResult.Failed(ex.ErrorCode, ex.Message);
+        }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException)
         {
             return StageProgressLoadResult.Failed("server_unavailable", ex.Message);
@@ -41,17 +53,25 @@ public sealed class StageProgressServerClient
     }
 
     public async Task<StageResultSubmitResult> SubmitResultAsync(
-        string baseUrl,
-        string userId,
+        ClientRuntimeConfiguration configuration,
         int stageId,
         bool wasVictory,
         CancellationToken cancellationToken)
     {
         try
         {
-            string url = $"{NormalizeBaseUrl(baseUrl)}/v1/stage-clear";
-            var request = new StageResultSubmitRequest(userId, stageId, wasVictory);
-            using HttpResponseMessage response = await Http.PostAsJsonAsync(url, request, JsonOptions, cancellationToken);
+            ServerRequestIdentity identity = await ServerApiTransport.ResolveIdentityAsync(
+                configuration,
+                cancellationToken);
+            var request = new StageResultSubmitRequest(identity.PlayerId, stageId, wasVictory);
+            using HttpResponseMessage response = await ServerApiTransport.SendAsync(
+                configuration,
+                identity,
+                HttpMethod.Post,
+                "/v1/stage-clear",
+                request,
+                JsonOptions,
+                cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
                 StageProgressServerError? error = await ReadError(response, cancellationToken);
@@ -65,6 +85,10 @@ public sealed class StageProgressServerClient
                 ? StageResultSubmitResult.Failed("invalid_response", "Server returned an empty result response.")
                 : StageResultSubmitResult.Succeeded(payload);
         }
+        catch (ServerAuthenticationException ex)
+        {
+            return StageResultSubmitResult.Failed(ex.ErrorCode, ex.Message);
+        }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or JsonException or UriFormatException)
         {
             return StageResultSubmitResult.Failed("server_unavailable", ex.Message);
@@ -75,8 +99,6 @@ public sealed class StageProgressServerClient
         HttpResponseMessage response,
         CancellationToken cancellationToken) =>
         await response.Content.ReadFromJsonAsync<StageProgressServerError>(JsonOptions, cancellationToken);
-
-    private static string NormalizeBaseUrl(string baseUrl) => baseUrl.Trim().TrimEnd('/');
 
     private sealed record StageResultSubmitRequest(string UserId, int StageId, bool WasVictory);
     private sealed record StageProgressServerError(string? ErrorCode, string? Message);

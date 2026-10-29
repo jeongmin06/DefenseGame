@@ -621,7 +621,7 @@ public partial class SkillLoadoutScreen : Node2D
         _remoteLoadStatus = "Loading";
         Refresh();
         SkillProfileServerResult result = await _serverClient.LoadAsync(
-            configuration.ServerBaseUrl, configuration.PlayerId, _serverCancellation.Token);
+            configuration, _serverCancellation.Token);
         if (!IsInsideTree()) return;
         _serverBusy = false;
         if (!result.IsSuccess || result.Payload is null)
@@ -656,7 +656,7 @@ public partial class SkillLoadoutScreen : Node2D
         _lastSaveStatus = "Saving";
         Refresh();
         SkillProfileServerResult result = await _serverClient.SaveAsync(
-            configuration.ServerBaseUrl, configuration.PlayerId, presets, _serverRevision, isMigration, _serverCancellation.Token);
+            configuration, presets, _serverRevision, isMigration, _serverCancellation.Token);
         if (!IsInsideTree()) return;
         _serverBusy = false;
         if (!result.IsSuccess || result.Payload is null)

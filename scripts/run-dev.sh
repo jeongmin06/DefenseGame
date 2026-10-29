@@ -13,6 +13,8 @@ FFMPEG_BIN="${FFMPEG_BIN:-$(command -v ffmpeg || true)}"
 PYTHON_BIN="${PYTHON_BIN:-$(command -v python3 || true)}"
 SERVER_URL="${DEFENSEGAME_SERVER_URL-http://127.0.0.1:5080}"
 PLAYER_ID="${DEFENSEGAME_PLAYER_ID-local-development-user}"
+AUTH_MODE="${DEFENSEGAME_AUTH_MODE-disabled}"
+AUTH_SIGNING_KEY="${DEFENSEGAME_AUTH_SIGNING_KEY-}"
 LOG_DIR="$ROOT_DIR/.dev"
 SERVER_LOG="$LOG_DIR/server.log"
 LAUNCH_MODE="editor"
@@ -46,7 +48,10 @@ fail() {
 
 validate_environment() {
   SERVER_URL="$($PYTHON_BIN "$ROOT_DIR/scripts/validate-runtime-environment.py" server-url "$SERVER_URL")"
-  PLAYER_ID="$($PYTHON_BIN "$ROOT_DIR/scripts/validate-runtime-environment.py" player-id "$PLAYER_ID")"
+  AUTH_MODE="$($PYTHON_BIN "$ROOT_DIR/scripts/validate-runtime-environment.py" auth-mode "$AUTH_MODE")"
+  if [[ "$AUTH_MODE" == "disabled" ]]; then
+    PLAYER_ID="$($PYTHON_BIN "$ROOT_DIR/scripts/validate-runtime-environment.py" player-id "$PLAYER_ID")"
+  fi
   SERVER_PORT="$($PYTHON_BIN "$ROOT_DIR/scripts/validate-runtime-environment.py" server-port "$SERVER_URL")"
   if [[ "$RUN_LOCAL_SERVER" == true ]]; then
     "$PYTHON_BIN" "$ROOT_DIR/scripts/validate-runtime-environment.py" local-server "$SERVER_URL"
@@ -54,6 +59,7 @@ validate_environment() {
 
   export DEFENSEGAME_SERVER_URL="$SERVER_URL"
   export DEFENSEGAME_PLAYER_ID="$PLAYER_ID"
+  export DEFENSEGAME_AUTH_MODE="$AUTH_MODE"
 }
 
 cleanup() {
@@ -110,7 +116,12 @@ if [[ "$RUN_LOCAL_SERVER" != true && "$LAUNCH_MODE" == "capture" ]]; then
 fi
 if [[ "$CHECK_ENVIRONMENT_ONLY" == true ]]; then
   printf '서버 URL: %s\n' "$DEFENSEGAME_SERVER_URL"
-  printf '플레이어 ID: %s\n' "$DEFENSEGAME_PLAYER_ID"
+  printf '인증 모드: %s\n' "$DEFENSEGAME_AUTH_MODE"
+  if [[ "$DEFENSEGAME_AUTH_MODE" == "guest" ]]; then
+    printf '플레이어 ID: 서버 발급 guest\n'
+  else
+    printf '플레이어 ID: %s\n' "$DEFENSEGAME_PLAYER_ID"
+  fi
   exit 0
 fi
 
@@ -129,6 +140,24 @@ if [[ "$RUN_LOCAL_SERVER" == true ]] && lsof -nP -iTCP:"$SERVER_PORT" -sTCP:LIST
 fi
 
 mkdir -p "$LOG_DIR"
+
+if [[ "$RUN_LOCAL_SERVER" == true && "$AUTH_MODE" == "guest" ]]; then
+  if [[ -z "$AUTH_SIGNING_KEY" ]]; then
+    auth_key_file="$LOG_DIR/guest-auth-signing-key"
+    if [[ -f "$auth_key_file" ]]; then
+      AUTH_SIGNING_KEY="$(<"$auth_key_file")"
+    else
+      AUTH_SIGNING_KEY="$($PYTHON_BIN -c 'import secrets; print(secrets.token_hex(32))')"
+      umask 077
+      printf '%s\n' "$AUTH_SIGNING_KEY" >"$auth_key_file"
+    fi
+  fi
+  export Authentication__Required=true
+  export Authentication__SigningKey="$AUTH_SIGNING_KEY"
+else
+  export Authentication__Required=false
+  unset Authentication__SigningKey || true
+fi
 
 printf '[1/4] 밸런스 JSON에서 Godot Resource를 생성합니다.\n'
 dotnet run --project "$IMPORTER_PROJECT" -- \
@@ -151,11 +180,11 @@ if [[ "$RUN_LOCAL_SERVER" != true ]]; then
   printf '외부 서버를 사용합니다: %s\n' "$SERVER_URL"
 elif [[ "$LAUNCH_MODE" == "capture" ]]; then
   rm -f "$LOG_DIR/capture-progress.json"
-  ASPNETCORE_URLS="$SERVER_URL" ProgressStore__FilePath="$LOG_DIR/capture-progress.json" \
+  Urls="$SERVER_URL" ProgressStore__FilePath="$LOG_DIR/capture-progress.json" \
     dotnet run --project "$SERVER_PROJECT" --no-build >"$SERVER_LOG" 2>&1 &
   SERVER_PID=$!
 else
-  ASPNETCORE_URLS="$SERVER_URL" \
+  Urls="$SERVER_URL" \
     dotnet run --project "$SERVER_PROJECT" --no-build >"$SERVER_LOG" 2>&1 &
   SERVER_PID=$!
 fi

@@ -32,8 +32,14 @@
 
 ```bash
 DEFENSEGAME_SERVER_URL=https://staging.example.com \
-DEFENSEGAME_PLAYER_ID=review-player \
+DEFENSEGAME_AUTH_MODE=guest \
 ./scripts/run-dev.sh --external-server --play
+```
+
+기본 `DEFENSEGAME_AUTH_MODE=disabled`는 로컬 개발 ID를 사용한다. `guest` 모드는 서버에서 player ID와 bearer token을 발급받아 사용자 데이터 경로에 보관하고 진행도·편성·스킬 요청에 공용으로 사용한다. 로컬 인증 흐름을 확인하려면 아래처럼 실행한다. 개발용 signing key는 Git에 포함되지 않는 `.dev/guest-auth-signing-key`에 생성된다.
+
+```bash
+DEFENSEGAME_AUTH_MODE=guest ./scripts/run-dev.sh --play
 ```
 
 자동 검토 영상을 만들려면 Homebrew의 `ffmpeg`를 설치한 뒤 캡처 모드를 실행한다.
@@ -95,6 +101,12 @@ GitHub Actions와 동일한 서버 테스트, 밸런스 변환기 계약·Resour
 ```
 
 이 기준선은 Godot 실행 파일 없이 동작한다. Godot headless 전투 회귀와 배포 export는 별도 단계에서 검증한다.
+
+인증 활성화 서버와 Godot guest 세션의 실제 진행도·편성·스킬 통합 회귀는 다음 명령으로 실행한다.
+
+```bash
+./scripts/tests/run-guest-auth-integration.sh
+```
 
 ## macOS Debug export
 

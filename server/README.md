@@ -37,7 +37,7 @@ dotnet run --project server/src/DefenseGame.Server
 - `/health/live`, `/health/ready`는 인증 없이 사용할 수 있다.
 - 인증 활성화 시 signing key가 없거나 짧으면 서버 시작을 거부한다.
 
-현재 guest token은 계정 복구나 갱신을 지원하지 않는다. Godot token 저장과 header 연결 전까지 인증 활성화는 서버 API 검증 용도로만 사용한다.
+현재 guest token은 계정 복구나 갱신을 지원하지 않는다. Godot은 `DEFENSEGAME_AUTH_MODE=guest`에서 token을 발급·보관하고 모든 플레이어 API에 공용으로 연결한다.
 
 ## Actor 처리 경로
 

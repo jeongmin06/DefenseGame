@@ -212,7 +212,7 @@ public partial class StageSelect : Node2D
         RefreshStageButtons();
         RefreshProgressStatus();
         StageProgressLoadResult result = await _progressClient.LoadAsync(
-            configuration.ServerBaseUrl, configuration.PlayerId, _progressCancellation.Token);
+            configuration, _progressCancellation.Token);
         if (!IsInsideTree() || _progressTestOverride) return;
         _progressBusy = false;
         if (!result.IsSuccess || result.Payload is null)

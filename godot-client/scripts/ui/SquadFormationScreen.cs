@@ -326,7 +326,7 @@ public partial class SquadFormationScreen : Node2D
         _remoteLoadStatus = "Loading";
         Refresh();
         StageSquadServerResult result = await _serverClient.LoadAsync(
-            configuration.ServerBaseUrl, configuration.PlayerId, stage.Id, _serverCancellation.Token);
+            configuration, stage.Id, _serverCancellation.Token);
         if (!IsInsideTree()) return;
         _serverBusy = false;
         if (!result.IsSuccess || result.Payload is null)
@@ -363,7 +363,7 @@ public partial class SquadFormationScreen : Node2D
         _lastSaveStatus = "Saving";
         Refresh();
         StageSquadServerResult result = await _serverClient.SaveAsync(
-            configuration.ServerBaseUrl, configuration.PlayerId, stage.Id, _selectedIds.ToArray(), _serverRevision, _serverCancellation.Token);
+            configuration, stage.Id, _selectedIds.ToArray(), _serverRevision, _serverCancellation.Token);
         if (!IsInsideTree()) return;
         _serverBusy = false;
         if (!result.IsSuccess || result.Payload is null)
